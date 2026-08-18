@@ -8,7 +8,7 @@ Tracks milestone completion against [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN
 | -------------------------------------------- | -------------- | ---------- |
 | M0 — Project Scaffolding                     | ✅ Complete    | 2026-08-18 |
 | M1 — Domain Model & Data Layer               | ✅ Complete    | 2026-08-18 |
-| M2 — LLM Provider Adapter                    | ⬜ Not started |            |
+| M2 — LLM Provider Adapter                    | ✅ Complete    | 2026-08-18 |
 | M3 — Interview Agent                         | ⬜ Not started |            |
 | M4 — Study & Link Management                 | ⬜ Not started |            |
 | M5 — Participant Intake                      | ⬜ Not started |            |
@@ -91,6 +91,38 @@ Tracks milestone completion against [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN
 ### Open follow-ups (not blocking, need you)
 
 - None outstanding for M1. Supabase project creation and migration application (carried over from M0) are done.
+
+---
+
+## M2 — LLM Provider Adapter ✅ (2026-08-18)
+
+### Tickets completed
+
+- **T2.1** — `LLMProviderAdapter` interface (`src/llm/types.ts`): `generateInterviewerTurn`, `generateSummary`, `generateStudyReport`, plus the input/output types each depends on (`InterviewTurn`, etc.).
+- **T2.2** — `ClaudeSonnet46Adapter` (`src/llm/claude-sonnet-4-6-adapter.ts`) using the Anthropic SDK against `claude-sonnet-4-6`, with prompt caching on the system prompt and the growing conversation history (cache_control on the last message each call), and structured outputs (`output_config.format`) for all three methods so responses are always parseable JSON rather than free text to regex out.
+- **T2.3** — Unit tests (`src/llm/__tests__/claude-sonnet-4-6-adapter.test.ts`, 11 tests) with the Anthropic client mocked — request shape, cache_control placement, role mapping, structured-output config, and error/parse-failure handling.
+- **T2.4** — `FakeLLMProvider` (`src/llm/fake-llm-provider.ts`): scriptable canned responses + call recording, exported for every downstream module (Interview Agent, Summary Service, Study Report Service) to use in their own tests without hitting the network.
+- **T2.5** — `getLLMProvider()` (`src/llm/get-llm-provider.ts`): resolves the active adapter from the `LLM_PROVIDER` env var against an injectable registry, defaulting to Claude Sonnet 4.6. Test proves a second (dummy) provider can be swapped in via config with the exact same call-site code — see Design choice below.
+
+**Design choices beyond the plan:**
+
+- **Provider registry is injectable, not a mutated module-level singleton.** `getLLMProvider(env, registry)` takes both as optional parameters (defaulting to `process.env` and the real registry). This lets the swap-provider test construct its own registry rather than mutating shared global state, which would risk leaking a test's fake provider registration into other test files.
+- **A live integration test suite was added beyond the ticket's scope** (`claude-sonnet-4-6-adapter.integration.test.ts`), following the same pattern M1 established for Supabase: skips cleanly without `ANTHROPIC_API_KEY`, otherwise makes real calls to all three methods and asserts the response shape. Added proactively because M1 showed that mocked/fake tests passing doesn't mean the real API accepts the request shape — see M1's Deviations #5 for how that gap surfaced real bugs there. **This has not yet been run against the real API** — see Open Follow-Ups.
+- **The adapter, not the caller, handles Claude's "first message must be user" constraint.** In a voice interview the interviewer speaks first; `buildInterviewMessages` prepends a synthetic user turn when history is empty or starts with the interviewer, so the Interview Agent (M3) can track conversation history in the natural order without knowing about this Claude-specific API rule.
+
+### Tests run
+
+| Command                                        | Result                                                                                                 |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `npm test` (Vitest, no Anthropic/Supabase env) | ✅ 46 tests passed — 26 integration tests (22 Supabase + 4 new Claude) **skipped**, no credentials set |
+| `npm run lint` (`next lint`)                   | ✅ No ESLint warnings or errors                                                                        |
+| `npx tsc --noEmit`                             | ✅ No type errors                                                                                      |
+| `npm run format:check` (Prettier)              | ✅ All files match Prettier style                                                                      |
+
+### Open follow-ups (not blocking, need you)
+
+- The new `claude-sonnet-4-6-adapter.integration.test.ts` suite needs `ANTHROPIC_API_KEY` set to actually run (same pattern as M1's Supabase env vars — set it in your shell, then `npm test`). This is genuinely unverified against the real API right now; given M1's experience, treat this as worth doing before relying on the adapter in M3.
+- If it surfaces issues (e.g. `output_config` shape, the `claude-sonnet-4-6` model id, or structured-output schema quirks), report the failure output back and I'll fix it the same way we fixed the M1 Supabase bugs.
 
 ---
 
