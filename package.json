@@ -10,7 +10,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "try:interview-agent": "tsx scripts/try-interview-agent.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.117.1",
@@ -31,6 +32,7 @@
     "postcss": "^8",
     "prettier": "^3.9.6",
     "tailwindcss": "^3.4.1",
+    "tsx": "^4.23.12",
     "typescript": "^5",
     "vitest": "^2.1.9"
   }
