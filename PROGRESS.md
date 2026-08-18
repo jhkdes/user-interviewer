@@ -141,18 +141,29 @@ Tracks milestone completion against [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN
 
 ### Tests run
 
-| Command                              | Result                                                                                                                              |
-| ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
-| `npm test` (Vitest, no external env) | ✅ 65 tests passed (19 new: 6 system-prompt + 7 termination + 6 interview-agent) — 26 integration tests skipped, no credentials set |
-| `npm run lint` (`next lint`)         | ✅ No ESLint warnings or errors                                                                                                     |
-| `npx tsc --noEmit`                   | ✅ No type errors                                                                                                                   |
-| `npm run format:check` (Prettier)    | ✅ All files match Prettier style                                                                                                   |
+| Command                              | Result                                                                                                                                                           |
+| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm test` (Vitest, no external env) | ✅ 68 tests passed (22 new: 6 system-prompt + 7 termination + 6 interview-agent + 3 adapter retry/validation) — 26 integration tests skipped, no credentials set |
+| `npm run lint` (`next lint`)         | ✅ No ESLint warnings or errors                                                                                                                                  |
+| `npx tsc --noEmit`                   | ✅ No type errors                                                                                                                                                |
+| `npm run format:check` (Prettier)    | ✅ All files match Prettier style                                                                                                                                |
 
-No live-service integration test needed for M3 — it has no I/O of its own (`InterviewAgent` only calls the already-verified `LLMProviderAdapter` interface), so the `FakeLLMProvider`-driven unit tests are the appropriate and complete verification here.
+**Correction to an earlier claim in this entry:** it originally said no live-service testing was needed for M3 since `InterviewAgent` only calls the already-verified `LLMProviderAdapter` interface. That was wrong — see Manual verification below.
+
+### Manual verification (real bug found)
+
+Added `scripts/try-interview-agent.ts` (`npm run try:interview-agent`) — an interactive CLI where a person plays the participant against the real `InterviewAgent` + Claude, since `FakeLLMProvider`-driven unit tests can't judge actual interviewing quality. Running a real interview through it surfaced a genuine bug: **Claude occasionally returned a literal `"..."` as the utterance** — valid JSON, so structured-output parsing succeeded and nothing threw; the degenerate text just silently reached the transcript. Notably, this also would have passed the M2 integration test's assertion (`utterance.length > 0`), since `"..."` has length 3.
+
+Fixed in `ClaudeSonnet46Adapter.generateInterviewerTurn`:
+
+- Added `isMeaningfulUtterance()` validation (rejects text with no alphabetic characters) and a bounded retry (2 attempts) — a degenerate first response triggers one retry before giving up with a clear error, rather than ever handing garbage to a live participant.
+- Strengthened both the system prompt (`system-prompt.ts`) and the `utterance` field's schema description (`schemas.ts`) to explicitly instruct against placeholder/ellipsis/blank output — defense in depth alongside the code-level check, since prompt instructions alone clearly aren't 100% reliable.
+
+This is the same lesson M1 and M2 already taught in different forms: logic correctness (proven by fake/mocked tests) and real-world behavior correctness (only provable by actually running the live thing) are genuinely different questions, and this milestone needed both.
 
 ### Open follow-ups (not blocking, need you)
 
-- None outstanding for M3.
+- Re-run `npm run try:interview-agent` (and/or the M2 live integration suite) a few more times against the real API to build confidence the retry fix actually resolves the degenerate-utterance issue in practice — one manual run isn't a statistically meaningful sample for a probabilistic model behavior.
 
 ---
 

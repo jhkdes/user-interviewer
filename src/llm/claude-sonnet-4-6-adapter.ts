@@ -14,6 +14,20 @@ import { interviewerTurnSchema, studyReportSchema, summarySchema } from "./schem
 
 const MODEL = "claude-sonnet-4-6";
 
+/**
+ * Observed in manual testing: Claude occasionally returns a degenerate
+ * utterance like "..." — valid JSON, so parsing succeeds, but there's
+ * nothing real to say to the participant. One retry is cheap (and the
+ * system-prompt cache_control means the retry is a cache hit) and catches
+ * this before it reaches a live call.
+ */
+const MAX_INTERVIEWER_TURN_ATTEMPTS = 2;
+
+/** True if the utterance is real spoken content, not a placeholder like "..." or blank text. */
+function isMeaningfulUtterance(utterance: string): boolean {
+  return /[a-zA-Z]/.test(utterance);
+}
+
 const SUMMARY_SYSTEM_PROMPT = `You produce a structured summary of a single user-research interview transcript.
 Extract:
 - painPoints: specific, concrete pain points the participant described (not generic complaints).
@@ -93,30 +107,43 @@ export class ClaudeSonnet46Adapter implements LLMProviderAdapter {
   async generateInterviewerTurn(
     input: GenerateInterviewerTurnInput,
   ): Promise<GenerateInterviewerTurnOutput> {
-    let response: Anthropic.Message;
-    try {
-      response = await this.client.messages.create({
-        model: MODEL,
-        max_tokens: 1024,
-        system: [
-          {
-            type: "text",
-            text: input.systemPrompt,
-            cache_control: { type: "ephemeral" },
+    let lastAttempt: GenerateInterviewerTurnOutput | undefined;
+
+    for (let attempt = 1; attempt <= MAX_INTERVIEWER_TURN_ATTEMPTS; attempt++) {
+      let response: Anthropic.Message;
+      try {
+        response = await this.client.messages.create({
+          model: MODEL,
+          max_tokens: 1024,
+          system: [
+            {
+              type: "text",
+              text: input.systemPrompt,
+              cache_control: { type: "ephemeral" },
+            },
+          ],
+          messages: buildInterviewMessages(input.conversationHistory),
+          output_config: {
+            format: { type: "json_schema", schema: interviewerTurnSchema },
+            effort: "low",
           },
-        ],
-        messages: buildInterviewMessages(input.conversationHistory),
-        output_config: {
-          format: { type: "json_schema", schema: interviewerTurnSchema },
-          effort: "low",
-        },
-      });
-    } catch (cause) {
-      throw new Error("Failed to generate interviewer turn", { cause });
+        });
+      } catch (cause) {
+        throw new Error("Failed to generate interviewer turn", { cause });
+      }
+
+      lastAttempt = parseStructuredResponse<GenerateInterviewerTurnOutput>(
+        response,
+        "Failed to generate interviewer turn",
+      );
+
+      if (isMeaningfulUtterance(lastAttempt.utterance)) {
+        return lastAttempt;
+      }
     }
-    return parseStructuredResponse<GenerateInterviewerTurnOutput>(
-      response,
-      "Failed to generate interviewer turn",
+
+    throw new Error(
+      `Failed to generate interviewer turn: model returned a non-substantive utterance after ${MAX_INTERVIEWER_TURN_ATTEMPTS} attempts (${JSON.stringify(lastAttempt?.utterance)})`,
     );
   }
 

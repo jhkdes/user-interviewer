@@ -155,6 +155,58 @@ describe("ClaudeSonnet46Adapter.generateInterviewerTurn", () => {
       }),
     ).rejects.toThrow(/failed to parse/i);
   });
+
+  it("retries once and returns the retry's result when the first utterance is a degenerate placeholder", async () => {
+    const create = vi
+      .fn()
+      .mockResolvedValueOnce(textResponse({ utterance: "...", shouldEndInterview: false }))
+      .mockResolvedValueOnce(
+        textResponse({
+          utterance: "Sorry about that, could you say more?",
+          shouldEndInterview: false,
+        }),
+      );
+    const client = { messages: { create } } as unknown as Anthropic;
+    const adapter = new ClaudeSonnet46Adapter(client);
+
+    const result = await adapter.generateInterviewerTurn({
+      systemPrompt: "prompt",
+      conversationHistory: [{ speaker: "participant", text: "Hello" }],
+    });
+
+    expect(result.utterance).toBe("Sorry about that, could you say more?");
+    expect(create).toHaveBeenCalledTimes(2);
+  });
+
+  it("treats blank/whitespace-only utterances as non-substantive too", async () => {
+    const create = vi
+      .fn()
+      .mockResolvedValueOnce(textResponse({ utterance: "   ", shouldEndInterview: false }))
+      .mockResolvedValueOnce(
+        textResponse({ utterance: "Let's continue.", shouldEndInterview: false }),
+      );
+    const client = { messages: { create } } as unknown as Anthropic;
+    const adapter = new ClaudeSonnet46Adapter(client);
+
+    const result = await adapter.generateInterviewerTurn({
+      systemPrompt: "prompt",
+      conversationHistory: [{ speaker: "participant", text: "Hello" }],
+    });
+
+    expect(result.utterance).toBe("Let's continue.");
+  });
+
+  it("throws a clear error if every attempt returns a non-substantive utterance", async () => {
+    const client = makeMockClient(textResponse({ utterance: "...", shouldEndInterview: false }));
+    const adapter = new ClaudeSonnet46Adapter(client);
+
+    await expect(
+      adapter.generateInterviewerTurn({
+        systemPrompt: "prompt",
+        conversationHistory: [{ speaker: "participant", text: "Hello" }],
+      }),
+    ).rejects.toThrow(/non-substantive utterance after 2 attempts/);
+  });
 });
 
 describe("ClaudeSonnet46Adapter.generateSummary", () => {

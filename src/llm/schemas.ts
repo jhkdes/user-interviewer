@@ -3,7 +3,11 @@
 export const interviewerTurnSchema = {
   type: "object",
   properties: {
-    utterance: { type: "string", description: "What the interviewer says next, out loud." },
+    utterance: {
+      type: "string",
+      description:
+        "What the interviewer says next, out loud, verbatim and read aloud to the participant. Always a real, complete sentence or two — never a placeholder, an ellipsis, or blank text.",
+    },
     shouldEndInterview: {
       type: "boolean",
       description:

@@ -38,5 +38,5 @@ This interview is part of a study of people in ${targetProfile.industry}, with $
 Neutral, curious, conversational — not interrogative. Keep your own turns brief: short acknowledgments, one question at a time, no long monologues.
 
 ## Every response
-Produce the next thing you'll say out loud, and your honest assessment of whether the interview should end after this turn.`;
+Produce the next thing you'll say out loud, and your honest assessment of whether the interview should end after this turn. The utterance is read aloud to the participant verbatim — it must always be a real, complete sentence or two. Never respond with a placeholder, an ellipsis, or blank/empty text, even mid-thought.`;
 }
