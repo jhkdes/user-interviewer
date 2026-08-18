@@ -50,8 +50,8 @@ Tracks milestone completion against [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN
 
 ### Open follow-ups (not blocking, need you)
 
-- Create the actual Supabase project(s) (dev + test) and populate `.env.local` from `.env.example`.
-- Push the repo to a GitHub remote so the CI workflow actually runs (it's committed but currently inert).
+- ~~Create the actual Supabase project(s) and populate `.env.local`.~~ Done — see M1.
+- ~~Push the repo to a GitHub remote so CI runs.~~ Done — pushed to [jhkdes/user-interviewer](https://github.com/jhkdes/user-interviewer).
 
 ---
 
@@ -60,7 +60,7 @@ Tracks milestone completion against [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN
 ### Tickets completed
 
 - **T1.1** — Domain types added under `src/domain/`: `Study`/`TargetProfile`/`StudyStatus`, `Interview`/`TranscriptEntry`/`InterviewStatus`, `Summary`, `StudyReport`/`StudyReportTheme`, `PMAccount` (identity only — no custom table, backed by Supabase Auth).
-- **T1.2** — SQL migration `supabase/migrations/0001_init.sql`: `studies`, `interviews`, `summaries`, `study_reports` tables, with FK cascade deletes, status check constraints, and a `unique (study_id, version)` constraint on `study_reports`. Not yet applied to a real Supabase project — see Open Follow-Ups.
+- **T1.2** — SQL migration `supabase/migrations/0001_init.sql`: `studies`, `interviews`, `summaries`, `study_reports` tables, with FK cascade deletes, status check constraints, and a `unique (study_id, version)` constraint on `study_reports`. Applied to a real Supabase test project and verified — see below.
 - **T1.3** — `StudyRepository` and `InterviewRepository` interfaces (`src/repositories/*.ts`) plus in-memory fake implementations (`src/repositories/in-memory/`).
 - **T1.4** — `SupabaseStudyRepository` and `SupabaseInterviewRepository` (`src/repositories/supabase/`), mapping snake_case DB rows to domain types.
 - **T1.5** — Same interface/fake/Supabase-impl pattern repeated for `SummaryRepository` and `StudyReportRepository` (the latter computes `version` server-side, incrementing per study).
@@ -69,12 +69,13 @@ Tracks milestone completion against [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN
 
 ### Tests run
 
-| Command                           | Result                                                                                                                                                                                        |
-| --------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `npm test` (Vitest)               | ✅ 26 tests passed (in-memory contract suites for all 4 repositories + existing M0 tests) — 22 Supabase integration tests **skipped** (no `SUPABASE_URL`/`SUPABASE_SERVICE_ROLE_KEY` set yet) |
-| `npm run lint` (`next lint`)      | ✅ No ESLint warnings or errors                                                                                                                                                               |
-| `npx tsc --noEmit`                | ✅ No type errors                                                                                                                                                                             |
-| `npm run format:check` (Prettier) | ✅ All files match Prettier style                                                                                                                                                             |
+| Command                                                      | Result                                                                                                             |
+| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------ |
+| `npm test` (Vitest, no Supabase env)                         | ✅ 26 tests passed — 22 Supabase integration tests **skipped** (no `SUPABASE_URL`/`SUPABASE_SERVICE_ROLE_KEY` set) |
+| `npm test` (Vitest, pointed at a real Supabase test project) | ✅ 48 tests passed, 0 skipped, 0 failed — first two attempts surfaced real bugs, see Deviations #5/#6 below        |
+| `npm run lint` (`next lint`)                                 | ✅ No ESLint warnings or errors                                                                                    |
+| `npx tsc --noEmit`                                           | ✅ No type errors                                                                                                  |
+| `npm run format:check` (Prettier)                            | ✅ All files match Prettier style                                                                                  |
 
 ### Deviations from plan / decisions made
 
@@ -82,12 +83,14 @@ Tracks milestone completion against [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN
 2. **`vitest.config.ts` needed an explicit `@` path alias.** TypeScript resolves `@/*` via `tsconfig.json` `paths`, but Vitest (Vite) doesn't read that automatically — repository/domain imports failed at test-run time until `resolve.alias` was added pointing `@` at `./src`.
 3. **Contract-test factories are `() => T | Promise<T>`, not just `() => T`.** The Supabase-backed integration tests need to async-clean relevant tables before each test hands back a repository instance (so, e.g., `list()` assertions aren't polluted by rows left over from a prior run or a prior test). Every `it()` in the shared contract tests now `await`s the factory.
 4. **Foreign-key IDs (`studyId`, `interviewId`) are passed to contract tests as getters (`() => string`), not plain strings.** The Supabase suites create their fixture study/interview in `beforeAll`, which hasn't run yet at the point the contract-test function synchronously registers its `it()` blocks — a plain string parameter would capture `undefined`.
-5. **Migration SQL is written but not applied anywhere yet** — no Supabase project exists (per M0's open follow-up), so this is unverified against a real Postgres instance. The Supabase-backed repositories and their integration tests are consequently also unverified against real Supabase — they compile and skip cleanly, but haven't run against a live database. Treat this as the top priority to close before trusting the Supabase repositories.
+5. **Two real bugs surfaced once actually run against a live Supabase test project** (not caught by the in-memory suite or by compiling/skipping cleanly — this is exactly why "unverified against a real DB" was flagged as the top risk):
+   - **Cross-file test pollution.** Vitest runs test files in parallel by default. All four Supabase integration test files share one live database; the study-repository file's per-test cleanup (`delete from studies` before each of its own tests) was deleting fixture studies that the interview/summary/study-report files had just created in their own `beforeAll` — cascading to delete their interviews too, and surfacing as foreign-key-violation errors on `create()` calls that should have succeeded. Fixed by setting `fileParallelism: false` in `vitest.config.ts` — integration tests against a shared external resource need to run serially; only the parallelism was wrong, not the schema or the repository code.
+   - **Non-UUID placeholder IDs in "not found" tests.** Tests used arbitrary strings like `"does-not-exist"` for "assert this lookup returns null" cases. That's a valid fake ID against the in-memory Map-based fakes, but Postgres `uuid`-typed columns reject non-UUID-formatted input as a hard query error rather than "no rows" — so these tests threw instead of asserting `null`. Fixed by introducing a shared `NONEXISTENT_ID` constant (a well-formed, never-generated UUID) in `src/repositories/contract-tests/nonexistent-id.ts`, used everywhere a contract test needs an id that provably doesn't exist. Works identically against both implementations.
+6. **Migration SQL is now applied and verified** against a real Supabase test project — `supabase/migrations/0001_init.sql` matches the domain model and all constraints (FK cascades, status checks, `unique (study_id, version)`) behave as intended.
 
 ### Open follow-ups (not blocking, need you)
 
-- Still: create the Supabase project(s) (dev + test) and populate `.env.local` (carried over from M0).
-- Once created, apply `supabase/migrations/0001_init.sql` and set `SUPABASE_URL`/`SUPABASE_SERVICE_ROLE_KEY` (pointed at the **test** project) so the integration test suites actually run instead of skipping — this is the only way to validate the Supabase repository implementations and the migration SQL itself.
+- None outstanding for M1. Supabase project creation and migration application (carried over from M0) are done.
 
 ---
 

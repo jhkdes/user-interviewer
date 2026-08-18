@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { StudyReportRepository } from "../study-report-repository";
+import { NONEXISTENT_ID } from "./nonexistent-id";
 
 /**
  * `getStudyId` must resolve to a study that already exists in whatever
@@ -55,7 +56,7 @@ export function runStudyReportRepositoryContractTests(
 
     it("getLatestByStudyId returns null when no report exists yet", async () => {
       const repo = await makeRepository();
-      expect(await repo.getLatestByStudyId("no-report-yet")).toBeNull();
+      expect(await repo.getLatestByStudyId(NONEXISTENT_ID)).toBeNull();
     });
 
     it("listByStudyId returns every version", async () => {

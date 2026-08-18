@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { SummaryRepository } from "../summary-repository";
+import { NONEXISTENT_ID } from "./nonexistent-id";
 
 /**
  * `getInterviewId` must resolve to an interview that already exists in
@@ -44,7 +45,7 @@ export function runSummaryRepositoryContractTests(
 
     it("getByInterviewId returns null when no summary exists yet", async () => {
       const repo = await makeRepository();
-      expect(await repo.getByInterviewId("no-summary-yet")).toBeNull();
+      expect(await repo.getByInterviewId(NONEXISTENT_ID)).toBeNull();
     });
   });
 }

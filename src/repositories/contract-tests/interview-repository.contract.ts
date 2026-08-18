@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { InterviewRepository } from "../interview-repository";
+import { NONEXISTENT_ID } from "./nonexistent-id";
 
 /**
  * Shared behavioral contract for any InterviewRepository implementation.
@@ -50,7 +51,7 @@ export function runInterviewRepositoryContractTests(
 
     it("getById returns null for an unknown id", async () => {
       const repo = await makeRepository();
-      expect(await repo.getById("does-not-exist")).toBeNull();
+      expect(await repo.getById(NONEXISTENT_ID)).toBeNull();
     });
 
     it("listByStudyId returns only interviews for that study", async () => {
@@ -103,7 +104,7 @@ export function runInterviewRepositoryContractTests(
 
     it("update rejects an unknown id", async () => {
       const repo = await makeRepository();
-      await expect(repo.update("nope", { status: "completed" })).rejects.toThrow();
+      await expect(repo.update(NONEXISTENT_ID, { status: "completed" })).rejects.toThrow();
     });
   });
 }

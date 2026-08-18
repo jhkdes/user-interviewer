@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { StudyRepository } from "../study-repository";
+import { NONEXISTENT_ID } from "./nonexistent-id";
 
 const sampleTargetProfile = {
   industry: "Fintech",
@@ -46,7 +47,7 @@ export function runStudyRepositoryContractTests(
 
     it("getById returns null for an unknown id", async () => {
       const repo = await makeRepository();
-      expect(await repo.getById("does-not-exist")).toBeNull();
+      expect(await repo.getById(NONEXISTENT_ID)).toBeNull();
     });
 
     it("getByLinkToken finds a study by its link token", async () => {
@@ -91,7 +92,7 @@ export function runStudyRepositoryContractTests(
 
     it("updateStatus rejects an unknown id", async () => {
       const repo = await makeRepository();
-      await expect(repo.updateStatus("nope", "closed")).rejects.toThrow();
+      await expect(repo.updateStatus(NONEXISTENT_ID, "closed")).rejects.toThrow();
     });
   });
 }
