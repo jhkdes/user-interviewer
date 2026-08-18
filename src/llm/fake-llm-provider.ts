@@ -46,7 +46,11 @@ export class FakeLLMProvider implements LLMProviderAdapter {
   async generateInterviewerTurn(
     input: GenerateInterviewerTurnInput,
   ): Promise<GenerateInterviewerTurnOutput> {
-    this.calls.generateInterviewerTurn.push(input);
+    // Snapshot rather than store the reference: callers commonly keep mutating
+    // a `conversationHistory` array (e.g. pushing each new turn) after the
+    // call returns. Without cloning, every recorded call would end up
+    // pointing at the same, later-fully-grown array.
+    this.calls.generateInterviewerTurn.push(structuredClone(input));
     const next = this.interviewerTurnQueue.shift();
     if (!next) {
       throw new Error(
@@ -57,7 +61,7 @@ export class FakeLLMProvider implements LLMProviderAdapter {
   }
 
   async generateSummary(input: GenerateSummaryInput): Promise<GenerateSummaryOutput> {
-    this.calls.generateSummary.push(input);
+    this.calls.generateSummary.push(structuredClone(input));
     if (!this.summaryResult) {
       throw new Error("FakeLLMProvider: no scripted summary — call scriptSummary() first");
     }
@@ -65,7 +69,7 @@ export class FakeLLMProvider implements LLMProviderAdapter {
   }
 
   async generateStudyReport(input: GenerateStudyReportInput): Promise<GenerateStudyReportOutput> {
-    this.calls.generateStudyReport.push(input);
+    this.calls.generateStudyReport.push(structuredClone(input));
     if (!this.studyReportResult) {
       throw new Error("FakeLLMProvider: no scripted study report — call scriptStudyReport() first");
     }

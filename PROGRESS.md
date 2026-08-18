@@ -9,7 +9,7 @@ Tracks milestone completion against [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN
 | M0 — Project Scaffolding                     | ✅ Complete    | 2026-08-18 |
 | M1 — Domain Model & Data Layer               | ✅ Complete    | 2026-08-18 |
 | M2 — LLM Provider Adapter                    | ✅ Complete    | 2026-08-18 |
-| M3 — Interview Agent                         | ⬜ Not started |            |
+| M3 — Interview Agent                         | ✅ Complete    | 2026-08-18 |
 | M4 — Study & Link Management                 | ⬜ Not started |            |
 | M5 — Participant Intake                      | ⬜ Not started |            |
 | M6 — Voice Session Orchestration             | ⬜ Not started |            |
@@ -123,6 +123,36 @@ Tracks milestone completion against [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN
 ### Open follow-ups (not blocking, need you)
 
 - None outstanding for M2.
+
+---
+
+## M3 — Interview Agent ✅ (2026-08-18)
+
+### Tickets completed
+
+- **T3.1** — `buildInterviewSystemPrompt` (`src/interview-agent/system-prompt.ts`): pure function encoding the Mom Test style, broad→narrow structure, depth heuristic, and tone rules from REQUIREMENTS.md, parameterized by the participant's name/self-described role and the study's target profile.
+- **T3.2** — `checkTermination` (`src/interview-agent/termination.ts`): pure function applying two deterministic guardrails on top of the LLM's own self-assessment — the hard 20-minute cap, and a minimum-participant-turns floor before the LLM's "end it" signal is honored (guards against ending after one surface-level exchange).
+- **T3.3** — `InterviewAgent` (`src/interview-agent/interview-agent.ts`): stateless orchestrator combining T3.1 + T3.2 + the `LLMProviderAdapter` from M2 — builds the prompt, calls `generateInterviewerTurn`, applies the termination check, returns the utterance plus an end-of-interview decision.
+- **T3.4** — Unit tests (`interview-agent.test.ts`) driving `InterviewAgent` through a scripted 5-turn conversation via `FakeLLMProvider`, asserting it doesn't end early on shallow turns and does terminate once the LLM self-assesses after sufficient depth.
+
+**Design choice beyond the plan — termination is two-state (continue / terminate), not three-state:** the original module map described `checkTermination`-equivalent logic as signaling "keep probing," "pivot to new thread," or "terminate." Distinguishing "still worth probing this thread" from "time to pivot" is a genuine judgment call about conversation content — attempting it with pure heuristics (e.g. topic clustering on transcript text) would be unreliable and is exactly the kind of nuanced judgment M2's design already delegates to the LLM (via the depth-heuristic instructions in the system prompt and the `shouldEndInterview` signal). `checkTermination` only enforces the two things that must never depend on the LLM getting it right: the hard time cap, and not ending too early. Probing-vs-pivoting is left entirely to the LLM's judgment, as designed.
+
+**Bug found and fixed during T3.4 (worth noting for future test authors):** the multi-turn test builds conversation history by `push`-ing into an array across loop iterations and passing that same array into each call. `FakeLLMProvider` was storing the array _reference_ in `calls`, so by the end of the loop every recorded call pointed at the same, fully-grown array — assertions on "what history did call N actually see" were silently wrong (all showed the final length). Fixed by making `FakeLLMProvider` `structuredClone()` every input it records, in `src/llm/fake-llm-provider.ts`. This is a general robustness fix, not just a fix for this one test — any future test that mutates a shared history/array after calling the fake would have hit the same silent bug.
+
+### Tests run
+
+| Command                              | Result                                                                                                                              |
+| ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `npm test` (Vitest, no external env) | ✅ 65 tests passed (19 new: 6 system-prompt + 7 termination + 6 interview-agent) — 26 integration tests skipped, no credentials set |
+| `npm run lint` (`next lint`)         | ✅ No ESLint warnings or errors                                                                                                     |
+| `npx tsc --noEmit`                   | ✅ No type errors                                                                                                                   |
+| `npm run format:check` (Prettier)    | ✅ All files match Prettier style                                                                                                   |
+
+No live-service integration test needed for M3 — it has no I/O of its own (`InterviewAgent` only calls the already-verified `LLMProviderAdapter` interface), so the `FakeLLMProvider`-driven unit tests are the appropriate and complete verification here.
+
+### Open follow-ups (not blocking, need you)
+
+- None outstanding for M3.
 
 ---
 
