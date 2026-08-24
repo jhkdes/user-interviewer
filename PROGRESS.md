@@ -4,22 +4,22 @@ Tracks milestone completion against [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN
 
 ## Status Overview
 
-| Milestone                                    | Status         | Date       |
-| -------------------------------------------- | -------------- | ---------- |
-| M0 — Project Scaffolding                     | ✅ Complete    | 2026-08-18 |
-| M1 — Domain Model & Data Layer               | ✅ Complete    | 2026-08-18 |
-| M2 — LLM Provider Adapter                    | ✅ Complete    | 2026-08-18 |
-| M3 — Interview Agent                         | ✅ Complete    | 2026-08-18 |
-| M4 — Study & Link Management                 | ✅ Complete    | 2026-08-18 |
-| M5 — Participant Intake                      | ✅ Complete    | 2026-08-19 |
-| M6 — Voice Session Orchestration             | ✅ Complete    | 2026-08-23 |
-| M7 — Transcript Capture & Individual Summary | ✅ Complete    | 2026-08-22 |
-| M8 — Study Report Generation                 | ✅ Complete    | 2026-08-22 |
-| M9 — PM Authentication                       | ✅ Complete    | 2026-08-22 |
-| M10 — PM Dashboard UI                        | ✅ Complete    | 2026-08-22 |
-| M11 — Participant-Facing UI                  | ✅ Complete    | 2026-08-23 |
-| M12 — End-to-End MVP Acceptance              | ⬜ Not started |            |
-| M13 — Participant Experience Refinements     | ✅ Complete    | 2026-08-24 |
+| Milestone                                    | Status      | Date       |
+| -------------------------------------------- | ----------- | ---------- |
+| M0 — Project Scaffolding                     | ✅ Complete | 2026-08-18 |
+| M1 — Domain Model & Data Layer               | ✅ Complete | 2026-08-18 |
+| M2 — LLM Provider Adapter                    | ✅ Complete | 2026-08-18 |
+| M3 — Interview Agent                         | ✅ Complete | 2026-08-18 |
+| M4 — Study & Link Management                 | ✅ Complete | 2026-08-18 |
+| M5 — Participant Intake                      | ✅ Complete | 2026-08-19 |
+| M6 — Voice Session Orchestration             | ✅ Complete | 2026-08-23 |
+| M7 — Transcript Capture & Individual Summary | ✅ Complete | 2026-08-22 |
+| M8 — Study Report Generation                 | ✅ Complete | 2026-08-22 |
+| M9 — PM Authentication                       | ✅ Complete | 2026-08-22 |
+| M10 — PM Dashboard UI                        | ✅ Complete | 2026-08-22 |
+| M11 — Participant-Facing UI                  | ✅ Complete | 2026-08-23 |
+| M12 — End-to-End MVP Acceptance              | ✅ Complete | 2026-08-24 |
+| M13 — Participant Experience Refinements     | ✅ Complete | 2026-08-24 |
 
 ---
 
@@ -538,6 +538,30 @@ Root cause: Vapi's `end-of-call-report` `recordingUrl` points at HIPAA-compliant
 
 - None outstanding for M6 or M11 — both fully verified with a real end-to-end call, real transcript, real summary, and real playable recording.
 - Interviews completed before this recording-URL fix have `vapiCallId: null` and will show the old, non-playable `recordingUrl` (or "No recording available" once that link visibly fails). Only worth backfilling if any of those specific interviews' recordings actually matter to you — otherwise not worth chasing for MVP.
+
+---
+
+## M12 — End-to-End MVP Acceptance ✅ (2026-08-24)
+
+### Tickets completed
+
+- **T12.1** — Manual E2E walkthrough, run by you: PM login → new study created → link copied → **two** real voice interviews completed under the same study (not just one — this is what actually proves cross-participant synthesis, not just that a single interview pipeline works) → both showed `completed` with transcript/recording/summary in the dashboard → study report generated and confirmed to reflect both interviews rather than just one.
+- **T12.2** — Skipped, per plan (explicitly a stretch goal, not MVP-blocking). Not built.
+
+No code changes — this milestone is a pure acceptance gate over everything M0–M11 and M13 already built, per `IMPLEMENTATION_PLAN.md`'s design. Its only "deliverable" is the walkthrough itself and this record of it having passed.
+
+### Open follow-ups (not blocking, need you)
+
+- None outstanding for M12. This is the MVP "done" gate per the implementation plan — all required milestones (M0–M11, M13) are complete and this walkthrough is the final confirmation. Three known enhancement ideas raised during real usage are tracked separately as GitHub issues (#1–#3), intentionally not folded into the MVP scope.
+
+### Deployed to Vercel (2026-08-24)
+
+Not a plan ticket, but recorded here since it changes how the app is actually reached going forward. Deployed via the `vercel` CLI (`vercel link`, `vercel env add` × 8 vars for Production + Preview, `vercel deploy --prod`) to **https://user-interviewer.vercel.app** — a stable production domain, replacing the ngrok tunnel used for all prior live-call testing (M6, M11, M13).
+
+- Git-based auto-deploy-on-push is now connected (`vercel git connect`) — needed both a GitHub login connection on the Vercel account _and_, separately, granting the Vercel GitHub App repo access via github.com/settings/installations (the login connection alone wasn't sufficient — the first `git connect` attempt failed until the App's repo access was added). From here on, `git push` to `main` auto-deploys to production; other branches get preview deployments.
+- The Vapi assistant's `model.url`/`server.url` were re-pointed at the new stable domain (same PATCH pattern used throughout M6/M11/M13) — unlike ngrok, this shouldn't need to be redone again, since the domain doesn't rotate.
+- Verified live: root page, `/login`, and unauthenticated `/dashboard` redirect all return correctly; both `/api/vapi/chat/completions` and `/api/vapi/webhook` are reachable and executing real application code (not a platform 404); a real open study's `/interview/:token` page correctly reads live Supabase data and renders M13's updated "15–20 minutes" copy.
+- `NEXT_PUBLIC_*` vars needed an explicit `--visibility config --no-sensitive` flag when setting via CLI — Vercel disallows "sensitive" storage for vars with a public framework prefix on Production/Preview (they need to be readable at build time to inline into the client bundle), and the CLI's default for `env add` was sensitive, which failed silently-ish (a clear error, just not obvious it'd apply here) until this flag was added explicitly.
 
 ---
 
