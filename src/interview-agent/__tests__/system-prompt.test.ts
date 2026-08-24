@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildInterviewSystemPrompt } from "../system-prompt";
+import { buildInterviewSystemPrompt, INTERVIEWER_NAME } from "../system-prompt";
 
 const context = {
   participantFirstName: "Jordan",
@@ -21,8 +21,14 @@ describe("buildInterviewSystemPrompt", () => {
 
   it("instructs opening the interview by asking about role and day-to-day responsibilities (M13 — no longer pre-collected at intake)", () => {
     const prompt = buildInterviewSystemPrompt(context);
-    expect(prompt).toMatch(/open by asking .*role and day-to-day responsibilities/i);
-    expect(prompt).toMatch(/always your first question/i);
+    expect(prompt).toMatch(/role and day-to-day responsibilities/i);
+    expect(prompt).toMatch(/always your first turn/i);
+  });
+
+  it("instructs the interviewer to introduce itself by name before the first question (#1)", () => {
+    const prompt = buildInterviewSystemPrompt(context);
+    expect(prompt).toContain(INTERVIEWER_NAME);
+    expect(prompt).toMatch(/introduc(e|ing) yourself as/i);
   });
 
   it("includes the study's target profile fields", () => {
