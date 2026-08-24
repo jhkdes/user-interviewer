@@ -15,6 +15,7 @@ export function createServerSupabaseClient(): SupabaseClient {
     // one is supplied explicitly. We don't use realtime features, but construction
     // still probes for WebSocket — the `ws` polyfill keeps this working on Node 20.
     realtime: { transport: WebSocket as unknown as typeof globalThis.WebSocket },
+    global: { fetch: (input, init) => fetch(input, { ...init, cache: "no-store" }) },
   });
 }
 

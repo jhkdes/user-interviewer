@@ -18,6 +18,7 @@ function toInterview(row: InterviewRow): Interview {
     consentGivenAt: row.consent_given_at ? new Date(row.consent_given_at) : null,
     transcript: (row.transcript as TranscriptEntry[] | null) ?? null,
     recordingUrl: row.recording_url,
+    vapiCallId: row.vapi_call_id,
     createdAt: new Date(row.created_at),
     startedAt: row.started_at ? new Date(row.started_at) : null,
     completedAt: row.completed_at ? new Date(row.completed_at) : null,
@@ -32,6 +33,7 @@ function toUpdateRow(patch: InterviewUpdate): Record<string, unknown> {
   }
   if (patch.transcript !== undefined) row.transcript = patch.transcript;
   if (patch.recordingUrl !== undefined) row.recording_url = patch.recordingUrl;
+  if (patch.vapiCallId !== undefined) row.vapi_call_id = patch.vapiCallId;
   if (patch.startedAt !== undefined) {
     row.started_at = patch.startedAt ? patch.startedAt.toISOString() : null;
   }
@@ -51,7 +53,7 @@ export class SupabaseInterviewRepository implements InterviewRepository {
         study_id: input.studyId,
         first_name: input.firstName,
         email: input.email,
-        role_description: input.roleDescription,
+        role_description: input.roleDescription ?? null,
       })
       .select()
       .single();

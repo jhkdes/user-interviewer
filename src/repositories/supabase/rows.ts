@@ -18,11 +18,12 @@ export interface InterviewRow {
   study_id: string;
   first_name: string;
   email: string;
-  role_description: string;
+  role_description: string | null;
   status: string;
   consent_given_at: string | null;
   transcript: unknown;
   recording_url: string | null;
+  vapi_call_id: string | null;
   created_at: string;
   started_at: string | null;
   completed_at: string | null;

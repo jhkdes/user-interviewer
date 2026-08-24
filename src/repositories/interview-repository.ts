@@ -4,14 +4,21 @@ export interface CreateInterviewInput {
   studyId: string;
   firstName: string;
   email: string;
-  roleDescription: string;
+  /** No longer collected on the intake form (M13) — omit to leave `null`. */
+  roleDescription?: string;
 }
 
 /** Partial update — repositories only persist the fields provided. */
 export type InterviewUpdate = Partial<
   Pick<
     Interview,
-    "status" | "consentGivenAt" | "transcript" | "recordingUrl" | "startedAt" | "completedAt"
+    | "status"
+    | "consentGivenAt"
+    | "transcript"
+    | "recordingUrl"
+    | "vapiCallId"
+    | "startedAt"
+    | "completedAt"
   >
 >;
 

@@ -15,22 +15,23 @@ export function runInterviewRepositoryContractTests(
   getStudyId: () => string,
 ) {
   describe("InterviewRepository contract", () => {
-    it("creates an interview with pending status and null timestamps/artifacts", async () => {
+    it("creates an interview with pending status, null roleDescription (not collected at intake — M13), and null timestamps/artifacts", async () => {
       const repo = await makeRepository();
       const studyId = getStudyId();
       const interview = await repo.create({
         studyId,
         firstName: "Alex",
         email: "alex@example.com",
-        roleDescription: "Engineering manager at a mid-size SaaS company",
       });
 
       expect(interview.id).toBeTruthy();
       expect(interview.studyId).toBe(studyId);
       expect(interview.status).toBe("pending");
+      expect(interview.roleDescription).toBeNull();
       expect(interview.consentGivenAt).toBeNull();
       expect(interview.transcript).toBeNull();
       expect(interview.recordingUrl).toBeNull();
+      expect(interview.vapiCallId).toBeNull();
       expect(interview.startedAt).toBeNull();
       expect(interview.completedAt).toBeNull();
       expect(interview.createdAt).toBeInstanceOf(Date);
@@ -42,7 +43,6 @@ export function runInterviewRepositoryContractTests(
         studyId: getStudyId(),
         firstName: "Jordan",
         email: "jordan@example.com",
-        roleDescription: "Ops lead",
       });
 
       const found = await repo.getById(created.id);
@@ -57,18 +57,8 @@ export function runInterviewRepositoryContractTests(
     it("listByStudyId returns only interviews for that study", async () => {
       const repo = await makeRepository();
       const studyId = getStudyId();
-      await repo.create({
-        studyId,
-        firstName: "A",
-        email: "a@example.com",
-        roleDescription: "role",
-      });
-      await repo.create({
-        studyId,
-        firstName: "B",
-        email: "b@example.com",
-        roleDescription: "role",
-      });
+      await repo.create({ studyId, firstName: "A", email: "a@example.com" });
+      await repo.create({ studyId, firstName: "B", email: "b@example.com" });
 
       const interviews = await repo.listByStudyId(studyId);
       expect(interviews).toHaveLength(2);
@@ -81,7 +71,6 @@ export function runInterviewRepositoryContractTests(
         studyId: getStudyId(),
         firstName: "Sam",
         email: "sam@example.com",
-        roleDescription: "role",
       });
 
       const consentTime = new Date("2026-01-01T00:00:00.000Z");
@@ -89,11 +78,13 @@ export function runInterviewRepositoryContractTests(
         status: "in-progress",
         consentGivenAt: consentTime,
         startedAt: consentTime,
+        vapiCallId: "call-abc-123",
       });
 
       expect(updated.status).toBe("in-progress");
       expect(updated.consentGivenAt).toEqual(consentTime);
       expect(updated.startedAt).toEqual(consentTime);
+      expect(updated.vapiCallId).toBe("call-abc-123");
       // Untouched fields survive the partial update
       expect(updated.firstName).toBe("Sam");
       expect(updated.email).toBe("sam@example.com");

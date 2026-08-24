@@ -226,6 +226,22 @@ The **LLM Provider Adapter** and **Interview Agent** are the modules to get righ
 
 ---
 
+### M13 — Participant Experience Refinements
+
+Feedback from M11's live-call testing (a real interview run through the participant flow) — small usability and robustness fixes to the participant-facing experience, not new functionality.
+
+| ID    | Title                                                                                                                  | Depends on  |
+| ----- | ---------------------------------------------------------------------------------------------------------------------- | ----------- |
+| T13.1 | Drop the role-description field from participant intake; make it nullable end-to-end                                   | T5.3, T11.2 |
+| T13.2 | Interview Agent opens by asking about role and responsibility, instead of assuming it's already known                  | T3.1, T13.1 |
+| T13.3 | Update the intro screen's duration estimate (10–20 min → 15–20 min, matching real call lengths)                        | T11.1       |
+| T13.4 | Display elapsed time during the live call                                                                              | T11.3       |
+| T13.5 | Make the Vapi assistant's silence-timeout an explicit, documented setting (was relying on an undocumented 30s default) | T6.6        |
+
+**Acceptance:** Manually verified in a real voice call: no role field on the intake form, the interviewer's opening question asks about role/responsibility, the intro screen states 15–20 minutes, elapsed time is visible and ticking during the call, and the assistant's silence-timeout setting is explicitly configured.
+
+---
+
 ## Notes on TDD discipline
 
 - **Pure logic first** (T3.1, T3.2, T4.2, T5.1) has no external dependencies — write these test-first with no mocks needed at all; they're the highest-leverage place to practice strict TDD.

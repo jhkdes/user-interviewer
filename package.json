@@ -11,17 +11,26 @@
     "test:watch": "vitest",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "try:interview-agent": "tsx scripts/try-interview-agent.ts"
+    "try:interview-agent": "tsx scripts/try-interview-agent.ts",
+    "try:study-api": "tsx scripts/try-study-api.ts",
+    "try:study-report": "tsx scripts/try-study-report.ts",
+    "try:pm-auth": "tsx --env-file=.env.local scripts/try-pm-auth.ts",
+    "create:pm-account": "tsx --env-file=.env.local scripts/create-pm-account.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.117.1",
+    "@supabase/ssr": "^0.12.4",
     "@supabase/supabase-js": "^2.112.3",
+    "@vapi-ai/web": "^2.7.0",
     "next": "14.2.35",
     "react": "^18",
     "react-dom": "^18",
     "ws": "^8.21.3"
   },
   "devDependencies": {
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.6",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
@@ -29,6 +38,7 @@
     "eslint": "^8",
     "eslint-config-next": "14.2.35",
     "eslint-config-prettier": "^10.1.8",
+    "jsdom": "^24.1.3",
     "postcss": "^8",
     "prettier": "^3.9.6",
     "tailwindcss": "^3.4.1",

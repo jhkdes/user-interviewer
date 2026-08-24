@@ -3,7 +3,7 @@ import { buildInterviewSystemPrompt } from "../system-prompt";
 
 const context = {
   participantFirstName: "Jordan",
-  participantRoleDescription: "Engineering manager overseeing a 12-person platform team",
+  participantRoleDescription: null,
   targetProfile: {
     industry: "Fintech",
     yearsOfExperience: "5-10 years",
@@ -14,10 +14,15 @@ const context = {
 };
 
 describe("buildInterviewSystemPrompt", () => {
-  it("includes the participant's name and self-described role", () => {
+  it("includes the participant's name", () => {
     const prompt = buildInterviewSystemPrompt(context);
     expect(prompt).toContain("Jordan");
-    expect(prompt).toContain("Engineering manager overseeing a 12-person platform team");
+  });
+
+  it("instructs opening the interview by asking about role and day-to-day responsibilities (M13 — no longer pre-collected at intake)", () => {
+    const prompt = buildInterviewSystemPrompt(context);
+    expect(prompt).toMatch(/open by asking .*role and day-to-day responsibilities/i);
+    expect(prompt).toMatch(/always your first question/i);
   });
 
   it("includes the study's target profile fields", () => {
@@ -37,7 +42,6 @@ describe("buildInterviewSystemPrompt", () => {
 
   it("instructs the broad-to-narrow depth heuristic", () => {
     const prompt = buildInterviewSystemPrompt(context);
-    expect(prompt).toMatch(/start broad/i);
     expect(prompt).toMatch(/one or two follow-up layers deep/i);
     expect(prompt).toMatch(/surface-level complaint/i);
   });
@@ -46,6 +50,10 @@ describe("buildInterviewSystemPrompt", () => {
     const prompt = buildInterviewSystemPrompt(context);
     expect(prompt).toMatch(/neutral, curious, conversational/i);
     expect(prompt).toMatch(/no long monologues/i);
+  });
+
+  it("builds correctly when participantRoleDescription is null", () => {
+    expect(() => buildInterviewSystemPrompt(context)).not.toThrow();
   });
 
   it("is a pure function of its input — same context produces the same prompt", () => {

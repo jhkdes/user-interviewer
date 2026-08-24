@@ -7,6 +7,13 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  // tsconfig.json sets `"jsx": "preserve"` for Next.js's own SWC compiler,
+  // which Vitest's esbuild transform doesn't understand on its own —
+  // without this, .tsx test files fail at runtime with "React is not
+  // defined" instead of getting JSX compiled to React.createElement calls.
+  esbuild: {
+    jsx: "automatic",
+  },
   test: {
     environment: "node",
     exclude: ["node_modules", ".next"],
