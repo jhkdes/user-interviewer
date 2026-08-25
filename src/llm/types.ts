@@ -30,12 +30,24 @@ export interface GenerateSummaryOutput {
   painPoints: string[];
   notableQuotes: string[];
   takeaways: string[];
+  /**
+   * The participant's role/day-to-day responsibility, as they stated it
+   * during the interview's opening question (M13 dropped this from the
+   * intake form — it's asked conversationally instead). `null` if they never
+   * clearly stated one — this must never be invented/inferred.
+   */
+  roleDescription: string | null;
 }
 
 export interface StudyReportInterviewInput {
   interviewId: string;
   transcript: InterviewTurn[];
-  summary: GenerateSummaryOutput;
+  /**
+   * roleDescription is excluded — it's persisted on `Interview`, not
+   * `Summary`, and isn't part of the cross-participant theme extraction this
+   * feeds into (see `formatStudyReportInterviews`).
+   */
+  summary: Omit<GenerateSummaryOutput, "roleDescription">;
 }
 
 export interface GenerateStudyReportInput {

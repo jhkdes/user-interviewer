@@ -19,6 +19,7 @@ export type InterviewUpdate = Partial<
     | "vapiCallId"
     | "startedAt"
     | "completedAt"
+    | "roleDescription"
   >
 >;
 

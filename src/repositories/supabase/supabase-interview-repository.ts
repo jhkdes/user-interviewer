@@ -40,6 +40,7 @@ function toUpdateRow(patch: InterviewUpdate): Record<string, unknown> {
   if (patch.completedAt !== undefined) {
     row.completed_at = patch.completedAt ? patch.completedAt.toISOString() : null;
   }
+  if (patch.roleDescription !== undefined) row.role_description = patch.roleDescription;
   return row;
 }
 

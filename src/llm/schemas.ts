@@ -24,8 +24,13 @@ export const summarySchema = {
     painPoints: { type: "array", items: { type: "string" } },
     notableQuotes: { type: "array", items: { type: "string" } },
     takeaways: { type: "array", items: { type: "string" } },
+    roleDescription: {
+      type: ["string", "null"],
+      description:
+        "The participant's role/day-to-day responsibility, in their own words, as stated in the transcript. Null if they never clearly stated one — never invent or infer this.",
+    },
   },
-  required: ["painPoints", "notableQuotes", "takeaways"],
+  required: ["painPoints", "notableQuotes", "takeaways", "roleDescription"],
   additionalProperties: false,
 } as const;
 

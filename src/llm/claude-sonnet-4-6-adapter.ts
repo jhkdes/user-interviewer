@@ -33,6 +33,7 @@ Extract:
 - painPoints: specific, concrete pain points the participant described (not generic complaints).
 - notableQuotes: short verbatim quotes from the participant that best illustrate those pain points.
 - takeaways: general takeaways a product manager reviewing this interview should know.
+- roleDescription: the participant's role/day-to-day responsibility, in their own words, from their answer to the interviewer's opening question. Null if they never clearly stated one — do not invent or infer a role from context.
 Base everything strictly on what the participant actually said — do not infer or invent details.`;
 
 const STUDY_REPORT_SYSTEM_PROMPT = `You produce a cross-participant study report from several individual interview summaries and transcripts within the same research study.

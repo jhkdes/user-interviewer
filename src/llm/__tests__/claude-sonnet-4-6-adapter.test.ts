@@ -212,7 +212,12 @@ describe("ClaudeSonnet46Adapter.generateInterviewerTurn", () => {
 describe("ClaudeSonnet46Adapter.generateSummary", () => {
   it("sends the transcript and requests the summary schema", async () => {
     const client = makeMockClient(
-      textResponse({ painPoints: ["p1"], notableQuotes: ["q1"], takeaways: ["t1"] }),
+      textResponse({
+        painPoints: ["p1"],
+        notableQuotes: ["q1"],
+        takeaways: ["t1"],
+        roleDescription: "Engineering manager",
+      }),
     );
     const adapter = new ClaudeSonnet46Adapter(client);
 
@@ -232,7 +237,12 @@ describe("ClaudeSonnet46Adapter.generateSummary", () => {
           "Interview transcript:\n\nInterviewer: How do you handle X?\nParticipant: It's painful.",
       },
     ]);
-    expect(result).toEqual({ painPoints: ["p1"], notableQuotes: ["q1"], takeaways: ["t1"] });
+    expect(result).toEqual({
+      painPoints: ["p1"],
+      notableQuotes: ["q1"],
+      takeaways: ["t1"],
+      roleDescription: "Engineering manager",
+    });
   });
 });
 
