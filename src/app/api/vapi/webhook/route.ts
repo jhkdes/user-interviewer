@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getEmailClient } from "@/lib/email";
 import { getLLMProvider } from "@/llm";
 import { getInterviewRepository } from "@/repositories/get-interview-repository";
 import { getSummaryRepository } from "@/repositories/get-summary-repository";
@@ -18,6 +19,7 @@ export async function POST(request: Request) {
         interviewRepo: getInterviewRepository(),
         summaryRepo: getSummaryRepository(),
         llm: getLLMProvider(),
+        emailClient: getEmailClient(),
       },
       body.message,
     );
