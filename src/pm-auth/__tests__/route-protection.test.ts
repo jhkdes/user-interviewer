@@ -18,6 +18,10 @@ describe("requiresAuth", () => {
     expect(requiresAuth("/api/studies/some-link-token/interviews")).toBe(false);
   });
 
+  it("requires auth for the PM-only remove-interview endpoint (#5)", () => {
+    expect(requiresAuth("/api/studies/abc-123/interviews/interview-1")).toBe(true);
+  });
+
   it("does not require auth for Vapi webhook routes", () => {
     expect(requiresAuth("/api/vapi/webhook")).toBe(false);
     expect(requiresAuth("/api/vapi/chat/completions")).toBe(false);

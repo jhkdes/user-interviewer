@@ -28,4 +28,6 @@ export interface InterviewRepository {
   getById(id: string): Promise<Interview | null>;
   listByStudyId(studyId: string): Promise<Interview[]>;
   update(id: string, patch: InterviewUpdate): Promise<Interview>;
+  /** Hard delete — its `Summary` row goes with it via `on delete cascade` (see 0001_init.sql). */
+  delete(id: string): Promise<void>;
 }

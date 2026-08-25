@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { fetchFreshRecordingUrl } from "@/lib/vapi/client";
 import { getInterviewRepository } from "@/repositories/get-interview-repository";
 import { getSummaryRepository } from "@/repositories/get-summary-repository";
+import { RemoveInterviewButton } from "./remove-interview-button";
 
 /** Interview detail (T10.4): transcript, individual summary, audio player. */
 export default async function InterviewDetailPage({
@@ -110,6 +111,8 @@ export default async function InterviewDetailPage({
           </p>
         )}
       </section>
+
+      <RemoveInterviewButton studyId={params.studyId} interviewId={interview.id} />
     </div>
   );
 }

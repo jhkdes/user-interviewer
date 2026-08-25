@@ -47,4 +47,8 @@ export class InMemoryInterviewRepository implements InterviewRepository {
     this.interviews.set(id, updated);
     return { ...updated };
   }
+
+  async delete(id: string): Promise<void> {
+    if (!this.interviews.delete(id)) throw new Error(`Interview not found: ${id}`);
+  }
 }
