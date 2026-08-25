@@ -32,6 +32,18 @@ export function runStudyRepositoryContractTests(
       expect(study.status).toBe("open");
       expect(study.closedAt).toBeNull();
       expect(study.createdAt).toBeInstanceOf(Date);
+      expect(study.researchTopic).toBeNull();
+    });
+
+    it("creates a study with a research topic when provided", async () => {
+      const repo = await makeRepository();
+      const study = await repo.create({
+        targetProfile: sampleTargetProfile,
+        researchTopic: "How AI actually shows up in a PM's day",
+        linkToken: "token-with-topic",
+      });
+
+      expect(study.researchTopic).toBe("How AI actually shows up in a PM's day");
     });
 
     it("getById returns the created study", async () => {

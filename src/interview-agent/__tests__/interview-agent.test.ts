@@ -13,6 +13,7 @@ const context = {
     seniority: "Senior",
     responsibility: "Owns the payments roadmap",
   },
+  researchTopic: null,
 };
 
 const START = new Date("2026-01-01T00:00:00.000Z");

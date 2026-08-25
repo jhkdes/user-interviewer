@@ -13,6 +13,7 @@ function toStudy(row: StudyRow): Study {
       seniority: row.seniority,
       responsibility: row.responsibility,
     },
+    researchTopic: row.research_topic,
     linkToken: row.link_token,
     status: row.status as StudyStatus,
     createdAt: new Date(row.created_at),
@@ -32,6 +33,7 @@ export class SupabaseStudyRepository implements StudyRepository {
         job_title: input.targetProfile.jobTitle,
         seniority: input.targetProfile.seniority,
         responsibility: input.targetProfile.responsibility,
+        research_topic: input.researchTopic ?? null,
         link_token: input.linkToken,
       })
       .select()

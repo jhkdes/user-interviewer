@@ -68,6 +68,43 @@ describe("NewStudyForm", () => {
     );
   });
 
+  it("includes the research topic in the request body when filled in", async () => {
+    const fetchSpy = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        id: "study-1",
+        targetProfile: sampleProfile,
+        researchTopic: "How AI actually shows up in a PM's day",
+        linkToken: "abc123",
+        status: "open",
+        createdAt: new Date().toISOString(),
+        closedAt: null,
+      }),
+    });
+    vi.stubGlobal("fetch", fetchSpy);
+    const user = userEvent.setup();
+
+    render(<NewStudyForm />);
+    await fillForm(user);
+    await user.type(
+      screen.getByLabelText(/Research topic/),
+      "How AI actually shows up in a PM's day",
+    );
+    await user.click(screen.getByRole("button", { name: "Create study" }));
+
+    await waitFor(() => expect(screen.getByText("Study created")).toBeInTheDocument());
+    expect(fetchSpy).toHaveBeenCalledWith(
+      "/api/studies",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({
+          targetProfile: sampleProfile,
+          researchTopic: "How AI actually shows up in a PM's day",
+        }),
+      }),
+    );
+  });
+
   it("shows the server's field errors when the API rejects the request", async () => {
     const fetchSpy = vi.fn().mockResolvedValue({
       ok: false,

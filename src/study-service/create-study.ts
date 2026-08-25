@@ -12,6 +12,7 @@ export class InvalidTargetProfileError extends Error {
 
 export interface CreateStudyInput {
   targetProfile: TargetProfile;
+  researchTopic?: string;
 }
 
 export async function createStudy(repo: StudyRepository, input: CreateStudyInput): Promise<Study> {
@@ -20,6 +21,7 @@ export async function createStudy(repo: StudyRepository, input: CreateStudyInput
 
   return repo.create({
     targetProfile: input.targetProfile,
+    researchTopic: input.researchTopic,
     linkToken: generateLinkToken(),
   });
 }

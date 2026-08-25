@@ -31,6 +31,8 @@ const context: InterviewPromptContext = {
     seniority: "Senior",
     responsibility: "Owns platform reliability and internal tooling",
   },
+  researchTopic:
+    "How AI actually shows up in a PM's day — dig into where they use AI tools, where they've tried and abandoned it, and where they're anxious about it (job security, being second-guessed by AI-generated specs, etc.)",
 };
 
 async function main() {

@@ -11,6 +11,7 @@ const context = {
     seniority: "Senior",
     responsibility: "Owns the payments roadmap",
   },
+  researchTopic: null,
 };
 
 describe("buildInterviewSystemPrompt", () => {
@@ -64,5 +65,32 @@ describe("buildInterviewSystemPrompt", () => {
 
   it("is a pure function of its input — same context produces the same prompt", () => {
     expect(buildInterviewSystemPrompt(context)).toBe(buildInterviewSystemPrompt(context));
+  });
+
+  it("includes the research topic and steering language when set", () => {
+    const prompt = buildInterviewSystemPrompt({
+      ...context,
+      researchTopic: "How AI actually shows up in a PM's day",
+    });
+
+    expect(prompt).toContain("How AI actually shows up in a PM's day");
+    expect(prompt).toMatch(/research focus/i);
+    expect(prompt).toMatch(/prioritize pushing deep/i);
+  });
+
+  it("still instructs opening broadly before drilling into the research topic", () => {
+    const prompt = buildInterviewSystemPrompt({
+      ...context,
+      researchTopic: "How AI actually shows up in a PM's day",
+    });
+
+    expect(prompt).toMatch(/open(s|ing)? broadly/i);
+  });
+
+  it("produces the exact same prompt as no-topic context when researchTopic is null", () => {
+    expect(buildInterviewSystemPrompt({ ...context, researchTopic: null })).toBe(
+      buildInterviewSystemPrompt(context),
+    );
+    expect(buildInterviewSystemPrompt(context)).not.toMatch(/research focus/i);
   });
 });

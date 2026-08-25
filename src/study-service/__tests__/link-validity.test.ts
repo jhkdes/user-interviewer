@@ -11,6 +11,7 @@ const baseStudy: Study = {
     seniority: "Senior",
     responsibility: "Owns the payments roadmap",
   },
+  researchTopic: null,
   linkToken: "token",
   status: "open",
   createdAt: new Date("2026-08-01T00:00:00Z"),

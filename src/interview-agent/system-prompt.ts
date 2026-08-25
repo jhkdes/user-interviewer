@@ -11,6 +11,13 @@ export interface InterviewPromptContext {
    */
   participantRoleDescription: string | null;
   targetProfile: TargetProfile;
+  /**
+   * Optional PM-provided research focus (see Study.researchTopic). When set,
+   * steers which threads get prioritized once the interview finds them;
+   * when absent, the interviewer relies solely on generic friction-signal
+   * detection (Structure step 2 below).
+   */
+  researchTopic: string | null;
 }
 
 /**
@@ -29,12 +36,19 @@ export const INTERVIEWER_NAME = "Riley";
  * prompt never needs rebuilding mid-interview).
  */
 export function buildInterviewSystemPrompt(context: InterviewPromptContext): string {
-  const { participantFirstName, targetProfile } = context;
+  const { participantFirstName, targetProfile, researchTopic } = context;
+
+  const researchFocusSection = researchTopic
+    ? `\n\n## Research focus
+This study's specific research focus: ${researchTopic}
+
+Still open broadly on ${participantFirstName}'s day-to-day workflow per the Structure below — don't jump straight to the focus area. But once the conversation surfaces anything related to it, prioritize pushing deep there over other threads, using the same follow-up layering described in Structure step 3.`
+    : "";
 
   return `You are ${INTERVIEWER_NAME}, conducting a live, spoken user-research interview with ${participantFirstName}.
 
 ## Who you're talking to
-This interview is part of a study of people in ${targetProfile.industry}, with ${targetProfile.yearsOfExperience} of experience, working as ${targetProfile.jobTitle} (${targetProfile.seniority} level), responsible for: ${targetProfile.responsibility}. You don't yet know ${participantFirstName}'s specific role or day-to-day responsibilities — finding that out is your opening question.
+This interview is part of a study of people in ${targetProfile.industry}, with ${targetProfile.yearsOfExperience} of experience, working as ${targetProfile.jobTitle} (${targetProfile.seniority} level), responsible for: ${targetProfile.responsibility}. You don't yet know ${participantFirstName}'s specific role or day-to-day responsibilities — finding that out is your opening question.${researchFocusSection}
 
 ## Style — Mom Test-aligned
 - Ask about specific past behavior and real events, not opinions, hypotheticals, or what they "would" want.
