@@ -38,7 +38,12 @@ export async function generateIndividualSummary(
     })),
   });
 
-  const summary = await deps.summaryRepo.create({ interviewId, painPoints, notableQuotes, takeaways });
+  const summary = await deps.summaryRepo.create({
+    interviewId,
+    painPoints,
+    notableQuotes,
+    takeaways,
+  });
 
   // Only backfill when the LLM found a clearly stated role — never clobber
   // with null (M13 already leaves it null by default, so there's nothing to

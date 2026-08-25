@@ -27,7 +27,7 @@ export const summarySchema = {
     roleDescription: {
       type: ["string", "null"],
       description:
-        "A short job title for the participant (e.g. \"Product Manager\", \"Engineering Manager\"), distilled from what they said in the transcript — not a verbatim quote and not their day-to-day responsibilities. Null if they never clearly stated a role — never invent or infer this.",
+        'A short job title for the participant (e.g. "Product Manager", "Engineering Manager"), distilled from what they said in the transcript — not a verbatim quote and not their day-to-day responsibilities. Null if they never clearly stated a role — never invent or infer this.',
     },
   },
   required: ["painPoints", "notableQuotes", "takeaways", "roleDescription"],
