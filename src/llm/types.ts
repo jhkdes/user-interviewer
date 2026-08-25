@@ -31,10 +31,11 @@ export interface GenerateSummaryOutput {
   notableQuotes: string[];
   takeaways: string[];
   /**
-   * The participant's role/day-to-day responsibility, as they stated it
-   * during the interview's opening question (M13 dropped this from the
-   * intake form — it's asked conversationally instead). `null` if they never
-   * clearly stated one — this must never be invented/inferred.
+   * A short job title for the participant (e.g. "Product Manager"),
+   * distilled from their answer to the interview's opening question (M13
+   * dropped this from the intake form — it's asked conversationally
+   * instead). `null` if they never clearly stated a role — this must never
+   * be invented/inferred.
    */
   roleDescription: string | null;
 }
