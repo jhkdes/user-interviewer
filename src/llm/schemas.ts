@@ -24,8 +24,13 @@ export const summarySchema = {
     painPoints: { type: "array", items: { type: "string" } },
     notableQuotes: { type: "array", items: { type: "string" } },
     takeaways: { type: "array", items: { type: "string" } },
+    roleDescription: {
+      type: ["string", "null"],
+      description:
+        'A short job title for the participant (e.g. "Product Manager", "Engineering Manager"), distilled from what they said in the transcript — not a verbatim quote and not their day-to-day responsibilities. Null if they never clearly stated a role — never invent or infer this.',
+    },
   },
-  required: ["painPoints", "notableQuotes", "takeaways"],
+  required: ["painPoints", "notableQuotes", "takeaways", "roleDescription"],
   additionalProperties: false,
 } as const;
 

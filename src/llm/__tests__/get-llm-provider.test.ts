@@ -9,7 +9,7 @@ class DummyProvider implements LLMProviderAdapter {
     return { utterance: "dummy", shouldEndInterview: false };
   }
   async generateSummary() {
-    return { painPoints: [], notableQuotes: [], takeaways: [] };
+    return { painPoints: [], notableQuotes: [], takeaways: [], roleDescription: null };
   }
   async generateStudyReport() {
     return { themes: [] };

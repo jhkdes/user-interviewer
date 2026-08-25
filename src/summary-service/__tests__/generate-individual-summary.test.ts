@@ -6,11 +6,12 @@ import { NONEXISTENT_ID } from "@/repositories/contract-tests/nonexistent-id";
 import { generateIndividualSummary } from "../generate-individual-summary";
 import { InterviewNotFoundError, MissingTranscriptError } from "../errors";
 
-const scriptedSummary = {
+const summaryFields = {
   painPoints: ["Manual status reporting eats a full afternoon each week."],
   notableQuotes: ["I basically have a second job just making slides."],
   takeaways: ["Reporting tooling is a strong candidate for automation."],
 };
+const scriptedSummary = { ...summaryFields, roleDescription: null };
 
 async function setup() {
   const interviewRepo = new InMemoryInterviewRepository();
@@ -44,7 +45,7 @@ describe("generateIndividualSummary", () => {
       interview.id,
     );
 
-    expect(summary).toMatchObject({ interviewId: interview.id, ...scriptedSummary });
+    expect(summary).toMatchObject({ interviewId: interview.id, ...summaryFields });
     expect(await summaryRepo.getByInterviewId(interview.id)).toEqual(summary);
   });
 
@@ -85,5 +86,36 @@ describe("generateIndividualSummary", () => {
     await expect(
       generateIndividualSummary({ interviewRepo, summaryRepo, llm }, interview.id),
     ).rejects.toThrow(MissingTranscriptError);
+  });
+
+  it("backfills the interview's roleDescription when the LLM extracts one (#4)", async () => {
+    const { interviewRepo, summaryRepo, llm, interview } = await setup();
+    await interviewRepo.update(interview.id, {
+      roleDescription: null,
+      transcript: [
+        { speaker: "interviewer", text: "What's your role?", timestampMs: 0 },
+        { speaker: "participant", text: "I'm an engineering manager.", timestampMs: 3000 },
+      ],
+    });
+    llm.scriptSummary({ ...summaryFields, roleDescription: "Engineering manager" });
+
+    await generateIndividualSummary({ interviewRepo, summaryRepo, llm }, interview.id);
+
+    expect((await interviewRepo.getById(interview.id))?.roleDescription).toBe(
+      "Engineering manager",
+    );
+  });
+
+  it("leaves roleDescription null when the LLM never found one — doesn't hallucinate a placeholder (#4)", async () => {
+    const { interviewRepo, summaryRepo, llm, interview } = await setup();
+    await interviewRepo.update(interview.id, {
+      roleDescription: null,
+      transcript: [{ speaker: "participant", text: "Not much to say, honestly.", timestampMs: 0 }],
+    });
+    llm.scriptSummary(scriptedSummary);
+
+    await generateIndividualSummary({ interviewRepo, summaryRepo, llm }, interview.id);
+
+    expect((await interviewRepo.getById(interview.id))?.roleDescription).toBeNull();
   });
 });

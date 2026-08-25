@@ -30,12 +30,25 @@ export interface GenerateSummaryOutput {
   painPoints: string[];
   notableQuotes: string[];
   takeaways: string[];
+  /**
+   * A short job title for the participant (e.g. "Product Manager"),
+   * distilled from their answer to the interview's opening question (M13
+   * dropped this from the intake form — it's asked conversationally
+   * instead). `null` if they never clearly stated a role — this must never
+   * be invented/inferred.
+   */
+  roleDescription: string | null;
 }
 
 export interface StudyReportInterviewInput {
   interviewId: string;
   transcript: InterviewTurn[];
-  summary: GenerateSummaryOutput;
+  /**
+   * roleDescription is excluded — it's persisted on `Interview`, not
+   * `Summary`, and isn't part of the cross-participant theme extraction this
+   * feeds into (see `formatStudyReportInterviews`).
+   */
+  summary: Omit<GenerateSummaryOutput, "roleDescription">;
 }
 
 export interface GenerateStudyReportInput {

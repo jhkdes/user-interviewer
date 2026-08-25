@@ -31,12 +31,26 @@ export async function generateIndividualSummary(
     throw new MissingTranscriptError(interviewId);
   }
 
-  const { painPoints, notableQuotes, takeaways } = await deps.llm.generateSummary({
+  const { painPoints, notableQuotes, takeaways, roleDescription } = await deps.llm.generateSummary({
     transcript: interview.transcript.map((entry) => ({
       speaker: entry.speaker,
       text: entry.text,
     })),
   });
 
-  return deps.summaryRepo.create({ interviewId, painPoints, notableQuotes, takeaways });
+  const summary = await deps.summaryRepo.create({
+    interviewId,
+    painPoints,
+    notableQuotes,
+    takeaways,
+  });
+
+  // Only backfill when the LLM found a clearly stated role — never clobber
+  // with null (M13 already leaves it null by default, so there's nothing to
+  // "clear" here, only a real value worth persisting).
+  if (roleDescription) {
+    await deps.interviewRepo.update(interviewId, { roleDescription });
+  }
+
+  return summary;
 }

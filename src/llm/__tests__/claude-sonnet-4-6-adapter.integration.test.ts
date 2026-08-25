@@ -50,6 +50,9 @@ describe.skipIf(!hasAnthropicTestEnv)("ClaudeSonnet46Adapter (integration)", () 
     expect(result.painPoints.length).toBeGreaterThan(0);
     expect(Array.isArray(result.notableQuotes)).toBe(true);
     expect(Array.isArray(result.takeaways)).toBe(true);
+    expect(result.roleDescription === null || typeof result.roleDescription === "string").toBe(
+      true,
+    );
   }, 20000);
 
   it("generateStudyReport returns a themes array shaped per the schema", async () => {

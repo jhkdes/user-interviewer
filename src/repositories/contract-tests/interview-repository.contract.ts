@@ -93,6 +93,20 @@ export function runInterviewRepositoryContractTests(
       expect(reloaded?.status).toBe("in-progress");
     });
 
+    it("update can backfill roleDescription (#4)", async () => {
+      const repo = await makeRepository();
+      const created = await repo.create({
+        studyId: getStudyId(),
+        firstName: "Sam",
+        email: "sam@example.com",
+      });
+
+      const updated = await repo.update(created.id, { roleDescription: "Engineering manager" });
+
+      expect(updated.roleDescription).toBe("Engineering manager");
+      expect((await repo.getById(created.id))?.roleDescription).toBe("Engineering manager");
+    });
+
     it("update rejects an unknown id", async () => {
       const repo = await makeRepository();
       await expect(repo.update(NONEXISTENT_ID, { status: "completed" })).rejects.toThrow();

@@ -11,7 +11,7 @@ export interface Interview {
   studyId: string;
   firstName: string;
   email: string;
-  /** No longer collected on the intake form (M13) — the interviewer asks for it conversationally as the opening question instead, so this stays `null` unless a future ticket backfills it from the transcript. */
+  /** No longer collected on the intake form (M13) — the interviewer asks for it conversationally as the opening question instead. Backfilled from the transcript once the interview completes, if the participant clearly stated one (see summary-service); stays `null` otherwise. */
   roleDescription: string | null;
   status: InterviewStatus;
   consentGivenAt: Date | null;

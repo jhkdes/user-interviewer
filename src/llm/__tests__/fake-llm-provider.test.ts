@@ -27,7 +27,12 @@ describe("FakeLLMProvider", () => {
 
   it("returns the scripted summary and records the call", async () => {
     const fake = new FakeLLMProvider();
-    const summary = { painPoints: ["p"], notableQuotes: ["q"], takeaways: ["t"] };
+    const summary = {
+      painPoints: ["p"],
+      notableQuotes: ["q"],
+      takeaways: ["t"],
+      roleDescription: "Engineering manager",
+    };
     fake.scriptSummary(summary);
 
     const input = { transcript: [] };

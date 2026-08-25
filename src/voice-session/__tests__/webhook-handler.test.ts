@@ -6,11 +6,12 @@ import type { VapiEndOfCallReportMessage, VapiStatusUpdateMessage } from "../vap
 import { MissingInterviewIdError } from "../errors";
 import { handleVapiWebhookMessage } from "../webhook-handler";
 
-const scriptedSummary = {
+const summaryFields = {
   painPoints: ["Manual status reporting eats a full afternoon each week."],
   notableQuotes: ["I basically have a second job just making slides."],
   takeaways: ["Reporting tooling is a strong candidate for automation."],
 };
+const scriptedSummary = { ...summaryFields, roleDescription: null };
 
 async function setup() {
   const interviewRepo = new InMemoryInterviewRepository();
@@ -173,7 +174,7 @@ describe("handleVapiWebhookMessage", () => {
       await handleVapiWebhookMessage({ interviewRepo, summaryRepo, llm }, message);
 
       const summary = await summaryRepo.getByInterviewId(interview.id);
-      expect(summary).toMatchObject(scriptedSummary);
+      expect(summary).toMatchObject(summaryFields);
       // The summary is generated from the transcript that was just persisted.
       expect(llm.calls.generateSummary[0].transcript).toEqual([
         { speaker: "interviewer", text: "How's your week going?" },
