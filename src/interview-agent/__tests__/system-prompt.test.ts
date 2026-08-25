@@ -87,6 +87,16 @@ describe("buildInterviewSystemPrompt", () => {
     expect(prompt).toMatch(/open(s|ing)? broadly/i);
   });
 
+  it("instructs proactively asking about the research focus if it hasn't surfaced naturally", () => {
+    const prompt = buildInterviewSystemPrompt({
+      ...context,
+      researchTopic: "How AI actually shows up in a PM's day",
+    });
+
+    expect(prompt).toMatch(/proactively ask/i);
+    expect(prompt).toMatch(/hasn't naturally surfaced/i);
+  });
+
   it("produces the exact same prompt as no-topic context when researchTopic is null", () => {
     expect(buildInterviewSystemPrompt({ ...context, researchTopic: null })).toBe(
       buildInterviewSystemPrompt(context),

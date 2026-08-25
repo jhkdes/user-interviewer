@@ -23,13 +23,13 @@ import type { InterviewPromptContext } from "../src/interview-agent/system-promp
 const context: InterviewPromptContext = {
   participantFirstName: "Jordan",
   participantRoleDescription:
-    "Engineering manager overseeing a 12-person platform team at a mid-size fintech company",
+    "Senior Product Manager owning the core platform roadmap at a mid-size SaaS company",
   targetProfile: {
-    industry: "Fintech",
+    industry: "SaaS",
     yearsOfExperience: "5-10 years",
-    jobTitle: "Engineering Manager",
+    jobTitle: "Product Manager",
     seniority: "Senior",
-    responsibility: "Owns platform reliability and internal tooling",
+    responsibility: "Owns the core platform roadmap",
   },
   researchTopic:
     "How AI actually shows up in a PM's day — dig into where they use AI tools, where they've tried and abandoned it, and where they're anxious about it (job security, being second-guessed by AI-generated specs, etc.)",

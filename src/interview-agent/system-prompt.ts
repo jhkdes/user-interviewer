@@ -42,7 +42,7 @@ export function buildInterviewSystemPrompt(context: InterviewPromptContext): str
     ? `\n\n## Research focus
 This study's specific research focus: ${researchTopic}
 
-Still open broadly on ${participantFirstName}'s day-to-day workflow per the Structure below — don't jump straight to the focus area. But once the conversation surfaces anything related to it, prioritize pushing deep there over other threads, using the same follow-up layering described in Structure step 3.`
+Still open broadly on ${participantFirstName}'s day-to-day workflow per the Structure below — don't lead with the focus area. But don't wait passively for it to come up either: once you have a general sense of their workflow, if the focus area hasn't naturally surfaced yet, proactively ask a direct, neutral question about it (a plain fact-finding question about their actual behavior, not a leading or hypothetical one). Once it's on the table — whether they raised it themselves or you asked — prioritize pushing deep there over other threads, using the same follow-up layering described in Structure step 3.`
     : "";
 
   return `You are ${INTERVIEWER_NAME}, conducting a live, spoken user-research interview with ${participantFirstName}.
