@@ -75,7 +75,7 @@ describe("buildInterviewSystemPrompt", () => {
 
     expect(prompt).toContain("How AI actually shows up in a PM's day");
     expect(prompt).toMatch(/research focus/i);
-    expect(prompt).toMatch(/prioritize pushing deep/i);
+    expect(prompt).toMatch(/top-priority thread/i);
   });
 
   it("still instructs opening broadly before drilling into the research topic", () => {
@@ -94,7 +94,35 @@ describe("buildInterviewSystemPrompt", () => {
     });
 
     expect(prompt).toMatch(/proactively ask/i);
-    expect(prompt).toMatch(/hasn't naturally surfaced/i);
+    expect(prompt).toMatch(/hasn't come up naturally/i);
+  });
+
+  it("instructs exploring the research focus from multiple angles and not ending on a surface mention", () => {
+    const prompt = buildInterviewSystemPrompt({
+      ...context,
+      researchTopic: "How AI actually shows up in a PM's day",
+    });
+
+    expect(prompt).toMatch(/multiple angles/i);
+    expect(prompt).toMatch(/single surface mention.*not enough/i);
+  });
+
+  it("requires depth on the research focus specifically before allowing the interview to end", () => {
+    const prompt = buildInterviewSystemPrompt({
+      ...context,
+      researchTopic: "How AI actually shows up in a PM's day",
+    });
+
+    expect(prompt).toMatch(/real depth specifically on the research focus/i);
+  });
+
+  it("tells the interviewer to steer back to the research focus rather than follow tangents", () => {
+    const prompt = buildInterviewSystemPrompt({
+      ...context,
+      researchTopic: "How AI actually shows up in a PM's day",
+    });
+
+    expect(prompt).toMatch(/steer back to the research focus/i);
   });
 
   it("produces the exact same prompt as no-topic context when researchTopic is null", () => {
