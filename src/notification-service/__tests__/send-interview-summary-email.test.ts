@@ -38,6 +38,30 @@ describe("sendInterviewSummaryEmail", () => {
     expect(emailClient.sent[0].subject).toContain("Jordan");
   });
 
+  it("records summaryEmailSentAt on the interview after a successful send (#6)", async () => {
+    const { interviewRepo, emailClient, interview } = await setup();
+    const now = new Date("2026-01-01T00:00:00.000Z");
+
+    await sendInterviewSummaryEmail(
+      { interviewRepo, emailClient, now },
+      interview.id,
+      substantiveSummary,
+    );
+
+    expect((await interviewRepo.getById(interview.id))?.summaryEmailSentAt).toEqual(now);
+  });
+
+  it("leaves summaryEmailSentAt null when the send fails (#6)", async () => {
+    const { interviewRepo, emailClient, interview } = await setup();
+    emailClient.scriptFailure(new Error("Resend API error (500): oops"));
+
+    await expect(
+      sendInterviewSummaryEmail({ interviewRepo, emailClient }, interview.id, substantiveSummary),
+    ).rejects.toThrow();
+
+    expect((await interviewRepo.getById(interview.id))?.summaryEmailSentAt).toBeNull();
+  });
+
   it("skips sending (sent: false) when the summary has nothing substantive", async () => {
     const { interviewRepo, emailClient, interview } = await setup();
 

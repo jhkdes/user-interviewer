@@ -27,6 +27,7 @@ export interface InterviewRow {
   created_at: string;
   started_at: string | null;
   completed_at: string | null;
+  summary_email_sent_at: string | null;
 }
 
 export interface SummaryRow {

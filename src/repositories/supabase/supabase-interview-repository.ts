@@ -22,6 +22,7 @@ function toInterview(row: InterviewRow): Interview {
     createdAt: new Date(row.created_at),
     startedAt: row.started_at ? new Date(row.started_at) : null,
     completedAt: row.completed_at ? new Date(row.completed_at) : null,
+    summaryEmailSentAt: row.summary_email_sent_at ? new Date(row.summary_email_sent_at) : null,
   };
 }
 
@@ -41,6 +42,11 @@ function toUpdateRow(patch: InterviewUpdate): Record<string, unknown> {
     row.completed_at = patch.completedAt ? patch.completedAt.toISOString() : null;
   }
   if (patch.roleDescription !== undefined) row.role_description = patch.roleDescription;
+  if (patch.summaryEmailSentAt !== undefined) {
+    row.summary_email_sent_at = patch.summaryEmailSentAt
+      ? patch.summaryEmailSentAt.toISOString()
+      : null;
+  }
   return row;
 }
 

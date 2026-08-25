@@ -215,6 +215,7 @@ describe("handleVapiWebhookMessage", () => {
 
       expect(emailClient.sent).toHaveLength(1);
       expect(emailClient.sent[0].to).toBe("jordan@example.com");
+      expect((await interviewRepo.getById(interview.id))?.summaryEmailSentAt).not.toBeNull();
     });
 
     it("does not send a summary email when the summary has nothing substantive (#6)", async () => {
@@ -267,6 +268,7 @@ describe("handleVapiWebhookMessage", () => {
       const updated = await interviewRepo.getById(interview.id);
       expect(updated?.status).toBe("completed");
       expect(await summaryRepo.getByInterviewId(interview.id)).not.toBeNull();
+      expect(updated?.summaryEmailSentAt).toBeNull();
     });
 
     it("still marks the interview completed even if summary generation fails", async () => {
