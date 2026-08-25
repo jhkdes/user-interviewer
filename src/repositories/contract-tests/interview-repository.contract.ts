@@ -34,6 +34,7 @@ export function runInterviewRepositoryContractTests(
       expect(interview.vapiCallId).toBeNull();
       expect(interview.startedAt).toBeNull();
       expect(interview.completedAt).toBeNull();
+      expect(interview.summaryEmailSentAt).toBeNull();
       expect(interview.createdAt).toBeInstanceOf(Date);
     });
 
@@ -110,6 +111,21 @@ export function runInterviewRepositoryContractTests(
     it("update rejects an unknown id", async () => {
       const repo = await makeRepository();
       await expect(repo.update(NONEXISTENT_ID, { status: "completed" })).rejects.toThrow();
+    });
+
+    it("update can record summaryEmailSentAt (#6)", async () => {
+      const repo = await makeRepository();
+      const created = await repo.create({
+        studyId: getStudyId(),
+        firstName: "Sam",
+        email: "sam@example.com",
+      });
+      const sentAt = new Date("2026-01-01T00:00:00.000Z");
+
+      const updated = await repo.update(created.id, { summaryEmailSentAt: sentAt });
+
+      expect(updated.summaryEmailSentAt).toEqual(sentAt);
+      expect((await repo.getById(created.id))?.summaryEmailSentAt).toEqual(sentAt);
     });
 
     it("delete removes the interview (#5)", async () => {

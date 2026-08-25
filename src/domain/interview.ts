@@ -29,4 +29,6 @@ export interface Interview {
   createdAt: Date;
   startedAt: Date | null;
   completedAt: Date | null;
+  /** When the post-interview "here's what you told us" summary email (#6) was actually sent. `null` until then — including when it's never been attempted, failed, or was intentionally skipped for a non-substantive summary — so `scripts/resend-summary-emails.ts` can find and backfill it later. */
+  summaryEmailSentAt: Date | null;
 }

@@ -24,6 +24,7 @@ export class InMemoryInterviewRepository implements InterviewRepository {
       createdAt: new Date(),
       startedAt: null,
       completedAt: null,
+      summaryEmailSentAt: null,
     };
     this.interviews.set(interview.id, interview);
     return { ...interview };

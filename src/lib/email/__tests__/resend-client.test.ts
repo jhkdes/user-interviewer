@@ -40,25 +40,20 @@ describe("ResendEmailClient", () => {
         }),
       }),
     );
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
   });
 
-  it("throws when the Resend API responds with a non-2xx status", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue({ ok: false, status: 422, text: async () => "Invalid `to` field" }),
-    );
+  it("throws immediately (no retry) on a non-retryable 4xx response", async () => {
+    const fetchSpy = vi
+      .fn()
+      .mockResolvedValue({ ok: false, status: 422, text: async () => "Invalid `to` field" });
+    vi.stubGlobal("fetch", fetchSpy);
 
+    // maxAttempts: 3 — proves this isn't just "happened to only try once".
     await expect(
-      new ResendEmailClient().send({ to: "bad", subject: "s", html: "h" }),
+      new ResendEmailClient(3, 0).send({ to: "bad", subject: "s", html: "h" }),
     ).rejects.toThrow(/Resend API error \(422\)/);
-  });
-
-  it("throws when the fetch itself fails", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("network error")));
-
-    await expect(
-      new ResendEmailClient().send({ to: "a@example.com", subject: "s", html: "h" }),
-    ).rejects.toThrow("network error");
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
   });
 
   it("throws when RESEND_API_KEY is not set", async () => {
@@ -81,5 +76,51 @@ describe("ResendEmailClient", () => {
       new ResendEmailClient().send({ to: "a@example.com", subject: "s", html: "h" }),
     ).rejects.toThrow(/RESEND_FROM_EMAIL/);
     expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  describe("retry behavior for transient failures", () => {
+    it("retries a 5xx response and succeeds if a later attempt is ok", async () => {
+      const fetchSpy = vi
+        .fn()
+        .mockResolvedValueOnce({ ok: false, status: 503, text: async () => "unavailable" })
+        .mockResolvedValueOnce({ ok: true });
+      vi.stubGlobal("fetch", fetchSpy);
+
+      await new ResendEmailClient(3, 0).send({ to: "a@example.com", subject: "s", html: "h" });
+
+      expect(fetchSpy).toHaveBeenCalledTimes(2);
+    });
+
+    it("retries when fetch itself throws (network error) and succeeds if a later attempt is ok", async () => {
+      const fetchSpy = vi
+        .fn()
+        .mockRejectedValueOnce(new Error("network error"))
+        .mockResolvedValueOnce({ ok: true });
+      vi.stubGlobal("fetch", fetchSpy);
+
+      await new ResendEmailClient(3, 0).send({ to: "a@example.com", subject: "s", html: "h" });
+
+      expect(fetchSpy).toHaveBeenCalledTimes(2);
+    });
+
+    it("throws after exhausting all retries on a persistent 5xx", async () => {
+      const fetchSpy = vi
+        .fn()
+        .mockResolvedValue({ ok: false, status: 500, text: async () => "down" });
+      vi.stubGlobal("fetch", fetchSpy);
+
+      await expect(
+        new ResendEmailClient(3, 0).send({ to: "a@example.com", subject: "s", html: "h" }),
+      ).rejects.toThrow(/Resend API error \(500\)/);
+      expect(fetchSpy).toHaveBeenCalledTimes(3);
+    });
+
+    it("throws after exhausting all retries on a persistent network error", async () => {
+      vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("network error")));
+
+      await expect(
+        new ResendEmailClient(3, 0).send({ to: "a@example.com", subject: "s", html: "h" }),
+      ).rejects.toThrow(/Failed to reach Resend/);
+    });
   });
 });

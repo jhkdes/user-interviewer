@@ -16,7 +16,8 @@
     "try:study-report": "tsx scripts/try-study-report.ts",
     "try:pm-auth": "tsx --env-file=.env.local scripts/try-pm-auth.ts",
     "create:pm-account": "tsx --env-file=.env.local scripts/create-pm-account.ts",
-    "try:notification": "tsx --env-file=.env.local scripts/try-notification.ts"
+    "try:notification": "tsx --env-file=.env.local scripts/try-notification.ts",
+    "resend:summary-emails": "tsx --env-file=.env.local scripts/resend-summary-emails.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.117.1",

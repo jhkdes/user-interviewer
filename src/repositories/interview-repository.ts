@@ -20,6 +20,7 @@ export type InterviewUpdate = Partial<
     | "startedAt"
     | "completedAt"
     | "roleDescription"
+    | "summaryEmailSentAt"
   >
 >;
 
