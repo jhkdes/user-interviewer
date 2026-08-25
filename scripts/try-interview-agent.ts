@@ -1,7 +1,10 @@
 /**
  * Manual, interactive tryout of the real InterviewAgent + Claude — for
  * judging interviewing *quality* (Mom Test style, depth, tone, when it
- * wraps up), which the FakeLLMProvider-driven unit tests can't verify.
+ * wraps up), which the FakeLLMProvider-driven unit tests can't verify. Also
+ * runs the real `generateSummary` call against the resulting transcript once
+ * the interview ends, so the individual-summary extraction (including the
+ * backfilled `roleDescription`, see #4) can be eyeballed too.
  *
  * Requires ANTHROPIC_API_KEY set. Run with: npm run try:interview-agent
  *
@@ -36,7 +39,8 @@ async function main() {
     process.exit(1);
   }
 
-  const agent = new InterviewAgent(new ClaudeSonnet46Adapter(new Anthropic()));
+  const adapter = new ClaudeSonnet46Adapter(new Anthropic());
+  const agent = new InterviewAgent(adapter);
   const rl = createInterface({ input: stdin, output: stdout });
 
   const conversationHistory: InterviewTurn[] = [];
@@ -77,6 +81,20 @@ async function main() {
   for (const turn of conversationHistory) {
     console.log(`${turn.speaker === "interviewer" ? "Interviewer" : "You"}: ${turn.text}`);
   }
+
+  const hasParticipantReply = conversationHistory.some((turn) => turn.speaker === "participant");
+  if (!hasParticipantReply) {
+    console.log("\n(No participant replies — skipping summary generation.)");
+    return;
+  }
+
+  console.log("\n--- Generating summary from this transcript... ---");
+  const summary = await adapter.generateSummary({ transcript: conversationHistory });
+  console.log("\n--- Summary ---");
+  console.log("roleDescription:", summary.roleDescription);
+  console.log("painPoints:", summary.painPoints);
+  console.log("notableQuotes:", summary.notableQuotes);
+  console.log("takeaways:", summary.takeaways);
 }
 
 main().catch((error) => {
