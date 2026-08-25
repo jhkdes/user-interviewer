@@ -111,5 +111,23 @@ export function runInterviewRepositoryContractTests(
       const repo = await makeRepository();
       await expect(repo.update(NONEXISTENT_ID, { status: "completed" })).rejects.toThrow();
     });
+
+    it("delete removes the interview (#5)", async () => {
+      const repo = await makeRepository();
+      const created = await repo.create({
+        studyId: getStudyId(),
+        firstName: "Sam",
+        email: "sam@example.com",
+      });
+
+      await repo.delete(created.id);
+
+      expect(await repo.getById(created.id)).toBeNull();
+    });
+
+    it("delete rejects an unknown id", async () => {
+      const repo = await makeRepository();
+      await expect(repo.delete(NONEXISTENT_ID)).rejects.toThrow();
+    });
   });
 }

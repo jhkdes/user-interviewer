@@ -97,4 +97,16 @@ export class SupabaseInterviewRepository implements InterviewRepository {
     if (!data) throw new Error(`Interview not found: ${id}`);
     return toInterview(data as InterviewRow);
   }
+
+  async delete(id: string): Promise<void> {
+    const { data, error } = await this.client
+      .from("interviews")
+      .delete()
+      .eq("id", id)
+      .select("id")
+      .maybeSingle();
+
+    if (error) throw new Error(`Failed to delete interview: ${error.message}`);
+    if (!data) throw new Error(`Interview not found: ${id}`);
+  }
 }
