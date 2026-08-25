@@ -1,5 +1,7 @@
 import type { TranscriptEntry } from "@/domain";
+import type { EmailClient } from "@/lib/email";
 import type { LLMProviderAdapter } from "@/llm";
+import { sendInterviewSummaryEmail } from "@/notification-service";
 import type { InterviewRepository } from "@/repositories/interview-repository";
 import type { SummaryRepository } from "@/repositories/summary-repository";
 import { generateIndividualSummary } from "@/summary-service";
@@ -15,6 +17,7 @@ export interface HandleVapiWebhookDeps {
   interviewRepo: InterviewRepository;
   summaryRepo: SummaryRepository;
   llm: LLMProviderAdapter;
+  emailClient: EmailClient;
   /** Defaults to `new Date()` — overridable so tests can assert on exact timestamps. */
   now?: Date;
 }
@@ -86,10 +89,23 @@ async function handleEndOfCallReport(
   // recoverable problem (no "regenerate summary" ticket exists yet, but
   // failing the whole webhook here would incorrectly suggest the call
   // itself didn't complete).
+  let summary: Awaited<ReturnType<typeof generateIndividualSummary>> | undefined;
   try {
-    await generateIndividualSummary(deps, interviewId);
+    summary = await generateIndividualSummary(deps, interviewId);
   } catch (error) {
     console.error(`Failed to generate individual summary for interview ${interviewId}:`, error);
+  }
+
+  // #6: email the participant their "here's what you told us" summary once
+  // it exists. A separate try/catch from the summary generation above, on
+  // the same non-fatal principle — a failed send shouldn't erase the fact
+  // that the summary itself was generated successfully, or fail the webhook.
+  if (summary) {
+    try {
+      await sendInterviewSummaryEmail(deps, interviewId, summary);
+    } catch (error) {
+      console.error(`Failed to send summary email for interview ${interviewId}:`, error);
+    }
   }
 }
 
