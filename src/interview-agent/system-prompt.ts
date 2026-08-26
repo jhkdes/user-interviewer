@@ -59,7 +59,7 @@ export const INTERVIEWER_NAME = "Riley";
  * Builds the Mom Test-style system prompt for a single interview, per the
  * "Interview Agent Behavior" section of REQUIREMENTS.md. Pure function of
  * the interview's context — no conversation state, no time-awareness (the
- * hard 20-minute cap and depth guard live in termination.ts instead, so this
+ * hard 15-minute cap and depth guard live in termination.ts instead, so this
  * prompt never needs rebuilding mid-interview).
  */
 export function buildInterviewSystemPrompt(context: InterviewPromptContext): string {

@@ -1,6 +1,6 @@
 import type { InterviewTurn } from "@/llm";
 
-export const HARD_CAP_MINUTES = 20;
+export const HARD_CAP_MINUTES = 15;
 export const HARD_CAP_MS = HARD_CAP_MINUTES * 60 * 1000;
 
 /**

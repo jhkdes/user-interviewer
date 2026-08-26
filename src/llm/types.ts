@@ -16,7 +16,7 @@ export interface GenerateInterviewerTurnOutput {
    * The model's own self-assessment that it has surfaced sufficient,
    * concrete pain points and the interview can wrap up. This is a signal,
    * not a command — the Interview Agent (M3) combines it with pure
-   * heuristics (minimum depth, the hard 20-minute cap) before actually
+   * heuristics (minimum depth, the hard 15-minute cap) before actually
    * ending a session.
    */
   shouldEndInterview: boolean;

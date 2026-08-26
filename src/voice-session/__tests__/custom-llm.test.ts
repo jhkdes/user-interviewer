@@ -101,7 +101,7 @@ describe("generateTurn", () => {
     expect(result.utterance).toBe(`Thanks so much for your time. ${END_CALL_PHRASE}`);
   });
 
-  it("forces isInterviewOver once the 20-minute hard cap has elapsed, regardless of the LLM's own signal", async () => {
+  it("forces isInterviewOver once the 15-minute hard cap has elapsed, regardless of the LLM's own signal", async () => {
     const { interviewAgent, interviewRepo, studyRepo, llm, interview } = await setup();
     await interviewRepo.update(interview.id, { startedAt: new Date("2026-08-19T12:00:00.000Z") });
     llm.scriptInterviewerTurns([{ utterance: "One more thing...", shouldEndInterview: false }]);
