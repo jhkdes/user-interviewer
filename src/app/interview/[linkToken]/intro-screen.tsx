@@ -12,7 +12,7 @@ export function IntroScreen({ onAgree }: { onAgree: () => void }) {
       <p className="mt-4 text-sm text-neutral-600 dark:text-neutral-400">
         We&apos;re talking with people like you to understand your day-to-day work and where things
         get frustrating. This is a short voice conversation with an AI interviewer — not a survey —
-        and usually takes 15&ndash;20 minutes.
+        and usually takes 10&ndash;15 minutes.
       </p>
       <p className="mt-4 text-sm text-neutral-600 dark:text-neutral-400">
         The call will be recorded (audio and transcript) so we can review it afterward. We&apos;ll

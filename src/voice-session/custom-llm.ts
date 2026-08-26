@@ -47,7 +47,7 @@ export interface GenerateTurnOutput {
  * Handles one turn of Vapi's custom-LLM integration (T6.2): resolves the
  * Interview + Study behind the call's `metadata.interviewId`, replays the
  * conversation so far into InterviewAgent (M3) — which owns the system
- * prompt and, on every turn, the hard 20-minute cap (T6.4) via its own
+ * prompt and, on every turn, the hard 15-minute cap (T6.4) via its own
  * termination check — and appends END_CALL_PHRASE once it decides to end.
  */
 export async function generateTurn(

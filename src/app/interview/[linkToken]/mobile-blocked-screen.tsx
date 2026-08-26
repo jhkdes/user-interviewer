@@ -12,7 +12,7 @@ export function MobileBlockedScreen() {
     <div className="text-center">
       <h1 className="text-xl font-semibold">Please open this link on a desktop</h1>
       <p className="mt-4 text-sm text-neutral-600 dark:text-neutral-400">
-        This interview is a 15&ndash;20 minute voice call. On a phone, the call is likely to get
+        This interview is a 10&ndash;15 minute voice call. On a phone, the call is likely to get
         interrupted if your screen locks, you switch apps, or the phone senses it&apos;s near your
         ear &mdash; and once that happens, the interview ends and can&apos;t be resumed.
       </p>
