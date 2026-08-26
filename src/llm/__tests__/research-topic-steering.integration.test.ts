@@ -34,6 +34,7 @@ const context: InterviewPromptContext = {
     responsibility: "Owns the core platform roadmap",
   },
   researchTopic: RESEARCH_TOPIC,
+  customPrompt: null,
 };
 
 // Fixed replies played back regardless of the interviewer's exact wording —
@@ -48,42 +49,38 @@ const SCRIPTED_PARTICIPANT_REPLIES = [
 ];
 
 describe.skipIf(!hasAnthropicTestEnv)("researchTopic steering (integration)", () => {
-  it(
-    "probes into the stated research focus once the conversation surfaces it",
-    async () => {
-      const adapter = new ClaudeSonnet46Adapter(new Anthropic());
-      const agent = new InterviewAgent(adapter);
-      const interviewStartedAt = new Date();
-      const history: InterviewTurn[] = [];
+  it("probes into the stated research focus once the conversation surfaces it", async () => {
+    const adapter = new ClaudeSonnet46Adapter(new Anthropic());
+    const agent = new InterviewAgent(adapter);
+    const interviewStartedAt = new Date();
+    const history: InterviewTurn[] = [];
 
-      for (const reply of SCRIPTED_PARTICIPANT_REPLIES) {
-        const turn = await agent.generateNextTurn({
-          context,
-          conversationHistory: history,
-          interviewStartedAt,
-        });
-        history.push({ speaker: "interviewer", text: turn.utterance });
-        if (turn.isInterviewOver) break;
-        history.push({ speaker: "participant", text: reply });
-      }
+    for (const reply of SCRIPTED_PARTICIPANT_REPLIES) {
+      const turn = await agent.generateNextTurn({
+        context,
+        conversationHistory: history,
+        interviewStartedAt,
+      });
+      history.push({ speaker: "interviewer", text: turn.utterance });
+      if (turn.isInterviewOver) break;
+      history.push({ speaker: "participant", text: reply });
+    }
 
-      const interviewerText = history
-        .filter((t) => t.speaker === "interviewer")
-        .map((t) => t.text)
-        .join(" ")
-        .toLowerCase();
+    const interviewerText = history
+      .filter((t) => t.speaker === "interviewer")
+      .map((t) => t.text)
+      .join(" ")
+      .toLowerCase();
 
-      // Coarse behavioral signal: the interviewer's questions should engage
-      // with at least one of the topic's stated focus areas (tool usage,
-      // abandonment, or anxiety/trust) once the participant raises it —
-      // not just generic workflow follow-ups.
-      const mentionsFocusArea =
-        /\bai\b|artificial intelligence|tool/.test(interviewerText) ||
-        /abandon|gave up|went back|stopped using/.test(interviewerText) ||
-        /worry|worried|anxious|trust|second-guess|job security/.test(interviewerText);
+    // Coarse behavioral signal: the interviewer's questions should engage
+    // with at least one of the topic's stated focus areas (tool usage,
+    // abandonment, or anxiety/trust) once the participant raises it —
+    // not just generic workflow follow-ups.
+    const mentionsFocusArea =
+      /\bai\b|artificial intelligence|tool/.test(interviewerText) ||
+      /abandon|gave up|went back|stopped using/.test(interviewerText) ||
+      /worry|worried|anxious|trust|second-guess|job security/.test(interviewerText);
 
-      expect(mentionsFocusArea).toBe(true);
-    },
-    30000,
-  );
+    expect(mentionsFocusArea).toBe(true);
+  }, 30000);
 });

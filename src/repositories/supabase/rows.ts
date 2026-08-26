@@ -8,6 +8,7 @@ export interface StudyRow {
   seniority: string;
   responsibility: string;
   research_topic: string | null;
+  custom_prompt: string | null;
   link_token: string;
   status: string;
   created_at: string;

@@ -10,6 +10,7 @@ export class InMemoryStudyRepository implements StudyRepository {
       id: randomUUID(),
       targetProfile: input.targetProfile,
       researchTopic: input.researchTopic ?? null,
+      customPrompt: input.customPrompt ?? null,
       linkToken: input.linkToken,
       status: "open",
       createdAt: new Date(),

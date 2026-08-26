@@ -12,6 +12,7 @@ const context = {
     responsibility: "Owns the payments roadmap",
   },
   researchTopic: null,
+  customPrompt: null,
 };
 
 describe("buildInterviewSystemPrompt", () => {
@@ -130,5 +131,45 @@ describe("buildInterviewSystemPrompt", () => {
       buildInterviewSystemPrompt(context),
     );
     expect(buildInterviewSystemPrompt(context)).not.toMatch(/research focus/i);
+  });
+
+  describe("with a custom prompt", () => {
+    const customPrompt =
+      "You are talking with {{participant_name}}, who described their role as: {{participant_role}}. Focus on how AI shows up in their day.";
+
+    it("interpolates {{participant_name}} and {{participant_role}}", () => {
+      const prompt = buildInterviewSystemPrompt({ ...context, customPrompt });
+
+      expect(prompt).toContain("You are talking with Jordan");
+      expect(prompt).toContain("described their role as: Product Manager");
+      expect(prompt).not.toContain("{{participant_name}}");
+      expect(prompt).not.toContain("{{participant_role}}");
+    });
+
+    it("appends the response contract but not the generated template", () => {
+      const prompt = buildInterviewSystemPrompt({ ...context, customPrompt });
+
+      expect(prompt).toMatch(/## Every response/);
+      expect(prompt).toMatch(/honest assessment of whether the interview should end/i);
+      expect(prompt).not.toMatch(/## Structure/);
+      expect(prompt).not.toMatch(/## Who you're talking to/);
+      expect(prompt).not.toMatch(/Mom Test-aligned/);
+    });
+
+    it("ignores researchTopic entirely when customPrompt is also set", () => {
+      const prompt = buildInterviewSystemPrompt({
+        ...context,
+        researchTopic: "How AI actually shows up in a PM's day",
+        customPrompt,
+      });
+
+      expect(prompt).not.toMatch(/research focus/i);
+      expect(prompt).not.toContain("How AI actually shows up in a PM's day");
+    });
+
+    it("is a pure function of its input", () => {
+      const input = { ...context, customPrompt };
+      expect(buildInterviewSystemPrompt(input)).toBe(buildInterviewSystemPrompt(input));
+    });
   });
 });

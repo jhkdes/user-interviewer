@@ -23,6 +23,14 @@ export interface Study {
    * system prompt to steer probing; `null` falls back to generic behavior.
    */
   researchTopic: string | null;
+  /**
+   * Optional full raw override of the interviewer's system prompt, pasted in
+   * by the PM. When set, takes precedence over `researchTopic` (ignored)
+   * and the generated Mom Test template entirely — see
+   * buildInterviewSystemPrompt in system-prompt.ts. Supports
+   * `{{participant_name}}` and `{{participant_role}}` placeholders.
+   */
+  customPrompt: string | null;
   linkToken: string;
   status: StudyStatus;
   createdAt: Date;

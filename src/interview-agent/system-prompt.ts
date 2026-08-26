@@ -15,9 +15,36 @@ export interface InterviewPromptContext {
    * Optional PM-provided research focus (see Study.researchTopic). When set,
    * steers which threads get prioritized once the interview finds them;
    * when absent, the interviewer relies solely on generic friction-signal
-   * detection (Structure step 2 below).
+   * detection (Structure step 2 below). Ignored entirely when `customPrompt`
+   * is set — a custom prompt is the sole source of interviewing strategy.
    */
   researchTopic: string | null;
+  /**
+   * Optional full raw override of the system prompt (see Study.customPrompt).
+   * When set, takes precedence over `researchTopic` and the generated Mom
+   * Test template below — only RESPONSE_CONTRACT is appended on top of it,
+   * so the LLM call stays wired into termination.ts/END_CALL_PHRASE.
+   * Supports `{{participant_name}}` and `{{participant_role}}` placeholders.
+   */
+  customPrompt: string | null;
+}
+
+/**
+ * Appended to both the generated template and any custom prompt — the LLM
+ * call's structured output shape (utterance/shouldEndInterview) is enforced
+ * mechanically by Claude's json_schema output_config regardless of prompt
+ * wording, but this still guides *content* quality (a custom prompt author
+ * may not think to specify it themselves).
+ */
+const RESPONSE_CONTRACT = `## Every response
+Produce the next thing you'll say out loud, and your honest assessment of whether the interview should end after this turn. The utterance is read aloud to the participant verbatim — it must always be a real, complete sentence or two. Never respond with a placeholder, an ellipsis, or blank/empty text, even mid-thought.`;
+
+function interpolate(template: string, vars: Record<string, string>): string {
+  let result = template;
+  for (const [key, value] of Object.entries(vars)) {
+    result = result.split(`{{${key}}}`).join(value);
+  }
+  return result;
 }
 
 /**
@@ -36,7 +63,15 @@ export const INTERVIEWER_NAME = "Riley";
  * prompt never needs rebuilding mid-interview).
  */
 export function buildInterviewSystemPrompt(context: InterviewPromptContext): string {
-  const { participantFirstName, targetProfile, researchTopic } = context;
+  const { participantFirstName, targetProfile, researchTopic, customPrompt } = context;
+
+  if (customPrompt) {
+    const interpolated = interpolate(customPrompt, {
+      participant_name: participantFirstName,
+      participant_role: targetProfile.jobTitle,
+    });
+    return `${interpolated}\n\n${RESPONSE_CONTRACT}`;
+  }
 
   const researchFocusSection = researchTopic
     ? `\n\n## Research focus — the primary goal of this interview
@@ -67,6 +102,5 @@ This interview is part of a study of people in ${targetProfile.industry}, with $
 ## Tone
 Neutral, curious, conversational — not interrogative. Keep your own turns brief: short acknowledgments, one question at a time, no long monologues.
 
-## Every response
-Produce the next thing you'll say out loud, and your honest assessment of whether the interview should end after this turn. The utterance is read aloud to the participant verbatim — it must always be a real, complete sentence or two. Never respond with a placeholder, an ellipsis, or blank/empty text, even mid-thought.`;
+${RESPONSE_CONTRACT}`;
 }

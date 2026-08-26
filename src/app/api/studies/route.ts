@@ -11,6 +11,7 @@ export async function POST(request: Request) {
   const body = (await request.json().catch(() => null)) as {
     targetProfile?: TargetProfile;
     researchTopic?: string;
+    customPrompt?: string;
   } | null;
 
   if (!body?.targetProfile) {
@@ -21,6 +22,7 @@ export async function POST(request: Request) {
     const study = await createStudy(getStudyRepository(), {
       targetProfile: body.targetProfile,
       researchTopic: body.researchTopic,
+      customPrompt: body.customPrompt,
     });
     return NextResponse.json(study, { status: 201 });
   } catch (error) {

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { NewStudyForm } from "../new-study-form";
@@ -100,6 +100,44 @@ describe("NewStudyForm", () => {
         body: JSON.stringify({
           targetProfile: sampleProfile,
           researchTopic: "How AI actually shows up in a PM's day",
+        }),
+      }),
+    );
+  });
+
+  it("includes the custom prompt in the request body when filled in", async () => {
+    const fetchSpy = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        id: "study-1",
+        targetProfile: sampleProfile,
+        customPrompt: "You are a research interviewer for {{participant_name}}...",
+        linkToken: "abc123",
+        status: "open",
+        createdAt: new Date().toISOString(),
+        closedAt: null,
+      }),
+    });
+    vi.stubGlobal("fetch", fetchSpy);
+    const user = userEvent.setup();
+
+    render(<NewStudyForm />);
+    await fillForm(user);
+    // fireEvent.change (not user.type) — userEvent.type parses `{`/`}` as
+    // special-key syntax, which mangles literal `{{placeholder}}` text.
+    fireEvent.change(screen.getByLabelText(/Custom interview prompt/), {
+      target: { value: "You are a research interviewer for {{participant_name}}..." },
+    });
+    await user.click(screen.getByRole("button", { name: "Create study" }));
+
+    await waitFor(() => expect(screen.getByText("Study created")).toBeInTheDocument());
+    expect(fetchSpy).toHaveBeenCalledWith(
+      "/api/studies",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({
+          targetProfile: sampleProfile,
+          customPrompt: "You are a research interviewer for {{participant_name}}...",
         }),
       }),
     );

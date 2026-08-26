@@ -33,6 +33,11 @@ const context: InterviewPromptContext = {
   },
   researchTopic:
     "How AI actually shows up in a PM's day — dig into where they use AI tools, where they've tried and abandoned it, and where they're anxious about it (job security, being second-guessed by AI-generated specs, etc.)",
+  // Set this to a full prompt body (with {{participant_name}}/{{participant_role}}
+  // placeholders left literal) to test the custom-prompt path instead of the
+  // generated template above — customPrompt takes precedence over researchTopic
+  // when both are set, so researchTopic above is simply ignored while this is non-null.
+  customPrompt: null,
 };
 
 async function main() {

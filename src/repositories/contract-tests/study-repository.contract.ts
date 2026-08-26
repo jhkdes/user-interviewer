@@ -33,6 +33,7 @@ export function runStudyRepositoryContractTests(
       expect(study.closedAt).toBeNull();
       expect(study.createdAt).toBeInstanceOf(Date);
       expect(study.researchTopic).toBeNull();
+      expect(study.customPrompt).toBeNull();
     });
 
     it("creates a study with a research topic when provided", async () => {
@@ -44,6 +45,17 @@ export function runStudyRepositoryContractTests(
       });
 
       expect(study.researchTopic).toBe("How AI actually shows up in a PM's day");
+    });
+
+    it("creates a study with a custom prompt when provided", async () => {
+      const repo = await makeRepository();
+      const study = await repo.create({
+        targetProfile: sampleTargetProfile,
+        customPrompt: "You are a research interviewer for {{participant_name}}...",
+        linkToken: "token-with-custom-prompt",
+      });
+
+      expect(study.customPrompt).toBe("You are a research interviewer for {{participant_name}}...");
     });
 
     it("getById returns the created study", async () => {

@@ -12,6 +12,7 @@ const baseStudy: Study = {
     responsibility: "Owns the payments roadmap",
   },
   researchTopic: null,
+  customPrompt: null,
   linkToken: "token",
   status: "open",
   createdAt: new Date("2026-08-01T00:00:00Z"),
