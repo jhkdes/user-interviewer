@@ -9,6 +9,8 @@ export class InMemoryStudyRepository implements StudyRepository {
     const study: Study = {
       id: randomUUID(),
       targetProfile: input.targetProfile,
+      researchTopic: input.researchTopic ?? null,
+      customPrompt: input.customPrompt ?? null,
       linkToken: input.linkToken,
       status: "open",
       createdAt: new Date(),

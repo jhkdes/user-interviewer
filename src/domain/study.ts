@@ -16,6 +16,21 @@ export interface TargetProfile {
 export interface Study {
   id: string;
   targetProfile: TargetProfile;
+  /**
+   * Optional free-text research focus set by the PM at study creation (e.g.
+   * "dig into where participants use AI tools, where they've abandoned it,
+   * and where they're anxious about it"). Woven into the interviewer's
+   * system prompt to steer probing; `null` falls back to generic behavior.
+   */
+  researchTopic: string | null;
+  /**
+   * Optional full raw override of the interviewer's system prompt, pasted in
+   * by the PM. When set, takes precedence over `researchTopic` (ignored)
+   * and the generated Mom Test template entirely — see
+   * buildInterviewSystemPrompt in system-prompt.ts. Supports
+   * `{{participant_name}}` and `{{participant_role}}` placeholders.
+   */
+  customPrompt: string | null;
   linkToken: string;
   status: StudyStatus;
   createdAt: Date;

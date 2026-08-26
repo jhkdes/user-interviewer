@@ -74,6 +74,8 @@ export async function generateTurn(
       participantFirstName: interview.firstName,
       participantRoleDescription: interview.roleDescription,
       targetProfile: study.targetProfile,
+      researchTopic: study.researchTopic,
+      customPrompt: study.customPrompt,
     },
     conversationHistory: toConversationHistory(request.messages),
     interviewStartedAt: interview.startedAt ?? interview.createdAt,

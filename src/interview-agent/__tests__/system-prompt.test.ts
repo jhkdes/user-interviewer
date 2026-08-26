@@ -11,6 +11,8 @@ const context = {
     seniority: "Senior",
     responsibility: "Owns the payments roadmap",
   },
+  researchTopic: null,
+  customPrompt: null,
 };
 
 describe("buildInterviewSystemPrompt", () => {
@@ -64,5 +66,110 @@ describe("buildInterviewSystemPrompt", () => {
 
   it("is a pure function of its input — same context produces the same prompt", () => {
     expect(buildInterviewSystemPrompt(context)).toBe(buildInterviewSystemPrompt(context));
+  });
+
+  it("includes the research topic and steering language when set", () => {
+    const prompt = buildInterviewSystemPrompt({
+      ...context,
+      researchTopic: "How AI actually shows up in a PM's day",
+    });
+
+    expect(prompt).toContain("How AI actually shows up in a PM's day");
+    expect(prompt).toMatch(/research focus/i);
+    expect(prompt).toMatch(/top-priority thread/i);
+  });
+
+  it("still instructs opening broadly before drilling into the research topic", () => {
+    const prompt = buildInterviewSystemPrompt({
+      ...context,
+      researchTopic: "How AI actually shows up in a PM's day",
+    });
+
+    expect(prompt).toMatch(/open(s|ing)? broadly/i);
+  });
+
+  it("instructs proactively asking about the research focus if it hasn't surfaced naturally", () => {
+    const prompt = buildInterviewSystemPrompt({
+      ...context,
+      researchTopic: "How AI actually shows up in a PM's day",
+    });
+
+    expect(prompt).toMatch(/proactively ask/i);
+    expect(prompt).toMatch(/hasn't come up naturally/i);
+  });
+
+  it("instructs exploring the research focus from multiple angles and not ending on a surface mention", () => {
+    const prompt = buildInterviewSystemPrompt({
+      ...context,
+      researchTopic: "How AI actually shows up in a PM's day",
+    });
+
+    expect(prompt).toMatch(/multiple angles/i);
+    expect(prompt).toMatch(/single surface mention.*not enough/i);
+  });
+
+  it("requires depth on the research focus specifically before allowing the interview to end", () => {
+    const prompt = buildInterviewSystemPrompt({
+      ...context,
+      researchTopic: "How AI actually shows up in a PM's day",
+    });
+
+    expect(prompt).toMatch(/real depth specifically on the research focus/i);
+  });
+
+  it("tells the interviewer to steer back to the research focus rather than follow tangents", () => {
+    const prompt = buildInterviewSystemPrompt({
+      ...context,
+      researchTopic: "How AI actually shows up in a PM's day",
+    });
+
+    expect(prompt).toMatch(/steer back to the research focus/i);
+  });
+
+  it("produces the exact same prompt as no-topic context when researchTopic is null", () => {
+    expect(buildInterviewSystemPrompt({ ...context, researchTopic: null })).toBe(
+      buildInterviewSystemPrompt(context),
+    );
+    expect(buildInterviewSystemPrompt(context)).not.toMatch(/research focus/i);
+  });
+
+  describe("with a custom prompt", () => {
+    const customPrompt =
+      "You are talking with {{participant_name}}, who described their role as: {{participant_role}}. Focus on how AI shows up in their day.";
+
+    it("interpolates {{participant_name}} and {{participant_role}}", () => {
+      const prompt = buildInterviewSystemPrompt({ ...context, customPrompt });
+
+      expect(prompt).toContain("You are talking with Jordan");
+      expect(prompt).toContain("described their role as: Product Manager");
+      expect(prompt).not.toContain("{{participant_name}}");
+      expect(prompt).not.toContain("{{participant_role}}");
+    });
+
+    it("appends the response contract but not the generated template", () => {
+      const prompt = buildInterviewSystemPrompt({ ...context, customPrompt });
+
+      expect(prompt).toMatch(/## Every response/);
+      expect(prompt).toMatch(/honest assessment of whether the interview should end/i);
+      expect(prompt).not.toMatch(/## Structure/);
+      expect(prompt).not.toMatch(/## Who you're talking to/);
+      expect(prompt).not.toMatch(/Mom Test-aligned/);
+    });
+
+    it("ignores researchTopic entirely when customPrompt is also set", () => {
+      const prompt = buildInterviewSystemPrompt({
+        ...context,
+        researchTopic: "How AI actually shows up in a PM's day",
+        customPrompt,
+      });
+
+      expect(prompt).not.toMatch(/research focus/i);
+      expect(prompt).not.toContain("How AI actually shows up in a PM's day");
+    });
+
+    it("is a pure function of its input", () => {
+      const input = { ...context, customPrompt };
+      expect(buildInterviewSystemPrompt(input)).toBe(buildInterviewSystemPrompt(input));
+    });
   });
 });

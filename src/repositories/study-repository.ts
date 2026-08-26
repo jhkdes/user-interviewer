@@ -2,6 +2,8 @@ import type { Study, StudyStatus, TargetProfile } from "@/domain";
 
 export interface CreateStudyInput {
   targetProfile: TargetProfile;
+  researchTopic?: string;
+  customPrompt?: string;
   linkToken: string;
 }
 

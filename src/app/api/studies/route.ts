@@ -8,14 +8,22 @@ import { createStudy, InvalidTargetProfileError } from "@/study-service";
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
-  const body = (await request.json().catch(() => null)) as { targetProfile?: TargetProfile } | null;
+  const body = (await request.json().catch(() => null)) as {
+    targetProfile?: TargetProfile;
+    researchTopic?: string;
+    customPrompt?: string;
+  } | null;
 
   if (!body?.targetProfile) {
     return NextResponse.json({ error: "targetProfile is required" }, { status: 400 });
   }
 
   try {
-    const study = await createStudy(getStudyRepository(), { targetProfile: body.targetProfile });
+    const study = await createStudy(getStudyRepository(), {
+      targetProfile: body.targetProfile,
+      researchTopic: body.researchTopic,
+      customPrompt: body.customPrompt,
+    });
     return NextResponse.json(study, { status: 201 });
   } catch (error) {
     if (error instanceof InvalidTargetProfileError) {

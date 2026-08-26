@@ -31,6 +31,8 @@ const EMPTY_PROFILE: TargetProfile = {
 
 export function NewStudyForm() {
   const [profile, setProfile] = useState<TargetProfile>(EMPTY_PROFILE);
+  const [researchTopic, setResearchTopic] = useState("");
+  const [customPrompt, setCustomPrompt] = useState("");
   const [errors, setErrors] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [created, setCreated] = useState<Study | null>(null);
@@ -53,7 +55,11 @@ export function NewStudyForm() {
     const res = await fetch("/api/studies", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ targetProfile: profile }),
+      body: JSON.stringify({
+        targetProfile: profile,
+        ...(researchTopic.trim() ? { researchTopic: researchTopic.trim() } : {}),
+        ...(customPrompt.trim() ? { customPrompt: customPrompt.trim() } : {}),
+      }),
     });
     setSubmitting(false);
 
@@ -102,6 +108,33 @@ export function NewStudyForm() {
             />
           </label>
         ))}
+
+        <label className="block text-sm">
+          Research topic <span className="text-neutral-400">(optional)</span>
+          <textarea
+            placeholder="e.g. How AI actually shows up in a PM's day — dig into where they use AI tools, where they've abandoned it, and where they're anxious about it"
+            value={researchTopic}
+            onChange={(e) => setResearchTopic(e.target.value)}
+            rows={3}
+            className="mt-1 block w-full rounded border border-neutral-300 px-3 py-1.5 dark:border-neutral-700 dark:bg-neutral-900"
+          />
+        </label>
+
+        <label className="block text-sm">
+          Custom interview prompt <span className="text-neutral-400">(advanced, optional)</span>
+          <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
+            Full control over interviewing strategy. If set, this replaces the research topic above
+            entirely for this study. Supports <code>{"{{participant_name}}"}</code> and{" "}
+            <code>{"{{participant_role}}"}</code> placeholders.
+          </p>
+          <textarea
+            placeholder="Paste a full custom system prompt here..."
+            value={customPrompt}
+            onChange={(e) => setCustomPrompt(e.target.value)}
+            rows={8}
+            className="mt-1 block w-full rounded border border-neutral-300 px-3 py-1.5 font-mono text-xs dark:border-neutral-700 dark:bg-neutral-900"
+          />
+        </label>
 
         {errors.length > 0 && (
           <ul role="alert" className="list-inside list-disc text-sm text-red-600 dark:text-red-400">
