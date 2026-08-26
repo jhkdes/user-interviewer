@@ -81,6 +81,7 @@ async function handleEndOfCallReport(
     recordingUrl: toRecordingUrl(message),
     vapiCallId: message.call.id,
     completedAt: deps.now ?? new Date(),
+    endedReason: message.endedReason,
   });
 
   // T7.3: trigger the individual summary automatically on completion. Not

@@ -31,4 +31,10 @@ export interface Interview {
   completedAt: Date | null;
   /** When the post-interview "here's what you told us" summary email (#6) was actually sent. `null` until then — including when it's never been attempted, failed, or was intentionally skipped for a non-substantive summary — so `scripts/resend-summary-emails.ts` can find and backfill it later. */
   summaryEmailSentAt: Date | null;
+  /** Best-effort UA-based detection at intake time: `"desktop" | "mobile"`. `null` for interviews created before this field existed. Not authoritative (e.g. iPadOS Safari often reports a desktop-like UA) — informational only. */
+  deviceType: string | null;
+  /** Vapi's raw `endedReason` from the end-of-call-report (e.g. `"assistant-said-end-call-phrase"`, `"silence-timeout"`) — captured as-is, no in-house taxonomy on top. `null` until the call ends. */
+  endedReason: string | null;
+  /** Set client-side the first time the browser tab is backgrounded/hidden while this interview's call is in progress (see live-call.tsx). Overwritten on repeat backgrounding events — holds the most recent one. `null` if backgrounding was never detected. */
+  backgroundedAt: Date | null;
 }

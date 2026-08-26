@@ -36,6 +36,21 @@ export function runInterviewRepositoryContractTests(
       expect(interview.completedAt).toBeNull();
       expect(interview.summaryEmailSentAt).toBeNull();
       expect(interview.createdAt).toBeInstanceOf(Date);
+      expect(interview.deviceType).toBeNull();
+      expect(interview.endedReason).toBeNull();
+      expect(interview.backgroundedAt).toBeNull();
+    });
+
+    it("creates an interview with a device type when provided", async () => {
+      const repo = await makeRepository();
+      const interview = await repo.create({
+        studyId: getStudyId(),
+        firstName: "Alex",
+        email: "alex@example.com",
+        deviceType: "mobile",
+      });
+
+      expect(interview.deviceType).toBe("mobile");
     });
 
     it("getById returns the created interview", async () => {
@@ -126,6 +141,27 @@ export function runInterviewRepositoryContractTests(
 
       expect(updated.summaryEmailSentAt).toEqual(sentAt);
       expect((await repo.getById(created.id))?.summaryEmailSentAt).toEqual(sentAt);
+    });
+
+    it("update can record endedReason and backgroundedAt", async () => {
+      const repo = await makeRepository();
+      const created = await repo.create({
+        studyId: getStudyId(),
+        firstName: "Sam",
+        email: "sam@example.com",
+      });
+      const backgroundedAt = new Date("2026-01-01T00:05:00.000Z");
+
+      const updated = await repo.update(created.id, {
+        endedReason: "silence-timeout",
+        backgroundedAt,
+      });
+
+      expect(updated.endedReason).toBe("silence-timeout");
+      expect(updated.backgroundedAt).toEqual(backgroundedAt);
+      const reloaded = await repo.getById(created.id);
+      expect(reloaded?.endedReason).toBe("silence-timeout");
+      expect(reloaded?.backgroundedAt).toEqual(backgroundedAt);
     });
 
     it("delete removes the interview (#5)", async () => {

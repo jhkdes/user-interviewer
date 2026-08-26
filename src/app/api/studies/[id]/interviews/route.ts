@@ -15,6 +15,7 @@ interface IntakeRequestBody {
   firstName?: string;
   email?: string;
   consentGiven?: boolean;
+  deviceType?: string;
 }
 
 // Next.js requires the same dynamic-segment name across sibling routes at
@@ -36,6 +37,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
         firstName: body.firstName ?? "",
         email: body.email ?? "",
         consentGiven: body.consentGiven ?? false,
+        deviceType: body.deviceType,
       },
     );
     return NextResponse.json(interview, { status: 201 });

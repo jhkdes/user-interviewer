@@ -26,7 +26,7 @@ describe("IntakeForm", () => {
     vi.stubGlobal("fetch", fetchSpy);
     const user = userEvent.setup();
 
-    render(<IntakeForm linkToken="token-1" onStarted={vi.fn()} />);
+    render(<IntakeForm linkToken="token-1" deviceType="desktop" onStarted={vi.fn()} />);
     await user.click(screen.getByRole("button", { name: "Start interview" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("firstName is required");
@@ -38,7 +38,7 @@ describe("IntakeForm", () => {
     vi.stubGlobal("fetch", fetchSpy);
     const user = userEvent.setup();
 
-    render(<IntakeForm linkToken="token-1" onStarted={vi.fn()} />);
+    render(<IntakeForm linkToken="token-1" deviceType="desktop" onStarted={vi.fn()} />);
     await user.type(screen.getByLabelText("First name"), sampleValues.firstName);
     await user.type(screen.getByLabelText("Email"), "not-an-email");
     await user.click(screen.getByRole("button", { name: "Start interview" }));
@@ -70,7 +70,7 @@ describe("IntakeForm", () => {
     const onStarted = vi.fn();
     const user = userEvent.setup();
 
-    render(<IntakeForm linkToken="my-token" onStarted={onStarted} />);
+    render(<IntakeForm linkToken="my-token" deviceType="desktop" onStarted={onStarted} />);
     await fillForm(user);
     await user.click(screen.getByRole("button", { name: "Start interview" }));
 
@@ -79,7 +79,7 @@ describe("IntakeForm", () => {
       "/api/studies/my-token/interviews",
       expect.objectContaining({
         method: "POST",
-        body: JSON.stringify({ ...sampleValues, consentGiven: true }),
+        body: JSON.stringify({ ...sampleValues, consentGiven: true, deviceType: "desktop" }),
       }),
     );
   });
@@ -92,7 +92,7 @@ describe("IntakeForm", () => {
     vi.stubGlobal("fetch", fetchSpy);
     const user = userEvent.setup();
 
-    render(<IntakeForm linkToken="token-1" onStarted={vi.fn()} />);
+    render(<IntakeForm linkToken="token-1" deviceType="desktop" onStarted={vi.fn()} />);
     await fillForm(user);
     await user.click(screen.getByRole("button", { name: "Start interview" }));
 

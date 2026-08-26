@@ -133,6 +133,7 @@ describe("handleVapiWebhookMessage", () => {
       expect(updated?.completedAt).toEqual(now);
       expect(updated?.recordingUrl).toBe("https://recordings.example.com/call-1.wav");
       expect(updated?.vapiCallId).toBe("call-1");
+      expect(updated?.endedReason).toBe("assistant-said-end-call-phrase");
       expect(updated?.transcript).toEqual([
         { speaker: "interviewer", text: "Hi Jordan, thanks for joining.", timestampMs: 0 },
         { speaker: "participant", text: "Happy to be here.", timestampMs: 3500 },

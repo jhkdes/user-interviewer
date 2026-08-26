@@ -24,9 +24,11 @@ const EMPTY_VALUES: IntakeFormValues = { firstName: "", email: "" };
  */
 export function IntakeForm({
   linkToken,
+  deviceType,
   onStarted,
 }: {
   linkToken: string;
+  deviceType: "desktop" | "mobile";
   onStarted: (interview: Interview) => void;
 }) {
   const [values, setValues] = useState<IntakeFormValues>(EMPTY_VALUES);
@@ -47,7 +49,7 @@ export function IntakeForm({
     const res = await fetch(`/api/studies/${linkToken}/interviews`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...values, consentGiven: true }),
+      body: JSON.stringify({ ...values, consentGiven: true, deviceType }),
     });
     setSubmitting(false);
 
