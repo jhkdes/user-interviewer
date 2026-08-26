@@ -101,6 +101,31 @@ describe("generateTurn", () => {
     expect(result.utterance).toBe(`Thanks so much for your time. ${END_CALL_PHRASE}`);
   });
 
+  it("strips the LLM's own concluding sentence before appending END_CALL_PHRASE, so the exact phrase Vapi listens for is never garbled", async () => {
+    const { interviewAgent, interviewRepo, studyRepo, llm, interview } = await setup();
+    const now = new Date("2026-08-19T12:01:00.000Z");
+    await interviewRepo.update(interview.id, { startedAt: now });
+    const history = Array.from({ length: 4 }, (_, i) => [
+      { role: "assistant" as const, content: `Q${i}` },
+      { role: "user" as const, content: `A${i}` },
+    ]).flat();
+    llm.scriptInterviewerTurns([
+      {
+        utterance:
+          "Thanks so much for your time, Jordan. This concludes our interview session for today.",
+        shouldEndInterview: true,
+      },
+    ]);
+
+    const result = await generateTurn(
+      { interviewAgent, interviewRepo, studyRepo, now },
+      requestFor(interview.id, history),
+    );
+
+    expect(result.isInterviewOver).toBe(true);
+    expect(result.utterance).toBe(`Thanks so much for your time, Jordan. ${END_CALL_PHRASE}`);
+  });
+
   it("forces isInterviewOver once the 15-minute hard cap has elapsed, regardless of the LLM's own signal", async () => {
     const { interviewAgent, interviewRepo, studyRepo, llm, interview } = await setup();
     await interviewRepo.update(interview.id, { startedAt: new Date("2026-08-19T12:00:00.000Z") });
