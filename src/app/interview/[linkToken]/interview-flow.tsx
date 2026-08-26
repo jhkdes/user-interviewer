@@ -7,14 +7,13 @@ import { CompletionScreen } from "./completion-screen";
 import { IntakeForm } from "./intake-form";
 import { IntroScreen } from "./intro-screen";
 import { LiveCall } from "./live-call";
-import { MobileWarningScreen } from "./mobile-warning-screen";
+import { MobileBlockedScreen } from "./mobile-blocked-screen";
 
-type Step = "loading" | "mobile-warning" | "intro" | "intake" | "call" | "done";
+type Step = "loading" | "mobile-blocked" | "intro" | "intake" | "call" | "done";
 
 /** Orchestrates T11.1–T11.4 as one client-side flow (no page reloads between steps). */
 export function InterviewFlow({ linkToken }: { linkToken: string }) {
   const [step, setStep] = useState<Step>("loading");
-  const [deviceType, setDeviceType] = useState<"desktop" | "mobile">("desktop");
   const [interview, setInterview] = useState<Interview | null>(null);
 
   useEffect(() => {
@@ -22,24 +21,21 @@ export function InterviewFlow({ linkToken }: { linkToken: string }) {
     // once on mount rather than in the useState initializer, to avoid a
     // server/client hydration mismatch. "loading" renders nothing for this
     // one instant instead.
-    if (isMobileDevice()) {
-      setDeviceType("mobile");
-      setStep("mobile-warning");
-    } else {
-      setStep("intro");
-    }
+    // Mobile is a hard stop, not a dismissible warning — until interviews
+    // move to a real phone call (immune to screen-lock/backgrounding), a
+    // degraded "continue anyway" experience isn't offered (see
+    // mobile-blocked-screen.tsx).
+    setStep(isMobileDevice() ? "mobile-blocked" : "intro");
   }, []);
 
   return (
     <main className="mx-auto flex min-h-screen max-w-md flex-col items-center justify-center px-6">
-      {step === "mobile-warning" && (
-        <MobileWarningScreen onContinueAnyway={() => setStep("intro")} />
-      )}
+      {step === "mobile-blocked" && <MobileBlockedScreen />}
       {step === "intro" && <IntroScreen onAgree={() => setStep("intake")} />}
       {step === "intake" && (
         <IntakeForm
           linkToken={linkToken}
-          deviceType={deviceType}
+          deviceType="desktop"
           onStarted={(createdInterview) => {
             setInterview(createdInterview);
             setStep("call");
