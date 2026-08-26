@@ -15,6 +15,30 @@ import type { CustomLLMChatCompletionRequest, OpenAIChatMessage } from "./vapi-t
  */
 export const END_CALL_PHRASE = "This concludes our interview session.";
 
+const INTERVIEW_NOUN = /\b(?:interview|call|session)\b/i;
+const ENDING_VERB = /\b(?:concludes?|is (?:over|complete|finished)|has (?:ended|concluded))\b/i;
+
+/**
+ * Strips any sentence where the LLM's own closing turn already says the
+ * interview is ending/over/concluding, despite system-prompt.ts telling it
+ * not to. Left in place, wording like this sits directly adjacent to the
+ * appended END_CALL_PHRASE and can merge with it into a garbled, non-matching
+ * string — which means Vapi's exact-phrase `endCallPhrases` detection never
+ * fires and the call never actually hangs up. Requiring both an interview
+ * noun and an ending verb in the same sentence (rather than matching either
+ * alone) avoids false positives on unrelated sentences that happen to use
+ * one of these common words. Applied unconditionally so the phrase Vapi
+ * listens for always reaches it as a single, clean sentence, regardless of
+ * what the LLM said.
+ */
+function stripSelfClosingSentences(utterance: string): string {
+  const sentences = utterance.match(/[^.!?]*[.!?]|[^.!?]+$/g) ?? [];
+  return sentences
+    .filter((sentence) => !(INTERVIEW_NOUN.test(sentence) && ENDING_VERB.test(sentence)))
+    .join("")
+    .trim();
+}
+
 function toConversationHistory(messages: OpenAIChatMessage[]): InterviewTurn[] {
   const history: InterviewTurn[] = [];
   for (const message of messages) {
@@ -94,7 +118,9 @@ export async function generateTurn(
   );
 
   return {
-    utterance: isInterviewOver ? `${utterance} ${END_CALL_PHRASE}` : utterance,
+    utterance: isInterviewOver
+      ? `${stripSelfClosingSentences(utterance)} ${END_CALL_PHRASE}`.trim()
+      : utterance,
     isInterviewOver,
   };
 }
