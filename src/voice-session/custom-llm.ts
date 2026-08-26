@@ -62,11 +62,17 @@ export async function generateTurn(
     request.metadata?.interviewId ?? request.call?.assistantOverrides?.metadata?.interviewId;
   if (!interviewId) throw new MissingInterviewIdError("custom-llm chat completion request");
 
+  // TEMPORARY — turn-latency diagnostics (7-10s opening-greeting delay investigation).
+  // Remove once the bottleneck is identified and addressed.
+  const t0 = Date.now();
+
   const interview = await deps.interviewRepo.getById(interviewId);
   if (!interview) throw new InterviewNotFoundError(interviewId);
+  const t1 = Date.now();
 
   const study = await deps.studyRepo.getById(interview.studyId);
   if (!study) throw new StudyNotFoundError(interview.studyId);
+  const t2 = Date.now();
 
   const now = deps.now ?? new Date();
   const { utterance, isInterviewOver } = await deps.interviewAgent.generateNextTurn({
@@ -81,6 +87,11 @@ export async function generateTurn(
     interviewStartedAt: interview.startedAt ?? interview.createdAt,
     now,
   });
+  const t3 = Date.now();
+
+  console.log(
+    `[timing] interviewId=${interviewId} interviewLookupMs=${t1 - t0} studyLookupMs=${t2 - t1} generateNextTurnMs=${t3 - t2} totalMs=${t3 - t0}`,
+  );
 
   return {
     utterance: isInterviewOver ? `${utterance} ${END_CALL_PHRASE}` : utterance,

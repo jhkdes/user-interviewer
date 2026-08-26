@@ -111,6 +111,8 @@ export class ClaudeSonnet46Adapter implements LLMProviderAdapter {
     let lastAttempt: GenerateInterviewerTurnOutput | undefined;
 
     for (let attempt = 1; attempt <= MAX_INTERVIEWER_TURN_ATTEMPTS; attempt++) {
+      // TEMPORARY — turn-latency diagnostics. Remove once resolved.
+      const claudeCallStart = Date.now();
       let response: Anthropic.Message;
       try {
         response = await this.client.messages.create({
@@ -132,6 +134,9 @@ export class ClaudeSonnet46Adapter implements LLMProviderAdapter {
       } catch (cause) {
         throw new Error("Failed to generate interviewer turn", { cause });
       }
+      console.log(
+        `[timing] claude messages.create attempt=${attempt} ms=${Date.now() - claudeCallStart} cacheReadTokens=${response.usage?.cache_read_input_tokens ?? 0} cacheCreationTokens=${response.usage?.cache_creation_input_tokens ?? 0} inputTokens=${response.usage?.input_tokens ?? 0} outputTokens=${response.usage?.output_tokens ?? 0}`,
+      );
 
       lastAttempt = parseStructuredResponse<GenerateInterviewerTurnOutput>(
         response,
