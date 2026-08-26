@@ -6,6 +6,8 @@ export interface CreateInterviewInput {
   email: string;
   /** No longer collected on the intake form (M13) — omit to leave `null`. */
   roleDescription?: string;
+  /** Best-effort UA-based detection at intake time — omit to leave `null`. */
+  deviceType?: string;
 }
 
 /** Partial update — repositories only persist the fields provided. */
@@ -21,6 +23,8 @@ export type InterviewUpdate = Partial<
     | "completedAt"
     | "roleDescription"
     | "summaryEmailSentAt"
+    | "endedReason"
+    | "backgroundedAt"
   >
 >;
 

@@ -35,6 +35,7 @@ export class ConsentRequiredError extends Error {
 export interface StartInterviewInput extends IntakeInput {
   linkToken: string;
   consentGiven: boolean;
+  deviceType?: string;
 }
 
 export interface StartInterviewDeps {
@@ -71,6 +72,7 @@ export async function startInterview(
     studyId: study.id,
     firstName: input.firstName,
     email: input.email,
+    deviceType: input.deviceType,
   });
 
   return deps.interviewRepo.update(interview.id, { consentGivenAt: now });

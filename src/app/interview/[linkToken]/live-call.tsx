@@ -18,6 +18,16 @@ function formatElapsed(totalSeconds: number): string {
   return `${minutes}:${seconds.toString().padStart(2, "0")}`;
 }
 
+/** Fire-and-forget — best-effort signal, never blocks or surfaces errors to the participant. */
+function reportBackgrounded(interviewId: string) {
+  const url = `/api/interviews/${interviewId}/backgrounded`;
+  if (navigator.sendBeacon) {
+    navigator.sendBeacon(url, new Blob([], { type: "application/json" }));
+  } else {
+    fetch(url, { method: "POST", keepalive: true }).catch(() => {});
+  }
+}
+
 /**
  * T11.3 — starts the Vapi web call as soon as this screen mounts (consent
  * and mic permission were already established by the intro screen; Vapi's
@@ -33,6 +43,11 @@ export function LiveCall({ interviewId, onEnded }: { interviewId: string; onEnde
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const vapiRef = useRef<Vapi | null>(null);
   const startedRef = useRef(false);
+  // Mirrors `status` for the visibilitychange handler, which closes over a
+  // stale `status` from the effect's first run otherwise — this ref is
+  // updated alongside every setStatus call below.
+  const callActiveRef = useRef(false);
+  const wakeLockRef = useRef<WakeLockSentinel | null>(null);
 
   useEffect(() => {
     // React 18 StrictMode double-invokes effects in development (mount →
@@ -59,8 +74,40 @@ export function LiveCall({ interviewId, onEnded }: { interviewId: string; onEnde
     vapiRef.current = vapi;
     let elapsedIntervalId: ReturnType<typeof setInterval> | undefined;
 
+    async function requestWakeLock() {
+      // Feature-detected — unsupported browsers (older iOS Safari, etc.)
+      // just don't get this mitigation, call proceeds normally otherwise.
+      if (!("wakeLock" in navigator)) return;
+      try {
+        wakeLockRef.current = await navigator.wakeLock.request("screen");
+      } catch {
+        // Can fail if the tab isn't visible at request time, or the OS
+        // denies it — not fatal, the call continues without it.
+      }
+    }
+
+    function releaseWakeLock() {
+      wakeLockRef.current?.release().catch(() => {});
+      wakeLockRef.current = null;
+    }
+
+    function handleVisibilityChange() {
+      if (document.visibilityState === "hidden") {
+        if (callActiveRef.current) reportBackgrounded(interviewId);
+      } else if (callActiveRef.current) {
+        // Per spec, the wake lock is auto-released on backgrounding and does
+        // not auto-reacquire — must be explicitly re-requested here or it
+        // silently stops protecting after the first background/foreground
+        // cycle.
+        void requestWakeLock();
+      }
+    }
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
     vapi.on("call-start", () => {
       setStatus("in-progress");
+      callActiveRef.current = true;
+      void requestWakeLock();
       // T13.4 — elapsed time starts ticking once the call actually connects,
       // not at mount. The assistant has no configured `firstMessage` (see
       // custom-llm.ts) and waits for the participant to speak first, so in
@@ -73,11 +120,15 @@ export function LiveCall({ interviewId, onEnded }: { interviewId: string; onEnde
       }, 1000);
     });
     vapi.on("call-end", () => {
+      callActiveRef.current = false;
+      releaseWakeLock();
       if (elapsedIntervalId) clearInterval(elapsedIntervalId);
       setStatus("ended");
       onEnded();
     });
     vapi.on("error", (error: unknown) => {
+      callActiveRef.current = false;
+      releaseWakeLock();
       if (elapsedIntervalId) clearInterval(elapsedIntervalId);
       setStatus("error");
       setErrorMessage(error instanceof Error ? error.message : "Call error");
@@ -95,6 +146,8 @@ export function LiveCall({ interviewId, onEnded }: { interviewId: string; onEnde
     // time an unmount happens in the normal flow, the call is already over.
     return () => {
       if (elapsedIntervalId) clearInterval(elapsedIntervalId);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      releaseWakeLock();
       vapiRef.current?.removeAllListeners();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- start the call exactly once per mount

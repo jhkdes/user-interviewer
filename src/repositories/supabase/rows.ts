@@ -30,6 +30,9 @@ export interface InterviewRow {
   started_at: string | null;
   completed_at: string | null;
   summary_email_sent_at: string | null;
+  device_type: string | null;
+  ended_reason: string | null;
+  backgrounded_at: string | null;
 }
 
 export interface SummaryRow {
