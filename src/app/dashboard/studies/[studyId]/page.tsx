@@ -107,7 +107,10 @@ export default async function StudyDetailPage({ params }: { params: { studyId: s
         {report ? (
           <div className="mt-3">
             <p className="text-sm text-neutral-500 dark:text-neutral-400">
-              Version {report.version} · generated {report.generatedAt.toLocaleString()}
+              Version {report.version} · generated {report.generatedAt.toLocaleString()} ·{" "}
+              <a href={`/api/studies/${study.id}/report`} className="underline hover:no-underline">
+                Download .md
+              </a>
             </p>
             <ul className="mt-3 space-y-4">
               {report.themes.map((theme) => (
