@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { FakeLLMProvider, type InterviewTurn } from "@/llm";
-import { InterviewAgent } from "../interview-agent";
-import { HARD_CAP_MS, MIN_PARTICIPANT_TURNS_BEFORE_LLM_CAN_END } from "../termination";
+import { InterviewAgent, TIME_CHECK_UTTERANCE } from "../interview-agent";
+import { HARD_CAP_MS, MIN_PARTICIPANT_TURNS_BEFORE_LLM_CAN_END, SOFT_CAP_MS } from "../termination";
 
 const context = {
   participantFirstName: "Jordan",
@@ -15,6 +15,7 @@ const context = {
   },
   researchTopic: null,
   customPrompt: null,
+  screenerAnswers: null,
 };
 
 const START = new Date("2026-01-01T00:00:00.000Z");
@@ -54,6 +55,7 @@ describe("InterviewAgent.generateNextTurn", () => {
       utterance: "Tell me more",
       isInterviewOver: false,
       terminationReason: null,
+      timeCheckJustAsked: false,
     });
   });
 
@@ -73,6 +75,28 @@ describe("InterviewAgent.generateNextTurn", () => {
 
     expect(result.isInterviewOver).toBe(false);
     expect(result.terminationReason).toBeNull();
+  });
+
+  it("ends the interview immediately when the participant explicitly asked to end it, even on a very shallow, early conversation", async () => {
+    const llm = new FakeLLMProvider();
+    llm.scriptInterviewerTurns([
+      {
+        utterance: "Of course — take care, and thanks so much for the time you did give me.",
+        shouldEndInterview: false,
+        participantRequestedEnd: true,
+      },
+    ]);
+    const agent = new InterviewAgent(llm);
+
+    const result = await agent.generateNextTurn({
+      context,
+      conversationHistory: [{ speaker: "participant", text: "I gotta run, can you end this?" }],
+      interviewStartedAt: START,
+      now: new Date(START.getTime() + 30_000),
+    });
+
+    expect(result.isInterviewOver).toBe(true);
+    expect(result.terminationReason).toBe("participant-requested");
   });
 
   it("ends the interview once the LLM self-assesses after sufficient depth", async () => {
@@ -114,6 +138,146 @@ describe("InterviewAgent.generateNextTurn", () => {
     expect(result.terminationReason).toBe("time-cap");
     // Still returns the LLM's utterance for this final turn rather than a canned line.
     expect(result.utterance).toBe("One more question...");
+  });
+
+  it("deterministically injects TIME_CHECK_UTTERANCE once the soft cap has elapsed, without calling the LLM", async () => {
+    const llm = new FakeLLMProvider();
+    const agent = new InterviewAgent(llm);
+
+    const result = await agent.generateNextTurn({
+      context,
+      conversationHistory: [{ speaker: "participant", text: "Still going" }],
+      interviewStartedAt: START,
+      now: new Date(START.getTime() + SOFT_CAP_MS),
+    });
+
+    expect(result).toEqual({
+      utterance: TIME_CHECK_UTTERANCE,
+      isInterviewOver: false,
+      terminationReason: null,
+      timeCheckJustAsked: true,
+    });
+    // The LLM proved unreliable at initiating this on its own (verified against
+    // the real API) — it's scripted instead, so the LLM is never even called here.
+    expect(llm.calls.generateInterviewerTurn).toHaveLength(0);
+  });
+
+  it("does not re-inject the check-in once it's already been asked — falls through to a normal LLM turn guided by the reactive Time check section", async () => {
+    const llm = new FakeLLMProvider();
+    llm.scriptInterviewerTurns([
+      {
+        utterance: "Great — one more question: what do you usually rework before using it?",
+        shouldEndInterview: false,
+      },
+    ]);
+    const agent = new InterviewAgent(llm);
+
+    const result = await agent.generateNextTurn({
+      context,
+      conversationHistory: [
+        { speaker: "interviewer", text: TIME_CHECK_UTTERANCE },
+        { speaker: "participant", text: "Yeah, a few more minutes is fine." },
+      ],
+      interviewStartedAt: START,
+      now: new Date(START.getTime() + SOFT_CAP_MS + 30_000),
+      timeCheckAlreadyAsked: true,
+    });
+
+    expect(result.timeCheckJustAsked).toBe(false);
+    expect(result.isInterviewOver).toBe(false);
+    expect(result.utterance).toBe(
+      "Great — one more question: what do you usually rework before using it?",
+    );
+    expect(llm.calls.generateInterviewerTurn[0].systemPrompt).toMatch(/## Time check/);
+    expect(llm.calls.generateInterviewerTurn[0].systemPrompt).toMatch(
+      /you've already asked the participant/i,
+    );
+  });
+
+  it("treats a non-question utterance on the reactive time-check turn as a close, even if the LLM's own shouldEndInterview flag says otherwise", async () => {
+    const llm = new FakeLLMProvider();
+    llm.scriptInterviewerTurns([
+      {
+        utterance: "No worries at all — thanks so much for sharing, Jordan.",
+        shouldEndInterview: false, // The exact real-API failure mode this override guards against.
+      },
+    ]);
+    const agent = new InterviewAgent(llm);
+
+    const deepHistory: InterviewTurn[] = [
+      { speaker: "interviewer", text: TIME_CHECK_UTTERANCE },
+      ...Array.from({ length: MIN_PARTICIPANT_TURNS_BEFORE_LLM_CAN_END }, (_, i) => ({
+        speaker: "participant" as const,
+        text: `Detail ${i + 1}`,
+      })),
+    ];
+
+    const result = await agent.generateNextTurn({
+      context,
+      conversationHistory: deepHistory,
+      interviewStartedAt: START,
+      now: new Date(START.getTime() + SOFT_CAP_MS + 30_000),
+      timeCheckAlreadyAsked: true,
+    });
+
+    expect(result.isInterviewOver).toBe(true);
+    expect(result.terminationReason).toBe("llm-self-assessed");
+  });
+
+  it("does not apply the non-question-means-close override outside the reactive time-check turn", async () => {
+    const llm = new FakeLLMProvider();
+    llm.scriptInterviewerTurns([
+      { utterance: "Got it, that makes sense.", shouldEndInterview: false },
+    ]);
+    const agent = new InterviewAgent(llm);
+
+    const deepHistory: InterviewTurn[] = Array.from(
+      { length: MIN_PARTICIPANT_TURNS_BEFORE_LLM_CAN_END },
+      (_, i) => ({ speaker: "participant" as const, text: `Detail ${i + 1}` }),
+    );
+
+    const result = await agent.generateNextTurn({
+      context,
+      conversationHistory: deepHistory,
+      interviewStartedAt: START,
+      now: new Date(START.getTime() + 60_000), // well before the soft cap
+    });
+
+    expect(result.isInterviewOver).toBe(false);
+  });
+
+  it("does not inject or warn about time before the soft cap", async () => {
+    const llm = new FakeLLMProvider();
+    llm.scriptInterviewerTurns([{ utterance: "Tell me more", shouldEndInterview: false }]);
+    const agent = new InterviewAgent(llm);
+
+    const result = await agent.generateNextTurn({
+      context,
+      conversationHistory: [{ speaker: "participant", text: "Still going" }],
+      interviewStartedAt: START,
+      now: new Date(START.getTime() + SOFT_CAP_MS - 1000),
+    });
+
+    expect(result.timeCheckJustAsked).toBe(false);
+    expect(llm.calls.generateInterviewerTurn[0].systemPrompt).not.toMatch(/## Time check/);
+  });
+
+  it("falls through to a normal (hard-cap) LLM turn instead of the scripted check-in, if the hard cap is already reached by the time the check-in would fire", async () => {
+    const llm = new FakeLLMProvider();
+    llm.scriptInterviewerTurns([{ utterance: "Wrapping up now...", shouldEndInterview: false }]);
+    const agent = new InterviewAgent(llm);
+
+    const result = await agent.generateNextTurn({
+      context,
+      conversationHistory: [{ speaker: "participant", text: "Still going" }],
+      interviewStartedAt: START,
+      now: new Date(START.getTime() + HARD_CAP_MS),
+    });
+
+    expect(result.utterance).toBe("Wrapping up now...");
+    expect(result.isInterviewOver).toBe(true);
+    expect(result.terminationReason).toBe("time-cap");
+    expect(result.timeCheckJustAsked).toBe(false);
   });
 
   it("drives a realistic multi-turn conversation: keeps probing, then terminates on depth", async () => {

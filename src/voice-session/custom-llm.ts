@@ -99,23 +99,30 @@ export async function generateTurn(
   const t2 = Date.now();
 
   const now = deps.now ?? new Date();
-  const { utterance, isInterviewOver } = await deps.interviewAgent.generateNextTurn({
-    context: {
-      participantFirstName: interview.firstName,
-      participantRoleDescription: interview.roleDescription,
-      targetProfile: study.targetProfile,
-      researchTopic: study.researchTopic,
-      customPrompt: study.customPrompt,
-    },
-    conversationHistory: toConversationHistory(request.messages),
-    interviewStartedAt: interview.startedAt ?? interview.createdAt,
-    now,
-  });
+  const { utterance, isInterviewOver, timeCheckJustAsked } =
+    await deps.interviewAgent.generateNextTurn({
+      context: {
+        participantFirstName: interview.firstName,
+        participantRoleDescription: interview.roleDescription,
+        targetProfile: study.targetProfile,
+        researchTopic: study.researchTopic,
+        customPrompt: study.customPrompt,
+        screenerAnswers: interview.screenerAnswers,
+      },
+      conversationHistory: toConversationHistory(request.messages),
+      interviewStartedAt: interview.startedAt ?? interview.createdAt,
+      timeCheckAlreadyAsked: interview.timeCheckAskedAt !== null,
+      now,
+    });
   const t3 = Date.now();
 
   console.log(
     `[timing] interviewId=${interviewId} interviewLookupMs=${t1 - t0} studyLookupMs=${t2 - t1} generateNextTurnMs=${t3 - t2} totalMs=${t3 - t0}`,
   );
+
+  if (timeCheckJustAsked) {
+    await deps.interviewRepo.update(interviewId, { timeCheckAskedAt: now });
+  }
 
   return {
     utterance: isInterviewOver

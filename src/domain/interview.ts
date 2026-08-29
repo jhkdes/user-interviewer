@@ -37,4 +37,8 @@ export interface Interview {
   endedReason: string | null;
   /** Set client-side the first time the browser tab is backgrounded/hidden while this interview's call is in progress (see live-call.tsx). Overwritten on repeat backgrounding events — holds the most recent one. `null` if backgrounding was never detected. */
   backgroundedAt: Date | null;
+  /** Pre-call screener answers (see participant-intake/screener-questions.ts), keyed by question id. Values are a single selected option, or an array for multi-select questions. `null` if the participant answered none of them (they're all optional). Shared with the AI interviewer as context — see system-prompt.ts's formatScreenerContext. */
+  screenerAnswers: Record<string, string | string[]> | null;
+  /** When InterviewAgent deterministically injected the "we're running low on time, can you keep going?" check-in (see termination.ts's SOFT_CAP_MS) — scripted rather than left to the LLM, since it proved unreliable at noticing the cue on its own. `null` until that turn happens; once set, it's asked exactly once per interview. */
+  timeCheckAskedAt: Date | null;
 }

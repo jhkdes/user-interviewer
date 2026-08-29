@@ -36,6 +36,7 @@ export interface StartInterviewInput extends IntakeInput {
   linkToken: string;
   consentGiven: boolean;
   deviceType?: string;
+  screenerAnswers?: Record<string, string | string[]>;
 }
 
 export interface StartInterviewDeps {
@@ -73,6 +74,7 @@ export async function startInterview(
     firstName: input.firstName,
     email: input.email,
     deviceType: input.deviceType,
+    screenerAnswers: input.screenerAnswers,
   });
 
   return deps.interviewRepo.update(interview.id, { consentGivenAt: now });

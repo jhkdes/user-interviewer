@@ -8,6 +8,8 @@ export interface CreateInterviewInput {
   roleDescription?: string;
   /** Best-effort UA-based detection at intake time — omit to leave `null`. */
   deviceType?: string;
+  /** Pre-call screener answers — omit to leave `null`. */
+  screenerAnswers?: Record<string, string | string[]>;
 }
 
 /** Partial update — repositories only persist the fields provided. */
@@ -25,6 +27,7 @@ export type InterviewUpdate = Partial<
     | "summaryEmailSentAt"
     | "endedReason"
     | "backgroundedAt"
+    | "timeCheckAskedAt"
   >
 >;
 

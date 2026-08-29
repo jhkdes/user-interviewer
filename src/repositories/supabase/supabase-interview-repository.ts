@@ -26,6 +26,8 @@ function toInterview(row: InterviewRow): Interview {
     deviceType: row.device_type,
     endedReason: row.ended_reason,
     backgroundedAt: row.backgrounded_at ? new Date(row.backgrounded_at) : null,
+    screenerAnswers: (row.screener_answers as Record<string, string | string[]> | null) ?? null,
+    timeCheckAskedAt: row.time_check_asked_at ? new Date(row.time_check_asked_at) : null,
   };
 }
 
@@ -54,6 +56,9 @@ function toUpdateRow(patch: InterviewUpdate): Record<string, unknown> {
   if (patch.backgroundedAt !== undefined) {
     row.backgrounded_at = patch.backgroundedAt ? patch.backgroundedAt.toISOString() : null;
   }
+  if (patch.timeCheckAskedAt !== undefined) {
+    row.time_check_asked_at = patch.timeCheckAskedAt ? patch.timeCheckAskedAt.toISOString() : null;
+  }
   return row;
 }
 
@@ -69,6 +74,7 @@ export class SupabaseInterviewRepository implements InterviewRepository {
         email: input.email,
         role_description: input.roleDescription ?? null,
         device_type: input.deviceType ?? null,
+        screener_answers: input.screenerAnswers ?? null,
       })
       .select()
       .single();

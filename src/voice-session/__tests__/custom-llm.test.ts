@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { InterviewAgent } from "@/interview-agent";
+import { InterviewAgent, SOFT_CAP_MS, TIME_CHECK_UTTERANCE } from "@/interview-agent";
 import { FakeLLMProvider } from "@/llm";
 import { InMemoryInterviewRepository } from "@/repositories/in-memory/in-memory-interview-repository";
 import { InMemoryStudyRepository } from "@/repositories/in-memory/in-memory-study-repository";
@@ -65,6 +65,32 @@ describe("generateTurn", () => {
     ]);
   });
 
+  it("passes the interview's screenerAnswers through to the InterviewAgent's prompt context", async () => {
+    const { interviewAgent, interviewRepo, studyRepo, study, llm } = await setup();
+    const now = new Date("2026-08-19T12:01:00.000Z");
+    const screenerAnswers = { level: "Senior Product Manager", aiToolsUsed: ["ChatGPT"] };
+    const interview = await interviewRepo.create({
+      studyId: study.id,
+      firstName: "Sam",
+      email: "sam@example.com",
+      screenerAnswers,
+    });
+    await interviewRepo.update(interview.id, { startedAt: now });
+    llm.scriptInterviewerTurns([{ utterance: "Tell me more.", shouldEndInterview: false }]);
+
+    await generateTurn(
+      { interviewAgent, interviewRepo, studyRepo, now },
+      requestFor(interview.id, [{ role: "user", content: "hi" }]),
+    );
+
+    expect(llm.calls.generateInterviewerTurn[0].systemPrompt).toMatch(
+      /What we already know about this participant/i,
+    );
+    expect(llm.calls.generateInterviewerTurn[0].systemPrompt).toContain(
+      "- level: Senior Product Manager",
+    );
+  });
+
   it("returns the utterance as-is when the interview should continue", async () => {
     const { interviewAgent, interviewRepo, studyRepo, llm, interview } = await setup();
     const now = new Date("2026-08-19T12:01:00.000Z");
@@ -99,6 +125,32 @@ describe("generateTurn", () => {
 
     expect(result.isInterviewOver).toBe(true);
     expect(result.utterance).toBe(`Thanks so much for your time. ${END_CALL_PHRASE}`);
+  });
+
+  it("ends the call when the participant explicitly asks to end it, even on the very first exchange", async () => {
+    const { interviewAgent, interviewRepo, studyRepo, llm, interview } = await setup();
+    const now = new Date("2026-08-19T12:01:00.000Z");
+    await interviewRepo.update(interview.id, { startedAt: now });
+    llm.scriptInterviewerTurns([
+      {
+        utterance: "Of course — take care, and thanks for the time you did give me.",
+        shouldEndInterview: false,
+        participantRequestedEnd: true,
+      },
+    ]);
+
+    const result = await generateTurn(
+      { interviewAgent, interviewRepo, studyRepo, now },
+      requestFor(interview.id, [
+        { role: "assistant", content: "Hi, tell me about your day." },
+        { role: "user", content: "I actually have to go, can you end this?" },
+      ]),
+    );
+
+    expect(result.isInterviewOver).toBe(true);
+    expect(result.utterance).toBe(
+      `Of course — take care, and thanks for the time you did give me. ${END_CALL_PHRASE}`,
+    );
   });
 
   it("strips the LLM's own concluding sentence before appending END_CALL_PHRASE, so the exact phrase Vapi listens for is never garbled", async () => {
@@ -138,6 +190,46 @@ describe("generateTurn", () => {
 
     expect(result.isInterviewOver).toBe(true);
     expect(result.utterance).toBe(`One more thing... ${END_CALL_PHRASE}`);
+  });
+
+  it("returns the deterministic time-check utterance once the soft cap elapses, and persists timeCheckAskedAt without appending END_CALL_PHRASE", async () => {
+    const { interviewAgent, interviewRepo, studyRepo, llm, interview } = await setup();
+    const startedAt = new Date("2026-08-19T12:00:00.000Z");
+    await interviewRepo.update(interview.id, { startedAt });
+    const now = new Date(startedAt.getTime() + SOFT_CAP_MS);
+
+    const result = await generateTurn(
+      { interviewAgent, interviewRepo, studyRepo, now },
+      requestFor(interview.id, [{ role: "user", content: "Still going" }]),
+    );
+
+    expect(result).toEqual({ utterance: TIME_CHECK_UTTERANCE, isInterviewOver: false });
+    expect(llm.calls.generateInterviewerTurn).toHaveLength(0);
+    expect((await interviewRepo.getById(interview.id))?.timeCheckAskedAt).toEqual(now);
+  });
+
+  it("does not re-inject the time-check utterance on a later turn once it's already been asked", async () => {
+    const { interviewAgent, interviewRepo, studyRepo, llm, interview } = await setup();
+    const startedAt = new Date("2026-08-19T12:00:00.000Z");
+    await interviewRepo.update(interview.id, {
+      startedAt,
+      timeCheckAskedAt: new Date(startedAt.getTime() + SOFT_CAP_MS),
+    });
+    llm.scriptInterviewerTurns([
+      { utterance: "Great, one more question...", shouldEndInterview: false },
+    ]);
+    const now = new Date(startedAt.getTime() + SOFT_CAP_MS + 30_000);
+
+    const result = await generateTurn(
+      { interviewAgent, interviewRepo, studyRepo, now },
+      requestFor(interview.id, [
+        { role: "assistant", content: TIME_CHECK_UTTERANCE },
+        { role: "user", content: "Yeah, a few more minutes is fine." },
+      ]),
+    );
+
+    expect(result.utterance).toBe("Great, one more question...");
+    expect(llm.calls.generateInterviewerTurn).toHaveLength(1);
   });
 
   it("falls back to call.assistantOverrides.metadata.interviewId when top-level metadata is absent", async () => {

@@ -98,4 +98,44 @@ describe("IntakeForm", () => {
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Study link is closed");
   });
+
+  it("omits screenerAnswers entirely when none of the optional screener questions are answered", async () => {
+    const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) });
+    vi.stubGlobal("fetch", fetchSpy);
+    const user = userEvent.setup();
+
+    render(<IntakeForm linkToken="my-token" deviceType="desktop" onStarted={vi.fn()} />);
+    await fillForm(user);
+    await user.click(screen.getByRole("button", { name: "Start interview" }));
+
+    await waitFor(() => expect(fetchSpy).toHaveBeenCalled());
+    const body = JSON.parse(fetchSpy.mock.calls[0][1].body as string);
+    expect(body).not.toHaveProperty("screenerAnswers");
+  });
+
+  it("includes only the screener questions that were answered, and formats an 'Other' answer as free text", async () => {
+    const fetchSpy = vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) });
+    vi.stubGlobal("fetch", fetchSpy);
+    const user = userEvent.setup();
+
+    render(<IntakeForm linkToken="my-token" deviceType="desktop" onStarted={vi.fn()} />);
+    await fillForm(user);
+    await user.selectOptions(
+      screen.getByLabelText("What's your current level?"),
+      "Senior Product Manager",
+    );
+    await user.selectOptions(screen.getByLabelText("What industry is your company in?"), "Other");
+    await user.type(screen.getAllByPlaceholderText("Please specify")[0], "Fractional PM");
+    await user.click(screen.getByLabelText("ChatGPT"));
+    await user.click(screen.getByLabelText("Claude"));
+    await user.click(screen.getByRole("button", { name: "Start interview" }));
+
+    await waitFor(() => expect(fetchSpy).toHaveBeenCalled());
+    const body = JSON.parse(fetchSpy.mock.calls[0][1].body as string);
+    expect(body.screenerAnswers).toEqual({
+      level: "Senior Product Manager",
+      industry: "Other: Fractional PM",
+      aiToolsUsed: ["ChatGPT", "Claude"],
+    });
+  });
 });

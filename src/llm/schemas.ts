@@ -13,8 +13,13 @@ export const interviewerTurnSchema = {
       description:
         "True if sufficient, concrete pain points have been surfaced and the interview should wrap up after this utterance.",
     },
+    participantRequestedEnd: {
+      type: "boolean",
+      description:
+        'True if the participant explicitly and unambiguously asked to end the interview right now, or said they have to leave/go (e.g. "I have to go," "can you end this?," "let\'s stop here," a clear goodbye) — regardless of how much depth has been reached so far. Distinct from shouldEndInterview: this overrides the normal minimum-depth requirement and ends the call immediately after this turn. False otherwise, including when they are just answering slowly, going quiet, or the conversation is naturally winding down without an explicit request to stop.',
+    },
   },
-  required: ["utterance", "shouldEndInterview"],
+  required: ["utterance", "shouldEndInterview", "participantRequestedEnd"],
   additionalProperties: false,
 } as const;
 
