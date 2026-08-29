@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildInterviewSystemPrompt, INTERVIEWER_NAME } from "../system-prompt";
+import { HARD_CAP_MINUTES } from "../termination";
 
 const context = {
   participantFirstName: "Jordan",
@@ -13,6 +14,8 @@ const context = {
   },
   researchTopic: null,
   customPrompt: null,
+  screenerAnswers: null,
+  timeRunningLow: false,
 };
 
 describe("buildInterviewSystemPrompt", () => {
@@ -24,13 +27,29 @@ describe("buildInterviewSystemPrompt", () => {
   it("instructs opening the interview by asking about role and day-to-day responsibilities (M13 — no longer pre-collected at intake)", () => {
     const prompt = buildInterviewSystemPrompt(context);
     expect(prompt).toMatch(/role and day-to-day responsibilities/i);
-    expect(prompt).toMatch(/always your first turn/i);
+    expect(prompt).toMatch(/always your first substantive question/i);
   });
 
   it("instructs the interviewer to introduce itself by name before the first question (#1)", () => {
     const prompt = buildInterviewSystemPrompt(context);
     expect(prompt).toContain(INTERVIEWER_NAME);
     expect(prompt).toMatch(/introduc(e|ing) yourself as/i);
+  });
+
+  it("instructs a warm-up-only opening turn, waiting for a reply before introducing itself or previewing the topic/count", () => {
+    const prompt = buildInterviewSystemPrompt(context);
+    expect(prompt).toMatch(/warm-up only/i);
+    expect(prompt).toMatch(/stop and wait for their actual reply/i);
+    expect(prompt).toMatch(
+      /do not introduce yourself, mention the study, or ask anything substantive in this same turn/i,
+    );
+    expect(prompt).toMatch(/roughly how many things you'll cover/i);
+  });
+
+  it("instructs explicitly stating the interview will take about the hard-cap duration", () => {
+    const prompt = buildInterviewSystemPrompt(context);
+    expect(prompt).toMatch(new RegExp(`mention it'll take about ${HARD_CAP_MINUTES} minutes`, "i"));
+    expect(prompt).toMatch(/the .*-minute figure should always be stated/i);
   });
 
   it("includes the study's target profile fields", () => {
@@ -131,6 +150,115 @@ describe("buildInterviewSystemPrompt", () => {
       buildInterviewSystemPrompt(context),
     );
     expect(buildInterviewSystemPrompt(context)).not.toMatch(/research focus/i);
+  });
+
+  describe("screener context", () => {
+    const screenerAnswers = {
+      level: "Senior Product Manager",
+      aiToolsUsed: ["ChatGPT", "Claude"],
+    };
+
+    it("appends a section listing screener answers when present", () => {
+      const prompt = buildInterviewSystemPrompt({ ...context, screenerAnswers });
+
+      expect(prompt).toMatch(/What we already know about this participant/i);
+      expect(prompt).toMatch(/don't re-ask these/i);
+      expect(prompt).toContain("- level: Senior Product Manager");
+      expect(prompt).toContain("- aiToolsUsed: ChatGPT, Claude");
+    });
+
+    it("appends nothing when there are no screener answers", () => {
+      expect(buildInterviewSystemPrompt(context)).not.toMatch(
+        /What we already know about this participant/i,
+      );
+    });
+
+    it("also appends the screener section for a customPrompt-driven study", () => {
+      const prompt = buildInterviewSystemPrompt({
+        ...context,
+        customPrompt: "You are talking with {{participant_name}}.",
+        screenerAnswers,
+      });
+
+      expect(prompt).toMatch(/What we already know about this participant/i);
+      expect(prompt).toContain("- level: Senior Product Manager");
+    });
+
+    it.each(["Yes, regularly", "Yes, occasionally"])(
+      "instructs distinguishing work vs. side-project AI usage, work first, when sideAiProject is %s",
+      (sideAiProject) => {
+        const prompt = buildInterviewSystemPrompt({
+          ...context,
+          screenerAnswers: { ...screenerAnswers, sideAiProject },
+        });
+
+        expect(prompt).toMatch(/keep work AI usage and side-project AI usage clearly distinct/i);
+        expect(prompt).toMatch(/steer toward their \*\*work\*\* AI usage first/i);
+      },
+    );
+
+    it.each(["No, but I'd like to", "No, not interested"])(
+      "does not add side-project guidance when sideAiProject is %s",
+      (sideAiProject) => {
+        const prompt = buildInterviewSystemPrompt({
+          ...context,
+          screenerAnswers: { ...screenerAnswers, sideAiProject },
+        });
+
+        expect(prompt).not.toMatch(/side-project AI usage/i);
+      },
+    );
+
+    it("does not add side-project guidance when sideAiProject wasn't answered", () => {
+      const prompt = buildInterviewSystemPrompt({ ...context, screenerAnswers });
+
+      expect(prompt).not.toMatch(/side-project AI usage/i);
+    });
+  });
+
+  describe("time check", () => {
+    it("appends nothing when time isn't running low", () => {
+      expect(buildInterviewSystemPrompt({ ...context, timeRunningLow: false })).not.toMatch(
+        /Time check/i,
+      );
+    });
+
+    it("instructs reacting to the already-asked check-in rather than asking it again itself", () => {
+      const prompt = buildInterviewSystemPrompt({ ...context, timeRunningLow: true });
+
+      expect(prompt).toMatch(/## Time check/);
+      expect(prompt).toMatch(/you've already asked the participant/i);
+      expect(prompt).toMatch(/do not ask that again/i);
+      expect(prompt).toMatch(
+        /if they said they can keep going, ask at most one more focused question/i,
+      );
+      expect(prompt).toMatch(/if they said they can't.*close immediately instead/i);
+    });
+
+    it("is positioned first in the prompt, not appended at the end", () => {
+      const prompt = buildInterviewSystemPrompt({ ...context, timeRunningLow: true });
+
+      expect(prompt.indexOf("## Time check")).toBe(0);
+      expect(prompt.indexOf("## Time check")).toBeLessThan(prompt.indexOf("## Structure"));
+    });
+
+    it("instructs a closing-statement-only turn once they do wrap up, never mixed with a new question, and requires setting shouldEndInterview", () => {
+      const prompt = buildInterviewSystemPrompt({ ...context, timeRunningLow: true });
+
+      expect(prompt).toMatch(/that turn's utterance must be a closing statement only/i);
+      expect(prompt).toMatch(/never mixed with a new question/i);
+      expect(prompt).toMatch(/you must set shouldEndInterview to true on that same turn/i);
+    });
+
+    it("also appends the time-check section for a customPrompt-driven study", () => {
+      const prompt = buildInterviewSystemPrompt({
+        ...context,
+        customPrompt: "You are talking with {{participant_name}}.",
+        timeRunningLow: true,
+      });
+
+      expect(prompt).toMatch(/## Time check/);
+    });
   });
 
   describe("with a custom prompt", () => {

@@ -28,6 +28,8 @@ export class InMemoryInterviewRepository implements InterviewRepository {
       deviceType: input.deviceType ?? null,
       endedReason: null,
       backgroundedAt: null,
+      screenerAnswers: input.screenerAnswers ?? null,
+      timeCheckAskedAt: null,
     };
     this.interviews.set(interview.id, interview);
     return { ...interview };

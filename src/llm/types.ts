@@ -20,6 +20,16 @@ export interface GenerateInterviewerTurnOutput {
    * ending a session.
    */
   shouldEndInterview: boolean;
+  /**
+   * The model's signal that the participant explicitly asked to end the
+   * interview now (as opposed to shouldEndInterview's "sufficient depth
+   * reached" signal) — see termination.ts's `participantRequestedEnd`,
+   * which honors this immediately, bypassing the minimum-depth guardrail
+   * that otherwise gates shouldEndInterview. Optional/defaults to `false`
+   * so existing FakeLLMProvider-scripted test fixtures don't all need
+   * updating — real Claude responses always include it (schema-enforced).
+   */
+  participantRequestedEnd?: boolean;
 }
 
 export interface GenerateSummaryInput {

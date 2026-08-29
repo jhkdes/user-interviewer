@@ -39,6 +39,25 @@ export function runInterviewRepositoryContractTests(
       expect(interview.deviceType).toBeNull();
       expect(interview.endedReason).toBeNull();
       expect(interview.backgroundedAt).toBeNull();
+      expect(interview.screenerAnswers).toBeNull();
+      expect(interview.timeCheckAskedAt).toBeNull();
+    });
+
+    it("creates an interview with screener answers when provided, round-tripping single and multi-select values", async () => {
+      const repo = await makeRepository();
+      const screenerAnswers = {
+        level: "Senior Product Manager",
+        aiToolsUsed: ["ChatGPT", "Claude", "Other: an internal tool"],
+      };
+      const interview = await repo.create({
+        studyId: getStudyId(),
+        firstName: "Alex",
+        email: "alex@example.com",
+        screenerAnswers,
+      });
+
+      expect(interview.screenerAnswers).toEqual(screenerAnswers);
+      expect((await repo.getById(interview.id))?.screenerAnswers).toEqual(screenerAnswers);
     });
 
     it("creates an interview with a device type when provided", async () => {
@@ -162,6 +181,21 @@ export function runInterviewRepositoryContractTests(
       const reloaded = await repo.getById(created.id);
       expect(reloaded?.endedReason).toBe("silence-timeout");
       expect(reloaded?.backgroundedAt).toEqual(backgroundedAt);
+    });
+
+    it("update can record timeCheckAskedAt", async () => {
+      const repo = await makeRepository();
+      const created = await repo.create({
+        studyId: getStudyId(),
+        firstName: "Sam",
+        email: "sam@example.com",
+      });
+      const timeCheckAskedAt = new Date("2026-01-01T00:12:00.000Z");
+
+      const updated = await repo.update(created.id, { timeCheckAskedAt });
+
+      expect(updated.timeCheckAskedAt).toEqual(timeCheckAskedAt);
+      expect((await repo.getById(created.id))?.timeCheckAskedAt).toEqual(timeCheckAskedAt);
     });
 
     it("delete removes the interview (#5)", async () => {

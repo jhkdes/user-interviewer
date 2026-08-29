@@ -3,7 +3,9 @@ import type { InterviewTurn } from "@/llm";
 import {
   checkTermination,
   HARD_CAP_MS,
+  isApproachingTimeLimit,
   MIN_PARTICIPANT_TURNS_BEFORE_LLM_CAN_END,
+  SOFT_CAP_MS,
 } from "../termination";
 
 const START = new Date("2026-01-01T00:00:00.000Z");
@@ -22,6 +24,7 @@ describe("checkTermination", () => {
       interviewStartedAt: START,
       now: new Date(START.getTime() + 60_000),
       llmSuggestsEnd: false,
+      participantRequestedEnd: false,
     });
     expect(result).toBeNull();
   });
@@ -32,6 +35,7 @@ describe("checkTermination", () => {
       interviewStartedAt: START,
       now: new Date(START.getTime() + 60_000),
       llmSuggestsEnd: true,
+      participantRequestedEnd: false,
     });
     expect(result).toBeNull();
   });
@@ -42,6 +46,7 @@ describe("checkTermination", () => {
       interviewStartedAt: START,
       now: new Date(START.getTime() + 60_000),
       llmSuggestsEnd: true,
+      participantRequestedEnd: false,
     });
     expect(result).toBe("llm-self-assessed");
   });
@@ -60,6 +65,7 @@ describe("checkTermination", () => {
       interviewStartedAt: START,
       now: new Date(START.getTime() + 60_000),
       llmSuggestsEnd: true,
+      participantRequestedEnd: false,
     });
     expect(result).toBeNull();
   });
@@ -70,6 +76,7 @@ describe("checkTermination", () => {
       interviewStartedAt: START,
       now: new Date(START.getTime() + HARD_CAP_MS),
       llmSuggestsEnd: false,
+      participantRequestedEnd: false,
     });
     expect(result).toBe("time-cap");
   });
@@ -80,6 +87,7 @@ describe("checkTermination", () => {
       interviewStartedAt: START,
       now: new Date(START.getTime() + HARD_CAP_MS + 1000),
       llmSuggestsEnd: true,
+      participantRequestedEnd: false,
     });
     expect(result).toBe("time-cap");
   });
@@ -90,7 +98,71 @@ describe("checkTermination", () => {
       interviewStartedAt: START,
       now: new Date(START.getTime() + HARD_CAP_MS - 1000),
       llmSuggestsEnd: false,
+      participantRequestedEnd: false,
     });
     expect(result).toBeNull();
+  });
+
+  it("returns 'participant-requested' immediately, bypassing the minimum-depth floor entirely", () => {
+    const result = checkTermination({
+      conversationHistory: participantTurns(1), // well under MIN_PARTICIPANT_TURNS_BEFORE_LLM_CAN_END
+      interviewStartedAt: START,
+      now: new Date(START.getTime() + 60_000),
+      llmSuggestsEnd: false,
+      participantRequestedEnd: true,
+    });
+    expect(result).toBe("participant-requested");
+  });
+
+  it("returns 'participant-requested' even with zero participant turns at all", () => {
+    const result = checkTermination({
+      conversationHistory: [],
+      interviewStartedAt: START,
+      now: START,
+      llmSuggestsEnd: false,
+      participantRequestedEnd: true,
+    });
+    expect(result).toBe("participant-requested");
+  });
+
+  it("prioritizes 'time-cap' over 'participant-requested' when both conditions hold", () => {
+    const result = checkTermination({
+      conversationHistory: participantTurns(1),
+      interviewStartedAt: START,
+      now: new Date(START.getTime() + HARD_CAP_MS),
+      llmSuggestsEnd: false,
+      participantRequestedEnd: true,
+    });
+    expect(result).toBe("time-cap");
+  });
+});
+
+describe("isApproachingTimeLimit", () => {
+  it("is false before the soft cap", () => {
+    expect(
+      isApproachingTimeLimit({
+        interviewStartedAt: START,
+        now: new Date(START.getTime() + SOFT_CAP_MS - 1000),
+      }),
+    ).toBe(false);
+  });
+
+  it("is true at and after the soft cap", () => {
+    expect(
+      isApproachingTimeLimit({
+        interviewStartedAt: START,
+        now: new Date(START.getTime() + SOFT_CAP_MS),
+      }),
+    ).toBe(true);
+    expect(
+      isApproachingTimeLimit({
+        interviewStartedAt: START,
+        now: new Date(START.getTime() + HARD_CAP_MS),
+      }),
+    ).toBe(true);
+  });
+
+  it("leaves a buffer before the hard cap, not right up against it", () => {
+    expect(SOFT_CAP_MS).toBeLessThan(HARD_CAP_MS);
   });
 });

@@ -33,6 +33,8 @@ export interface InterviewRow {
   device_type: string | null;
   ended_reason: string | null;
   backgrounded_at: string | null;
+  screener_answers: unknown;
+  time_check_asked_at: string | null;
 }
 
 export interface SummaryRow {

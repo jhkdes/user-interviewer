@@ -7,11 +7,26 @@ type CallStatus = "connecting" | "starting" | "in-progress" | "ended" | "error";
 
 const STATUS_COPY: Record<CallStatus, string> = {
   connecting: "Connecting…",
-  starting: "Riley is getting ready…",
+  starting: "AI interviewer, Riley, is getting ready…",
   "in-progress": "In progress — go ahead and talk",
   ended: "Call ended",
   error: "Something went wrong with the call",
 };
+
+/** Three staggered bouncing dots — shown while the call connects and Riley's opening line is generated. */
+function GettingReadyAnimation() {
+  return (
+    <div className="mt-4 flex justify-center gap-1.5" role="presentation">
+      {[0, 1, 2].map((i) => (
+        <span
+          key={i}
+          className="h-2 w-2 animate-bounce rounded-full bg-neutral-400 dark:bg-neutral-600"
+          style={{ animationDelay: `${i * 150}ms` }}
+        />
+      ))}
+    </div>
+  );
+}
 
 function formatElapsed(totalSeconds: number): string {
   const minutes = Math.floor(totalSeconds / 60);
@@ -160,11 +175,13 @@ export function LiveCall({ interviewId, onEnded }: { interviewId: string; onEnde
     // Deliberately no `vapi.stop()` here. Calling it from this cleanup would
     // also fire on StrictMode's phantom cleanup — which runs immediately
     // after the effect above, before the call has even connected — ending
-    // every dev-mode call before it could start. The call is only ever
-    // stopped for real via the "End call" button or Vapi's own `call-end`
-    // event (`maxDurationSeconds` / `endCallPhrases`), both of which already
-    // call `onEnded()` and unmount this component as a result — so by the
-    // time an unmount happens in the normal flow, the call is already over.
+    // every dev-mode call before it could start. There's no manual "End
+    // call" button (T11.3 — the participant ends the call by asking Riley,
+    // who says END_CALL_PHRASE per custom-llm.ts); the call is only ever
+    // stopped via Vapi's own `call-end` event (`maxDurationSeconds` /
+    // `endCallPhrases`), which already calls `onEnded()` and unmounts this
+    // component — so by the time an unmount happens in the normal flow, the
+    // call is already over.
     return () => {
       if (elapsedIntervalId) clearInterval(elapsedIntervalId);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
@@ -177,21 +194,19 @@ export function LiveCall({ interviewId, onEnded }: { interviewId: string; onEnde
   return (
     <div className="text-center">
       <h1 className="text-xl font-semibold">{STATUS_COPY[status]}</h1>
+      {(status === "connecting" || status === "starting") && <GettingReadyAnimation />}
       {status === "in-progress" && (
-        <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400" aria-live="polite">
-          {formatElapsed(elapsedSeconds)} elapsed
-        </p>
+        <>
+          <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400" aria-live="polite">
+            {formatElapsed(elapsedSeconds)} elapsed
+          </p>
+          <p className="mt-6 text-sm text-neutral-500 dark:text-neutral-400">
+            Ready to wrap up? Just let Riley know, and it&apos;ll bring the interview to a close.
+          </p>
+        </>
       )}
       {errorMessage && (
         <p className="mt-3 text-sm text-red-600 dark:text-red-400">{errorMessage}</p>
-      )}
-      {(status === "starting" || status === "in-progress") && (
-        <button
-          onClick={() => vapiRef.current?.stop()}
-          className="mt-6 rounded border border-neutral-300 px-4 py-2 text-sm hover:bg-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-800"
-        >
-          End call
-        </button>
       )}
     </div>
   );

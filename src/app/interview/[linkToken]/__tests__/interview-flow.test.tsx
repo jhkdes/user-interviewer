@@ -23,7 +23,7 @@ describe("InterviewFlow", () => {
 
     expect(await screen.findByText("Please open this link on a desktop")).toBeInTheDocument();
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
-    expect(screen.queryByText("You're invited to a research interview")).not.toBeInTheDocument();
+    expect(screen.queryByText(/How AI Actually Shows Up/)).not.toBeInTheDocument();
   });
 
   it("skips the mobile block and goes straight to intro on a desktop UA", async () => {
@@ -33,9 +33,7 @@ describe("InterviewFlow", () => {
 
     render(<InterviewFlow linkToken="token-1" />);
 
-    await waitFor(() =>
-      expect(screen.getByText("You're invited to a research interview")).toBeInTheDocument(),
-    );
+    await waitFor(() => expect(screen.getByText(/How AI Actually Shows Up/)).toBeInTheDocument());
     expect(screen.queryByText("Please open this link on a desktop")).not.toBeInTheDocument();
   });
 });
