@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { InterviewAgent } from "@/interview-agent";
+import { isVoiceSessionDebugEnabled } from "@/lib/debug";
 import { getLLMProvider } from "@/llm";
 import { getInterviewRepository } from "@/repositories/get-interview-repository";
 import { getStudyRepository } from "@/repositories/get-study-repository";
@@ -12,10 +13,12 @@ export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
   const rawBody = await request.text();
-  // TEMPORARY — logging the raw request while confirming ElevenLabs' actual
-  // wire shape against a live agent. Remove once elevenlabs_extra_body's
-  // location (and everything else about this request shape) is confirmed.
-  console.log("[elevenlabs custom-llm] raw request body:", rawBody);
+  // Gated — this is real participant conversation content, not something to
+  // log unconditionally in production. Set DEBUG_VOICE_SESSION=true to
+  // enable (see src/lib/debug.ts).
+  if (isVoiceSessionDebugEnabled()) {
+    console.log("[elevenlabs custom-llm] raw request body:", rawBody);
+  }
 
   const body = (() => {
     try {
@@ -38,8 +41,9 @@ export async function POST(request: Request) {
       body,
     );
 
-    // TEMPORARY — same debugging pass as the raw-request log above.
-    console.log("[elevenlabs custom-llm] response SSE body:", sseBody);
+    if (isVoiceSessionDebugEnabled()) {
+      console.log("[elevenlabs custom-llm] response SSE body:", sseBody);
+    }
 
     return new NextResponse(sseBody, {
       status: 200,
