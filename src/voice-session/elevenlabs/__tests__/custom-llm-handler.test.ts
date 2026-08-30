@@ -21,7 +21,11 @@ async function setup() {
   const llm = new FakeLLMProvider();
   const interviewAgent = new InterviewAgent(llm);
 
-  const study = await studyRepo.create({ targetProfile, linkToken: "token", voiceProvider: "elevenlabs" });
+  const study = await studyRepo.create({
+    targetProfile,
+    linkToken: "token",
+    voiceProvider: "elevenlabs",
+  });
   const interview = await interviewRepo.create({
     studyId: study.id,
     firstName: "Jordan",

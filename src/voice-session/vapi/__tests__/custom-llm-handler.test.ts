@@ -32,10 +32,7 @@ async function setup() {
   return { studyRepo, interviewRepo, llm, interviewAgent, study, interview };
 }
 
-function requestFor(
-  interviewId: string,
-  messages: VapiCustomLlmChatCompletionRequest["messages"],
-) {
+function requestFor(interviewId: string, messages: VapiCustomLlmChatCompletionRequest["messages"]) {
   return {
     model: "gpt-4o",
     messages,
@@ -132,7 +129,9 @@ describe("handleVapiCustomLlmRequest", () => {
       requestFor(interview.id, history),
     );
 
-    expect(spokenUtterance(sseBody)).toBe(`Thanks so much for your time, Jordan. ${END_CALL_PHRASE}`);
+    expect(spokenUtterance(sseBody)).toBe(
+      `Thanks so much for your time, Jordan. ${END_CALL_PHRASE}`,
+    );
   });
 
   it("forces END_CALL_PHRASE once the 15-minute hard cap has elapsed, regardless of the LLM's own signal", async () => {

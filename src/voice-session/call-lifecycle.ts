@@ -63,7 +63,10 @@ export async function completeInterview(
   try {
     summary = await generateIndividualSummary(deps, event.interviewId);
   } catch (error) {
-    console.error(`Failed to generate individual summary for interview ${event.interviewId}:`, error);
+    console.error(
+      `Failed to generate individual summary for interview ${event.interviewId}:`,
+      error,
+    );
   }
 
   // #6: email the participant their "here's what you told us" summary once

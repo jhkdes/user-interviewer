@@ -10,7 +10,10 @@ function sign(rawBody: string, timestamp: number, secret = SECRET): string {
 }
 
 describe("verifyWebhookSignature", () => {
-  const rawBody = JSON.stringify({ type: "post_call_transcription", data: { conversation_id: "c1" } });
+  const rawBody = JSON.stringify({
+    type: "post_call_transcription",
+    data: { conversation_id: "c1" },
+  });
 
   it("accepts a correctly signed, fresh payload", () => {
     const header = sign(rawBody, Math.floor(Date.now() / 1000));

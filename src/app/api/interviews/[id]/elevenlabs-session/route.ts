@@ -19,7 +19,10 @@ export async function POST(_request: Request, { params }: { params: { id: string
   const agentId = process.env.NEXT_PUBLIC_ELEVENLABS_AGENT_ID;
   if (!agentId) {
     console.error("Missing required environment variable: NEXT_PUBLIC_ELEVENLABS_AGENT_ID");
-    return NextResponse.json({ error: "The voice interviewer isn't configured yet." }, { status: 500 });
+    return NextResponse.json(
+      { error: "The voice interviewer isn't configured yet." },
+      { status: 500 },
+    );
   }
 
   const signedUrl = await fetchSignedUrl(agentId);

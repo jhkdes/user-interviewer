@@ -110,7 +110,10 @@ describe("handleElevenLabsWebhookMessage", () => {
         },
       };
 
-      await handleElevenLabsWebhookMessage({ interviewRepo, summaryRepo, llm, emailClient }, message);
+      await handleElevenLabsWebhookMessage(
+        { interviewRepo, summaryRepo, llm, emailClient },
+        message,
+      );
 
       const summary = await summaryRepo.getByInterviewId(interview.id);
       expect(summary).toMatchObject(summaryFields);
@@ -125,7 +128,10 @@ describe("handleElevenLabsWebhookMessage", () => {
 
       const message: ElevenLabsPostCallAudioPayload = {
         type: "post_call_audio",
-        data: { conversation_id: "conv-not-yet-linked-to-any-interview", full_audio: "base64audiodata" },
+        data: {
+          conversation_id: "conv-not-yet-linked-to-any-interview",
+          full_audio: "base64audiodata",
+        },
       };
 
       // Deliberately no interviewRepo.update setting elevenLabsConversationId

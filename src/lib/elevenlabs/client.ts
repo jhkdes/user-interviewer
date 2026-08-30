@@ -111,7 +111,9 @@ export async function uploadCallRecording(
     .upload(path, Buffer.from(base64Mp3, "base64"), { contentType: "audio/mpeg", upsert: true });
 
   if (error) {
-    throw new Error(`Failed to upload call recording for conversation ${conversationId}: ${error.message}`);
+    throw new Error(
+      `Failed to upload call recording for conversation ${conversationId}: ${error.message}`,
+    );
   }
   return path;
 }

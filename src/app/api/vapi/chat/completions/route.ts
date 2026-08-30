@@ -3,12 +3,17 @@ import { InterviewAgent } from "@/interview-agent";
 import { getLLMProvider } from "@/llm";
 import { getInterviewRepository } from "@/repositories/get-interview-repository";
 import { getStudyRepository } from "@/repositories/get-study-repository";
-import { handleVapiCustomLlmRequest, type VapiCustomLlmChatCompletionRequest } from "@/voice-session";
+import {
+  handleVapiCustomLlmRequest,
+  type VapiCustomLlmChatCompletionRequest,
+} from "@/voice-session";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
-  const body = (await request.json().catch(() => null)) as VapiCustomLlmChatCompletionRequest | null;
+  const body = (await request
+    .json()
+    .catch(() => null)) as VapiCustomLlmChatCompletionRequest | null;
   if (!body) {
     return NextResponse.json({ error: "Request body must be JSON" }, { status: 400 });
   }
