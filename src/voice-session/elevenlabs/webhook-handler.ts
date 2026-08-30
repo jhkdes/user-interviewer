@@ -8,7 +8,7 @@ import type {
   ElevenLabsWebhookPayload,
 } from "./types";
 
-/** `dynamicVariables: { interviewId }` passed at session start (elevenlabs-live-call.tsx) — round-tripped back on `post_call_transcription` via `conversation_initiation_client_data.dynamic_variables`, confirmed against a real payload (2026-08-30). `post_call_audio` doesn't carry this at all — see handleAudio. */
+/** `dynamicVariables: { interviewId }` passed at session start (elevenlabs-live-call.tsx) — round-tripped back on `post_call_transcription` via `conversation_initiation_client_data.dynamic_variables`, confirmed against a real payload (2026-08-30). `post_call_audio` doesn't carry this at all, but that event is ignored here regardless — see handleElevenLabsWebhookMessage. */
 function extractInterviewId(
   clientData: ElevenLabsConversationInitiationClientData | undefined,
 ): string | undefined {

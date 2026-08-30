@@ -32,14 +32,11 @@ export interface Interview {
   voiceProvider: VoiceProvider;
   /**
    * ElevenLabs' conversation id — analogue of `vapiCallId`. `null` for Vapi
-   * interviews. Also used to locate the recording ElevenLabs pushes to our
-   * own Storage bucket via its `post_call_audio` webhook, at
-   * `${elevenLabsConversationId}.mp3` — that upload is keyed by ElevenLabs'
-   * conversation id rather than this Interview's id, deliberately: the
-   * audio webhook carries no interviewId of its own, and ElevenLabs only
-   * retries failed *transcription* webhook deliveries, never audio ones, so
-   * the upload can't depend on this field already being set (see
-   * elevenlabs/webhook-handler.ts's handleAudio).
+   * interviews. Used to fetch the recording on demand from ElevenLabs'
+   * conversation-audio API at view time (see
+   * src/lib/elevenlabs/client.ts's fetchConversationAudio), the same
+   * pull-based posture as `vapiCallId` above rather than anything pushed via
+   * webhook.
    */
   elevenLabsConversationId: string | null;
   createdAt: Date;
