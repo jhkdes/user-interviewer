@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Interview, InterviewStatus, TranscriptEntry } from "@/domain";
+import type { Interview, InterviewStatus, TranscriptEntry, VoiceProvider } from "@/domain";
 import type {
   CreateInterviewInput,
   InterviewRepository,
@@ -19,6 +19,8 @@ function toInterview(row: InterviewRow): Interview {
     transcript: (row.transcript as TranscriptEntry[] | null) ?? null,
     recordingUrl: row.recording_url,
     vapiCallId: row.vapi_call_id,
+    voiceProvider: row.voice_provider as VoiceProvider,
+    elevenLabsConversationId: row.elevenlabs_conversation_id,
     createdAt: new Date(row.created_at),
     startedAt: row.started_at ? new Date(row.started_at) : null,
     completedAt: row.completed_at ? new Date(row.completed_at) : null,
@@ -40,6 +42,9 @@ function toUpdateRow(patch: InterviewUpdate): Record<string, unknown> {
   if (patch.transcript !== undefined) row.transcript = patch.transcript;
   if (patch.recordingUrl !== undefined) row.recording_url = patch.recordingUrl;
   if (patch.vapiCallId !== undefined) row.vapi_call_id = patch.vapiCallId;
+  if (patch.elevenLabsConversationId !== undefined) {
+    row.elevenlabs_conversation_id = patch.elevenLabsConversationId;
+  }
   if (patch.startedAt !== undefined) {
     row.started_at = patch.startedAt ? patch.startedAt.toISOString() : null;
   }
@@ -75,6 +80,7 @@ export class SupabaseInterviewRepository implements InterviewRepository {
         role_description: input.roleDescription ?? null,
         device_type: input.deviceType ?? null,
         screener_answers: input.screenerAnswers ?? null,
+        voice_provider: input.voiceProvider ?? "vapi",
       })
       .select()
       .single();

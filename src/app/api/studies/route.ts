@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import type { TargetProfile } from "@/domain";
+import type { TargetProfile, VoiceProvider } from "@/domain";
 import { getStudyRepository } from "@/repositories/get-study-repository";
 import { createStudy, InvalidTargetProfileError } from "@/study-service";
 
@@ -12,6 +12,7 @@ export async function POST(request: Request) {
     targetProfile?: TargetProfile;
     researchTopic?: string;
     customPrompt?: string;
+    voiceProvider?: VoiceProvider;
   } | null;
 
   if (!body?.targetProfile) {
@@ -23,6 +24,7 @@ export async function POST(request: Request) {
       targetProfile: body.targetProfile,
       researchTopic: body.researchTopic,
       customPrompt: body.customPrompt,
+      voiceProvider: body.voiceProvider,
     });
     return NextResponse.json(study, { status: 201 });
   } catch (error) {

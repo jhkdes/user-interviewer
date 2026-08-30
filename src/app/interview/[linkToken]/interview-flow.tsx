@@ -43,7 +43,12 @@ export function InterviewFlow({ linkToken }: { linkToken: string }) {
         />
       )}
       {step === "call" && interview && (
-        <LiveCall interviewId={interview.id} onEnded={() => setStep("done")} />
+        <LiveCall
+          interviewId={interview.id}
+          firstName={interview.firstName}
+          voiceProvider={interview.voiceProvider}
+          onEnded={() => setStep("done")}
+        />
       )}
       {step === "done" && <CompletionScreen />}
     </main>

@@ -75,6 +75,7 @@ export async function startInterview(
     email: input.email,
     deviceType: input.deviceType,
     screenerAnswers: input.screenerAnswers,
+    voiceProvider: study.voiceProvider,
   });
 
   return deps.interviewRepo.update(interview.id, { consentGivenAt: now });

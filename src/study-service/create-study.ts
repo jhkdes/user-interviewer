@@ -1,4 +1,4 @@
-import type { Study, TargetProfile } from "@/domain";
+import type { Study, TargetProfile, VoiceProvider } from "@/domain";
 import type { StudyRepository } from "@/repositories/study-repository";
 import { generateLinkToken } from "./link-token";
 import { validateTargetProfile } from "./target-profile-validation";
@@ -14,6 +14,7 @@ export interface CreateStudyInput {
   targetProfile: TargetProfile;
   researchTopic?: string;
   customPrompt?: string;
+  voiceProvider?: VoiceProvider;
 }
 
 export async function createStudy(repo: StudyRepository, input: CreateStudyInput): Promise<Study> {
@@ -24,6 +25,7 @@ export async function createStudy(repo: StudyRepository, input: CreateStudyInput
     targetProfile: input.targetProfile,
     researchTopic: input.researchTopic,
     customPrompt: input.customPrompt,
+    voiceProvider: input.voiceProvider,
     linkToken: generateLinkToken(),
   });
 }

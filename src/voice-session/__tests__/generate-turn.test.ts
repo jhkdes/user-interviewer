@@ -3,9 +3,9 @@ import { InterviewAgent, SOFT_CAP_MS, TIME_CHECK_UTTERANCE } from "@/interview-a
 import { FakeLLMProvider } from "@/llm";
 import { InMemoryInterviewRepository } from "@/repositories/in-memory/in-memory-interview-repository";
 import { InMemoryStudyRepository } from "@/repositories/in-memory/in-memory-study-repository";
-import { END_CALL_PHRASE, generateTurn } from "../custom-llm";
-import { InterviewNotFoundError, MissingInterviewIdError, StudyNotFoundError } from "../errors";
-import type { CustomLLMChatCompletionRequest } from "../vapi-types";
+import { InterviewNotFoundError, StudyNotFoundError } from "../errors";
+import { generateTurn } from "../generate-turn";
+import type { OpenAIChatMessage } from "../types";
 
 const targetProfile = {
   industry: "Fintech",
@@ -32,13 +32,8 @@ async function setup() {
   return { studyRepo, interviewRepo, llm, interviewAgent, study, interview };
 }
 
-function requestFor(interviewId: string, messages: CustomLLMChatCompletionRequest["messages"]) {
-  return {
-    model: "gpt-4o",
-    messages,
-    call: { id: "call-1" },
-    metadata: { interviewId },
-  } satisfies CustomLLMChatCompletionRequest;
+function inputFor(interviewId: string, messages: OpenAIChatMessage[]) {
+  return { interviewId, messages };
 }
 
 describe("generateTurn", () => {
@@ -52,7 +47,7 @@ describe("generateTurn", () => {
 
     await generateTurn(
       { interviewAgent, interviewRepo, studyRepo, now },
-      requestFor(interview.id, [
+      inputFor(interview.id, [
         { role: "system", content: "You are a helpful assistant." },
         { role: "assistant", content: "Hi Jordan, tell me about your day-to-day." },
         { role: "user", content: "I spend most of my time in status meetings." },
@@ -80,7 +75,7 @@ describe("generateTurn", () => {
 
     await generateTurn(
       { interviewAgent, interviewRepo, studyRepo, now },
-      requestFor(interview.id, [{ role: "user", content: "hi" }]),
+      inputFor(interview.id, [{ role: "user", content: "hi" }]),
     );
 
     expect(llm.calls.generateInterviewerTurn[0].systemPrompt).toMatch(
@@ -91,7 +86,7 @@ describe("generateTurn", () => {
     );
   });
 
-  it("returns the utterance as-is when the interview should continue", async () => {
+  it("returns the utterance and isInterviewOver as InterviewAgent reported them, with no phrase/tool-call encoding", async () => {
     const { interviewAgent, interviewRepo, studyRepo, llm, interview } = await setup();
     const now = new Date("2026-08-19T12:01:00.000Z");
     await interviewRepo.update(interview.id, { startedAt: now });
@@ -99,13 +94,13 @@ describe("generateTurn", () => {
 
     const result = await generateTurn(
       { interviewAgent, interviewRepo, studyRepo, now },
-      requestFor(interview.id, [{ role: "user", content: "It's frustrating." }]),
+      inputFor(interview.id, [{ role: "user", content: "It's frustrating." }]),
     );
 
     expect(result).toEqual({ utterance: "What happens next?", isInterviewOver: false });
   });
 
-  it("appends END_CALL_PHRASE when the interview is over", async () => {
+  it("reports isInterviewOver: true as-is — encoding it on the wire is each provider adapter's job", async () => {
     const { interviewAgent, interviewRepo, studyRepo, llm, interview } = await setup();
     const now = new Date("2026-08-19T12:01:00.000Z");
     await interviewRepo.update(interview.id, { startedAt: now });
@@ -120,62 +115,10 @@ describe("generateTurn", () => {
 
     const result = await generateTurn(
       { interviewAgent, interviewRepo, studyRepo, now },
-      requestFor(interview.id, history),
+      inputFor(interview.id, history),
     );
 
-    expect(result.isInterviewOver).toBe(true);
-    expect(result.utterance).toBe(`Thanks so much for your time. ${END_CALL_PHRASE}`);
-  });
-
-  it("ends the call when the participant explicitly asks to end it, even on the very first exchange", async () => {
-    const { interviewAgent, interviewRepo, studyRepo, llm, interview } = await setup();
-    const now = new Date("2026-08-19T12:01:00.000Z");
-    await interviewRepo.update(interview.id, { startedAt: now });
-    llm.scriptInterviewerTurns([
-      {
-        utterance: "Of course — take care, and thanks for the time you did give me.",
-        shouldEndInterview: false,
-        participantRequestedEnd: true,
-      },
-    ]);
-
-    const result = await generateTurn(
-      { interviewAgent, interviewRepo, studyRepo, now },
-      requestFor(interview.id, [
-        { role: "assistant", content: "Hi, tell me about your day." },
-        { role: "user", content: "I actually have to go, can you end this?" },
-      ]),
-    );
-
-    expect(result.isInterviewOver).toBe(true);
-    expect(result.utterance).toBe(
-      `Of course — take care, and thanks for the time you did give me. ${END_CALL_PHRASE}`,
-    );
-  });
-
-  it("strips the LLM's own concluding sentence before appending END_CALL_PHRASE, so the exact phrase Vapi listens for is never garbled", async () => {
-    const { interviewAgent, interviewRepo, studyRepo, llm, interview } = await setup();
-    const now = new Date("2026-08-19T12:01:00.000Z");
-    await interviewRepo.update(interview.id, { startedAt: now });
-    const history = Array.from({ length: 4 }, (_, i) => [
-      { role: "assistant" as const, content: `Q${i}` },
-      { role: "user" as const, content: `A${i}` },
-    ]).flat();
-    llm.scriptInterviewerTurns([
-      {
-        utterance:
-          "Thanks so much for your time, Jordan. This concludes our interview session for today.",
-        shouldEndInterview: true,
-      },
-    ]);
-
-    const result = await generateTurn(
-      { interviewAgent, interviewRepo, studyRepo, now },
-      requestFor(interview.id, history),
-    );
-
-    expect(result.isInterviewOver).toBe(true);
-    expect(result.utterance).toBe(`Thanks so much for your time, Jordan. ${END_CALL_PHRASE}`);
+    expect(result).toEqual({ utterance: "Thanks so much for your time.", isInterviewOver: true });
   });
 
   it("forces isInterviewOver once the 15-minute hard cap has elapsed, regardless of the LLM's own signal", async () => {
@@ -185,14 +128,13 @@ describe("generateTurn", () => {
 
     const result = await generateTurn(
       { interviewAgent, interviewRepo, studyRepo, now: new Date("2026-08-19T12:20:01.000Z") },
-      requestFor(interview.id, [{ role: "user", content: "..." }]),
+      inputFor(interview.id, [{ role: "user", content: "..." }]),
     );
 
-    expect(result.isInterviewOver).toBe(true);
-    expect(result.utterance).toBe(`One more thing... ${END_CALL_PHRASE}`);
+    expect(result).toEqual({ utterance: "One more thing...", isInterviewOver: true });
   });
 
-  it("returns the deterministic time-check utterance once the soft cap elapses, and persists timeCheckAskedAt without appending END_CALL_PHRASE", async () => {
+  it("returns the deterministic time-check utterance once the soft cap elapses, and persists timeCheckAskedAt", async () => {
     const { interviewAgent, interviewRepo, studyRepo, llm, interview } = await setup();
     const startedAt = new Date("2026-08-19T12:00:00.000Z");
     await interviewRepo.update(interview.id, { startedAt });
@@ -200,7 +142,7 @@ describe("generateTurn", () => {
 
     const result = await generateTurn(
       { interviewAgent, interviewRepo, studyRepo, now },
-      requestFor(interview.id, [{ role: "user", content: "Still going" }]),
+      inputFor(interview.id, [{ role: "user", content: "Still going" }]),
     );
 
     expect(result).toEqual({ utterance: TIME_CHECK_UTTERANCE, isInterviewOver: false });
@@ -222,7 +164,7 @@ describe("generateTurn", () => {
 
     const result = await generateTurn(
       { interviewAgent, interviewRepo, studyRepo, now },
-      requestFor(interview.id, [
+      inputFor(interview.id, [
         { role: "assistant", content: TIME_CHECK_UTTERANCE },
         { role: "user", content: "Yeah, a few more minutes is fine." },
       ]),
@@ -232,42 +174,13 @@ describe("generateTurn", () => {
     expect(llm.calls.generateInterviewerTurn).toHaveLength(1);
   });
 
-  it("falls back to call.assistantOverrides.metadata.interviewId when top-level metadata is absent", async () => {
-    const { interviewAgent, interviewRepo, studyRepo, llm, interview } = await setup();
-    const now = new Date("2026-08-19T12:01:00.000Z");
-    await interviewRepo.update(interview.id, { startedAt: now });
-    llm.scriptInterviewerTurns([{ utterance: "Got it.", shouldEndInterview: false }]);
-
-    const result = await generateTurn(
-      { interviewAgent, interviewRepo, studyRepo, now },
-      {
-        model: "gpt-4o",
-        messages: [{ role: "user", content: "hi" }],
-        call: { id: "call-1", assistantOverrides: { metadata: { interviewId: interview.id } } },
-      },
-    );
-
-    expect(result.utterance).toBe("Got it.");
-  });
-
-  it("throws MissingInterviewIdError when neither top-level nor call.assistantOverrides metadata is present", async () => {
-    const { interviewAgent, interviewRepo, studyRepo } = await setup();
-
-    await expect(
-      generateTurn(
-        { interviewAgent, interviewRepo, studyRepo },
-        { model: "gpt-4o", messages: [], call: { id: "call-1" } },
-      ),
-    ).rejects.toThrow(MissingInterviewIdError);
-  });
-
   it("throws InterviewNotFoundError for an unknown interview id", async () => {
     const { interviewAgent, interviewRepo, studyRepo } = await setup();
 
     await expect(
       generateTurn(
         { interviewAgent, interviewRepo, studyRepo },
-        requestFor("00000000-0000-0000-0000-000000000000", []),
+        inputFor("00000000-0000-0000-0000-000000000000", []),
       ),
     ).rejects.toThrow(InterviewNotFoundError);
   });
@@ -281,7 +194,7 @@ describe("generateTurn", () => {
     await expect(
       generateTurn(
         { interviewAgent, interviewRepo, studyRepo: emptyStudyRepo },
-        requestFor(interview.id, []),
+        inputFor(interview.id, []),
       ),
     ).rejects.toThrow(StudyNotFoundError);
   });

@@ -1,3 +1,5 @@
+import type { VoiceProvider } from "./study";
+
 export type InterviewStatus = "pending" | "in-progress" | "completed" | "expired";
 
 export interface TranscriptEntry {
@@ -26,6 +28,20 @@ export interface Interview {
   recordingUrl: string | null;
   /** Vapi's call id — used to fetch a fresh presigned recording URL from Vapi's REST API at view time, since presigned URLs expire (~33 min) and can't be stored once and reused indefinitely. */
   vapiCallId: string | null;
+  /** Which voice platform ran this interview's call — copied from the study's `voiceProvider` at creation time, so it stays stable even if the study's setting changes later. Determines which of `vapiCallId`/`elevenLabsConversationId` is populated. */
+  voiceProvider: VoiceProvider;
+  /**
+   * ElevenLabs' conversation id — analogue of `vapiCallId`. `null` for Vapi
+   * interviews. Also used to locate the recording ElevenLabs pushes to our
+   * own Storage bucket via its `post_call_audio` webhook, at
+   * `${elevenLabsConversationId}.mp3` — that upload is keyed by ElevenLabs'
+   * conversation id rather than this Interview's id, deliberately: the
+   * audio webhook carries no interviewId of its own, and ElevenLabs only
+   * retries failed *transcription* webhook deliveries, never audio ones, so
+   * the upload can't depend on this field already being set (see
+   * elevenlabs/webhook-handler.ts's handleAudio).
+   */
+  elevenLabsConversationId: string | null;
   createdAt: Date;
   startedAt: Date | null;
   completedAt: Date | null;

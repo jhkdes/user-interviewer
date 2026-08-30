@@ -26,7 +26,7 @@ describe("ClaudeSonnet46Adapter.generateInterviewerTurn", () => {
     });
 
     const call = vi.mocked(client.messages.create).mock.calls[0][0];
-    expect(call.model).toBe("claude-sonnet-4-6");
+    expect(call.model).toBe("claude-sonnet-5");
     expect(call.system).toEqual([
       { type: "text", text: "You are an interviewer.", cache_control: { type: "ephemeral" } },
     ]);

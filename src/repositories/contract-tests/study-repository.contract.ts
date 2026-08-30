@@ -34,6 +34,18 @@ export function runStudyRepositoryContractTests(
       expect(study.createdAt).toBeInstanceOf(Date);
       expect(study.researchTopic).toBeNull();
       expect(study.customPrompt).toBeNull();
+      expect(study.voiceProvider).toBe("vapi");
+    });
+
+    it("creates a study with an explicit voiceProvider", async () => {
+      const repo = await makeRepository();
+      const study = await repo.create({
+        targetProfile: sampleTargetProfile,
+        linkToken: "token-elevenlabs",
+        voiceProvider: "elevenlabs",
+      });
+
+      expect(study.voiceProvider).toBe("elevenlabs");
     });
 
     it("creates a study with a research topic when provided", async () => {

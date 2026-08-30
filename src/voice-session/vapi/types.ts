@@ -9,6 +9,8 @@
  * PROGRESS.md's M6 entry for what's still pending live-call verification.
  */
 
+import type { OpenAIChatMessage } from "../types";
+
 /**
  * Set by us at Vapi call-creation time (M11) via `vapi.start(assistantId, {
  * metadata: { interviewId } })`, so every webhook/custom-LLM request
@@ -81,18 +83,13 @@ export interface VapiWebhookPayload {
   message: VapiServerMessage;
 }
 
-export interface OpenAIChatMessage {
-  role: "system" | "user" | "assistant" | "tool" | "function_call" | "function_result";
-  content?: string | null;
-}
-
 /**
  * The request Vapi sends to our custom-LLM endpoint each turn — an
  * OpenAI-compatible chat completions request. `metadata` carries our
  * `interviewId` at the top level (see VapiCallMetadata's doc comment for
  * why it's not nested under `call` here, unlike the webhook payloads).
  */
-export interface CustomLLMChatCompletionRequest {
+export interface VapiCustomLlmChatCompletionRequest {
   model: string;
   messages: OpenAIChatMessage[];
   temperature?: number;

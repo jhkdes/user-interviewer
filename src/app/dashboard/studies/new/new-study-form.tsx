@@ -33,6 +33,7 @@ export function NewStudyForm() {
   const [profile, setProfile] = useState<TargetProfile>(EMPTY_PROFILE);
   const [researchTopic, setResearchTopic] = useState("");
   const [customPrompt, setCustomPrompt] = useState("");
+  const [voiceProvider, setVoiceProvider] = useState<"vapi" | "elevenlabs">("vapi");
   const [errors, setErrors] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [created, setCreated] = useState<Study | null>(null);
@@ -59,6 +60,7 @@ export function NewStudyForm() {
         targetProfile: profile,
         ...(researchTopic.trim() ? { researchTopic: researchTopic.trim() } : {}),
         ...(customPrompt.trim() ? { customPrompt: customPrompt.trim() } : {}),
+        voiceProvider,
       }),
     });
     setSubmitting(false);
@@ -134,6 +136,22 @@ export function NewStudyForm() {
             rows={8}
             className="mt-1 block w-full rounded border border-neutral-300 px-3 py-1.5 font-mono text-xs dark:border-neutral-700 dark:bg-neutral-900"
           />
+        </label>
+
+        <label className="block text-sm">
+          Voice interviewer platform
+          <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
+            Which platform runs this study&apos;s interview calls — lets us A/B test platforms
+            across studies.
+          </p>
+          <select
+            value={voiceProvider}
+            onChange={(e) => setVoiceProvider(e.target.value as "vapi" | "elevenlabs")}
+            className="mt-1 block w-full rounded border border-neutral-300 px-3 py-1.5 dark:border-neutral-700 dark:bg-neutral-900"
+          >
+            <option value="vapi">Vapi</option>
+            <option value="elevenlabs">ElevenLabs</option>
+          </select>
         </label>
 
         {errors.length > 0 && (

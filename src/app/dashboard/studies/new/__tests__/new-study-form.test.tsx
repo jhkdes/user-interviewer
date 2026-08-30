@@ -63,7 +63,7 @@ describe("NewStudyForm", () => {
       "/api/studies",
       expect.objectContaining({
         method: "POST",
-        body: JSON.stringify({ targetProfile: sampleProfile }),
+        body: JSON.stringify({ targetProfile: sampleProfile, voiceProvider: "vapi" }),
       }),
     );
   });
@@ -100,6 +100,7 @@ describe("NewStudyForm", () => {
         body: JSON.stringify({
           targetProfile: sampleProfile,
           researchTopic: "How AI actually shows up in a PM's day",
+          voiceProvider: "vapi",
         }),
       }),
     );
@@ -138,6 +139,7 @@ describe("NewStudyForm", () => {
         body: JSON.stringify({
           targetProfile: sampleProfile,
           customPrompt: "You are a research interviewer for {{participant_name}}...",
+          voiceProvider: "vapi",
         }),
       }),
     );

@@ -1,6 +1,6 @@
 export class MissingInterviewIdError extends Error {
   constructor(context: string) {
-    super(`Vapi "${context}" has no resolvable metadata.interviewId — cannot route it`);
+    super(`${context} has no resolvable interviewId — cannot route it`);
     this.name = "MissingInterviewIdError";
   }
 }

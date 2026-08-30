@@ -12,7 +12,7 @@ import type {
 } from "./types";
 import { interviewerTurnSchema, studyReportSchema, summarySchema } from "./schemas";
 
-const MODEL = "claude-sonnet-4-6";
+const MODEL = "claude-sonnet-5";
 
 /**
  * Observed in manual testing: Claude occasionally returns a degenerate
@@ -126,6 +126,13 @@ export class ClaudeSonnet46Adapter implements LLMProviderAdapter {
             },
           ],
           messages: buildInterviewMessages(input.conversationHistory),
+          // Unlike Sonnet 4.6 (thinking off when the param is omitted), Sonnet
+          // 5 runs adaptive thinking by default when `thinking` is omitted —
+          // explicitly disabling it here keeps this call's behavior/latency
+          // profile identical to before the model swap, isolating whether the
+          // new model itself is faster rather than confounding the
+          // measurement with newly-enabled thinking.
+          thinking: { type: "disabled" },
           output_config: {
             format: { type: "json_schema", schema: interviewerTurnSchema },
             effort: "low",

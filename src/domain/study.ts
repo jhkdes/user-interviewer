@@ -1,5 +1,7 @@
 export type StudyStatus = "open" | "closed";
 
+export type VoiceProvider = "vapi" | "elevenlabs";
+
 /**
  * Free-text fields the "New Study" form prompts for, per REQUIREMENTS.md —
  * kept as discrete fields (not one blob) so the form stays consistent across
@@ -33,6 +35,8 @@ export interface Study {
   customPrompt: string | null;
   linkToken: string;
   status: StudyStatus;
+  /** Which voice platform runs this study's interview calls — set at creation by the researcher, lets whole studies be A/B tested against each other. */
+  voiceProvider: VoiceProvider;
   createdAt: Date;
   closedAt: Date | null;
 }

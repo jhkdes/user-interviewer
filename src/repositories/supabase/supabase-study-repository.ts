@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Study, StudyStatus } from "@/domain";
+import type { Study, StudyStatus, VoiceProvider } from "@/domain";
 import type { CreateStudyInput, StudyRepository } from "../study-repository";
 import type { StudyRow } from "./rows";
 
@@ -17,6 +17,7 @@ function toStudy(row: StudyRow): Study {
     customPrompt: row.custom_prompt,
     linkToken: row.link_token,
     status: row.status as StudyStatus,
+    voiceProvider: row.voice_provider as VoiceProvider,
     createdAt: new Date(row.created_at),
     closedAt: row.closed_at ? new Date(row.closed_at) : null,
   };
@@ -37,6 +38,7 @@ export class SupabaseStudyRepository implements StudyRepository {
         research_topic: input.researchTopic ?? null,
         custom_prompt: input.customPrompt ?? null,
         link_token: input.linkToken,
+        voice_provider: input.voiceProvider ?? "vapi",
       })
       .select()
       .single();
