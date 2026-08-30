@@ -1,10 +1,8 @@
 import type { TranscriptEntry } from "@/domain";
-import { uploadCallRecording } from "@/lib/elevenlabs/client";
 import { completeInterview, startInterview, type CallLifecycleDeps } from "../call-lifecycle";
 import { MissingInterviewIdError } from "../errors";
 import type {
   ElevenLabsConversationInitiationClientData,
-  ElevenLabsPostCallAudioPayload,
   ElevenLabsPostCallTranscriptionPayload,
   ElevenLabsTranscriptEntry,
   ElevenLabsWebhookPayload,
@@ -50,34 +48,29 @@ async function handleTranscription(
   await completeInterview(deps, {
     interviewId,
     transcript: toTranscriptEntries(payload.data.transcript),
-    recordingUrl: null, // delivered separately via post_call_audio, see handleAudio
+    // Recording is fetched on demand from ElevenLabs' API using
+    // elevenLabsConversationId (see src/lib/elevenlabs/client.ts's
+    // fetchConversationAudio) rather than delivered via webhook — the
+    // post_call_audio webhook's base64 payload gets rejected by Vercel's
+    // request-body size limit for any interview of meaningful length.
+    recordingUrl: null,
     endedReason: payload.data.analysis?.call_successful ?? null,
     elevenLabsConversationId: payload.data.conversation_id,
   });
 }
 
-/** Routes one ElevenLabs post-call webhook to the shared Interview status state machine (call-lifecycle.ts) or the recording upload. Other event types are informational no-ops. */
+/**
+ * Routes one ElevenLabs post-call webhook to the shared Interview status
+ * state machine (call-lifecycle.ts). `post_call_audio` is deliberately
+ * ignored here — see handleTranscription's recordingUrl comment — as are any
+ * other event types; all are informational no-ops from this handler's
+ * perspective.
+ */
 export async function handleElevenLabsWebhookMessage(
   deps: CallLifecycleDeps,
   payload: ElevenLabsWebhookPayload,
 ): Promise<void> {
   if (payload.type === "post_call_transcription") {
     await handleTranscription(deps, payload as ElevenLabsPostCallTranscriptionPayload);
-    return;
-  }
-  if (payload.type === "post_call_audio") {
-    // Unlike post_call_transcription, post_call_audio's real payload carries
-    // no `conversation_initiation_client_data`/interviewId at all (confirmed
-    // 2026-08-30) — just `conversation_id`. Rather than resolving an
-    // interview here (which previously meant depending on
-    // post_call_transcription having already landed — a real race we hit in
-    // practice, made worse by ElevenLabs only retrying failed
-    // *transcription* webhook deliveries, never audio ones), this just
-    // uploads the recording keyed by ElevenLabs' own conversation id,
-    // unconditionally, regardless of arrival order. The interview detail
-    // page derives the storage path at read time from
-    // `interview.elevenLabsConversationId` instead of anything stored here.
-    const audioPayload = payload as ElevenLabsPostCallAudioPayload;
-    await uploadCallRecording(audioPayload.data.conversation_id, audioPayload.data.full_audio);
   }
 }
