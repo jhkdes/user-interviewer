@@ -14,7 +14,11 @@ export const dynamic = "force-dynamic";
  */
 export async function GET(_request: Request, { params }: { params: { id: string } }) {
   const interview = await getInterviewRepository().getById(params.id);
-  if (!interview || interview.voiceProvider !== "elevenlabs" || !interview.elevenLabsConversationId) {
+  if (
+    !interview ||
+    interview.voiceProvider !== "elevenlabs" ||
+    !interview.elevenLabsConversationId
+  ) {
     return NextResponse.json({ error: "Recording not available" }, { status: 404 });
   }
 

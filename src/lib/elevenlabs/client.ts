@@ -109,7 +109,9 @@ export async function fetchConversationAudio(conversationId: string): Promise<Bu
       { headers: { "xi-api-key": apiKey }, cache: "no-store" },
     );
     if (!res.ok) {
-      console.error(`ElevenLabs conversation audio fetch failed for ${conversationId}: ${res.status}`);
+      console.error(
+        `ElevenLabs conversation audio fetch failed for ${conversationId}: ${res.status}`,
+      );
       return null;
     }
     return Buffer.from(await res.arrayBuffer());
