@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { isVoiceSessionDebugEnabled } from "@/lib/debug";
 import { getEmailClient } from "@/lib/email";
 import { verifyWebhookSignature } from "@/lib/elevenlabs/client";
 import { getLLMProvider } from "@/llm";
@@ -18,13 +19,15 @@ function truncateFullAudio(rawBody: string): string {
 
 export async function POST(request: Request) {
   const rawBody = await request.text();
-  // TEMPORARY — logging the raw payload while confirming ElevenLabs' actual
-  // webhook shapes against a live agent. Remove once confirmed. `full_audio`
-  // (post_call_audio) is base64 and can be megabytes — truncate it in the
-  // log line so it doesn't drown out everything else in the console. This
-  // only affects what's printed; signature verification below still uses
-  // the untouched `rawBody`.
-  console.log("[elevenlabs webhook] raw payload:", truncateFullAudio(rawBody));
+  // Gated — this is real participant conversation content, not something to
+  // log unconditionally in production. Set DEBUG_VOICE_SESSION=true to
+  // enable (see src/lib/debug.ts). `full_audio` (post_call_audio) is base64
+  // and can be megabytes — truncate it in the log line so it doesn't drown
+  // out everything else in the console. This only affects what's printed;
+  // signature verification below still uses the untouched `rawBody`.
+  if (isVoiceSessionDebugEnabled()) {
+    console.log("[elevenlabs webhook] raw payload:", truncateFullAudio(rawBody));
+  }
 
   const secret = process.env.ELEVENLABS_WEBHOOK_SECRET;
   if (!secret) {

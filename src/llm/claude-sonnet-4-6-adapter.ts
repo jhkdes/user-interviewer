@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { isVoiceSessionDebugEnabled } from "@/lib/debug";
 import type {
   GenerateInterviewerTurnInput,
   GenerateInterviewerTurnOutput,
@@ -141,9 +142,11 @@ export class ClaudeSonnet46Adapter implements LLMProviderAdapter {
       } catch (cause) {
         throw new Error("Failed to generate interviewer turn", { cause });
       }
-      console.log(
-        `[timing] claude messages.create attempt=${attempt} ms=${Date.now() - claudeCallStart} cacheReadTokens=${response.usage?.cache_read_input_tokens ?? 0} cacheCreationTokens=${response.usage?.cache_creation_input_tokens ?? 0} inputTokens=${response.usage?.input_tokens ?? 0} outputTokens=${response.usage?.output_tokens ?? 0}`,
-      );
+      if (isVoiceSessionDebugEnabled()) {
+        console.log(
+          `[timing] claude messages.create attempt=${attempt} ms=${Date.now() - claudeCallStart} cacheReadTokens=${response.usage?.cache_read_input_tokens ?? 0} cacheCreationTokens=${response.usage?.cache_creation_input_tokens ?? 0} inputTokens=${response.usage?.input_tokens ?? 0} outputTokens=${response.usage?.output_tokens ?? 0}`,
+        );
+      }
 
       lastAttempt = parseStructuredResponse<GenerateInterviewerTurnOutput>(
         response,
