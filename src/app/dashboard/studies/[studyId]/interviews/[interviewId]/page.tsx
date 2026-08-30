@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { fetchStorageSignedUrl } from "@/lib/elevenlabs/client";
 import { fetchFreshRecordingUrl } from "@/lib/vapi/client";
 import { getInterviewRepository } from "@/repositories/get-interview-repository";
 import { getSummaryRepository } from "@/repositories/get-summary-repository";
@@ -20,17 +19,15 @@ export default async function InterviewDetailPage({
   const summary = await getSummaryRepository().getByInterviewId(interview.id);
   // Vapi's presigned recording URL expires ~33 min after the call, so a
   // fresh one is fetched on every view rather than relying on anything
-  // stored. ElevenLabs pushes the recording to our own Storage bucket
-  // instead (see elevenlabs/webhook-handler.ts), uploaded at
-  // `${elevenLabsConversationId}.mp3` — that path is derived here rather
-  // than stored on the Interview, since the audio webhook that uploads it
-  // carries no interviewId of its own (see uploadCallRecording's doc
-  // comment). `recordingUrl` remains as a fallback for interviews recorded
-  // before `vapiCallId` was captured.
+  // stored. ElevenLabs recordings are fetched on demand too, via a proxy
+  // route (see src/app/api/interviews/[id]/recording/route.ts) rather than
+  // a direct URL, since ElevenLabs' audio API needs a server-side API key
+  // header a plain `<audio src>` can't attach. `recordingUrl` remains as a
+  // fallback for interviews recorded before `vapiCallId` was captured.
   const playableRecordingUrl =
     interview.voiceProvider === "elevenlabs"
       ? interview.elevenLabsConversationId
-        ? await fetchStorageSignedUrl(`${interview.elevenLabsConversationId}.mp3`)
+        ? `/api/interviews/${interview.id}/recording`
         : null
       : interview.vapiCallId
         ? await fetchFreshRecordingUrl(interview.vapiCallId)

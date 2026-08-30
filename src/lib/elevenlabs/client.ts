@@ -3,14 +3,10 @@
  * browser client needs to start a conversation (ElevenLabs, unlike Vapi,
  * doesn't allow starting a call from just a public key — see
  * https://elevenlabs.io/docs/conversational-ai/customization/authentication),
- * the Supabase Storage plumbing for recordings ElevenLabs pushes to us via
- * webhook rather than exposing a re-fetchable presigned URL like Vapi, and
- * webhook signature verification.
+ * fetching a conversation's recorded audio on demand, and webhook signature
+ * verification.
  */
 import { timingSafeEqual, createHmac } from "node:crypto";
-import { createServerSupabaseClient } from "@/lib/supabase/client";
-
-const CALL_RECORDINGS_BUCKET = "call-recordings";
 
 interface ElevenLabsSignedUrlResponse {
   signed_url?: string;
@@ -90,53 +86,37 @@ export function verifyWebhookSignature(
 }
 
 /**
- * Uploads a base64-encoded MP3 (as delivered by the `post_call_audio`
- * webhook) to the `call-recordings` bucket at `${conversationId}.mp3`.
- * Keyed by ElevenLabs' own conversation id rather than our interviewId
- * deliberately — `post_call_audio` carries no interviewId of its own
- * (unlike `post_call_transcription`), and ElevenLabs only retries webhook
- * delivery for `post_call_transcription`, not this one — so this upload
- * can't depend on the interview record already existing/being resolvable.
- * The path is instead derived at read time from
- * `interview.elevenLabsConversationId` (see the interview detail page).
+ * Fetches a conversation's recorded audio directly from ElevenLabs' API,
+ * pull-based, the same posture as `src/lib/vapi/client.ts`'s
+ * `fetchFreshRecordingUrl` — mirrors how Vapi recordings work rather than
+ * relying on the `post_call_audio` webhook, which pushes the full audio as
+ * base64 in the request body and gets rejected by Vercel's ~4.5MB serverless
+ * request-body limit for any interview of meaningful length (confirmed via
+ * production 413s, 2026-08-30). Returns `null` (rather than throwing) on any
+ * failure — a dashboard page showing "no recording available" is a
+ * reasonable degraded state.
  */
-export async function uploadCallRecording(
-  conversationId: string,
-  base64Mp3: string,
-): Promise<string> {
-  const client = createServerSupabaseClient();
-  const path = `${conversationId}.mp3`;
-  const { error } = await client.storage
-    .from(CALL_RECORDINGS_BUCKET)
-    .upload(path, Buffer.from(base64Mp3, "base64"), { contentType: "audio/mpeg", upsert: true });
-
-  if (error) {
-    throw new Error(
-      `Failed to upload call recording for conversation ${conversationId}: ${error.message}`,
-    );
+export async function fetchConversationAudio(conversationId: string): Promise<Buffer | null> {
+  const apiKey = process.env.ELEVENLABS_API_KEY;
+  if (!apiKey) {
+    console.error("Missing required environment variable: ELEVENLABS_API_KEY");
+    return null;
   }
-  return path;
-}
 
-/**
- * Fetches a fresh signed URL for a previously uploaded recording. Returns
- * `null` (rather than throwing) on any failure — mirrors
- * `src/lib/vapi/client.ts`'s `fetchFreshRecordingUrl` degraded-state posture.
- */
-export async function fetchStorageSignedUrl(path: string): Promise<string | null> {
   try {
-    const client = createServerSupabaseClient();
-    const { data, error } = await client.storage
-      .from(CALL_RECORDINGS_BUCKET)
-      .createSignedUrl(path, 60 * 10); // 10 minutes — long enough for one dashboard view
-
-    if (error) {
-      console.error(`Failed to create a signed URL for recording ${path}:`, error.message);
+    const res = await fetch(
+      `https://api.elevenlabs.io/v1/convai/conversations/${encodeURIComponent(conversationId)}/audio`,
+      { headers: { "xi-api-key": apiKey }, cache: "no-store" },
+    );
+    if (!res.ok) {
+      console.error(
+        `ElevenLabs conversation audio fetch failed for ${conversationId}: ${res.status}`,
+      );
       return null;
     }
-    return data?.signedUrl ?? null;
+    return Buffer.from(await res.arrayBuffer());
   } catch (error) {
-    console.error(`Failed to create a signed URL for recording ${path}:`, error);
+    console.error(`Failed to fetch recording for conversation ${conversationId}:`, error);
     return null;
   }
 }

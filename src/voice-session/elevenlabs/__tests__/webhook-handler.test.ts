@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { FakeEmailClient } from "@/lib/email";
 import { FakeLLMProvider } from "@/llm";
 import { InMemoryInterviewRepository } from "@/repositories/in-memory/in-memory-interview-repository";
@@ -9,15 +9,6 @@ import type {
   ElevenLabsPostCallTranscriptionPayload,
 } from "../types";
 import { handleElevenLabsWebhookMessage } from "../webhook-handler";
-
-const uploadCallRecording = vi.fn(
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- kept for call-arg assertions in tests below
-  async (conversationId: string, base64Mp3: string) => `${conversationId}.mp3`,
-);
-vi.mock("@/lib/elevenlabs/client", () => ({
-  uploadCallRecording: (conversationId: string, base64Mp3: string) =>
-    uploadCallRecording(conversationId, base64Mp3),
-}));
 
 const summaryFields = {
   painPoints: ["Manual status reporting eats a full afternoon each week."],
@@ -123,7 +114,7 @@ describe("handleElevenLabsWebhookMessage", () => {
   });
 
   describe("post_call_audio", () => {
-    it("uploads the recording keyed by conversation_id, with no dependency on any interview existing yet", async () => {
+    it("is ignored as a no-op — recordings are fetched on demand instead (see fetchConversationAudio)", async () => {
       const { interviewRepo, summaryRepo, llm, emailClient } = await setup();
 
       const message: ElevenLabsPostCallAudioPayload = {
@@ -134,17 +125,9 @@ describe("handleElevenLabsWebhookMessage", () => {
         },
       };
 
-      // Deliberately no interviewRepo.update setting elevenLabsConversationId
-      // first — this is the exact ordering (audio arriving before
-      // transcription) that used to throw MissingInterviewIdError.
       await expect(
         handleElevenLabsWebhookMessage({ interviewRepo, summaryRepo, llm, emailClient }, message),
       ).resolves.not.toThrow();
-
-      expect(uploadCallRecording).toHaveBeenCalledWith(
-        "conv-not-yet-linked-to-any-interview",
-        "base64audiodata",
-      );
     });
   });
 
