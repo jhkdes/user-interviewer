@@ -32,6 +32,8 @@ export function runInterviewRepositoryContractTests(
       expect(interview.transcript).toBeNull();
       expect(interview.recordingUrl).toBeNull();
       expect(interview.vapiCallId).toBeNull();
+      expect(interview.voiceProvider).toBe("vapi");
+      expect(interview.elevenLabsConversationId).toBeNull();
       expect(interview.startedAt).toBeNull();
       expect(interview.completedAt).toBeNull();
       expect(interview.summaryEmailSentAt).toBeNull();
@@ -70,6 +72,34 @@ export function runInterviewRepositoryContractTests(
       });
 
       expect(interview.deviceType).toBe("mobile");
+    });
+
+    it("creates an interview with an explicit voiceProvider", async () => {
+      const repo = await makeRepository();
+      const interview = await repo.create({
+        studyId: getStudyId(),
+        firstName: "Alex",
+        email: "alex@example.com",
+        voiceProvider: "elevenlabs",
+      });
+
+      expect(interview.voiceProvider).toBe("elevenlabs");
+    });
+
+    it("update can record elevenLabsConversationId", async () => {
+      const repo = await makeRepository();
+      const created = await repo.create({
+        studyId: getStudyId(),
+        firstName: "Sam",
+        email: "sam@example.com",
+        voiceProvider: "elevenlabs",
+      });
+
+      const updated = await repo.update(created.id, { elevenLabsConversationId: "conv-abc-123" });
+
+      expect(updated.elevenLabsConversationId).toBe("conv-abc-123");
+      const reloaded = await repo.getById(created.id);
+      expect(reloaded?.elevenLabsConversationId).toBe("conv-abc-123");
     });
 
     it("getById returns the created interview", async () => {

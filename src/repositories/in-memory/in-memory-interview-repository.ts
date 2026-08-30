@@ -21,6 +21,8 @@ export class InMemoryInterviewRepository implements InterviewRepository {
       transcript: null,
       recordingUrl: null,
       vapiCallId: null,
+      voiceProvider: input.voiceProvider ?? "vapi",
+      elevenLabsConversationId: null,
       createdAt: new Date(),
       startedAt: null,
       completedAt: null,

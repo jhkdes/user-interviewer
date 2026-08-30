@@ -61,6 +61,8 @@ describe("IntakeForm", () => {
       transcript: null,
       recordingUrl: null,
       vapiCallId: null,
+      voiceProvider: "vapi",
+      elevenLabsConversationId: null,
       createdAt: new Date().toISOString(),
       startedAt: null,
       completedAt: null,

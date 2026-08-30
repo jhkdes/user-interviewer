@@ -3,8 +3,8 @@ import { FakeEmailClient } from "@/lib/email";
 import { FakeLLMProvider } from "@/llm";
 import { InMemoryInterviewRepository } from "@/repositories/in-memory/in-memory-interview-repository";
 import { InMemorySummaryRepository } from "@/repositories/in-memory/in-memory-summary-repository";
-import type { VapiEndOfCallReportMessage, VapiStatusUpdateMessage } from "../vapi-types";
-import { MissingInterviewIdError } from "../errors";
+import { MissingInterviewIdError } from "../../errors";
+import type { VapiEndOfCallReportMessage, VapiStatusUpdateMessage } from "../types";
 import { handleVapiWebhookMessage } from "../webhook-handler";
 
 const summaryFields = {

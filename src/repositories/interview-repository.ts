@@ -1,4 +1,4 @@
-import type { Interview } from "@/domain";
+import type { Interview, VoiceProvider } from "@/domain";
 
 export interface CreateInterviewInput {
   studyId: string;
@@ -10,6 +10,8 @@ export interface CreateInterviewInput {
   deviceType?: string;
   /** Pre-call screener answers — omit to leave `null`. */
   screenerAnswers?: Record<string, string | string[]>;
+  /** Which voice platform will run this interview's call — passed by startInterview (copied from the study). Defaults to `"vapi"` if omitted, matching the DB column default. */
+  voiceProvider?: VoiceProvider;
 }
 
 /** Partial update — repositories only persist the fields provided. */
@@ -21,6 +23,7 @@ export type InterviewUpdate = Partial<
     | "transcript"
     | "recordingUrl"
     | "vapiCallId"
+    | "elevenLabsConversationId"
     | "startedAt"
     | "completedAt"
     | "roleDescription"

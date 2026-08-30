@@ -15,6 +15,7 @@ const baseStudy: Study = {
   customPrompt: null,
   linkToken: "token",
   status: "open",
+  voiceProvider: "vapi",
   createdAt: new Date("2026-08-01T00:00:00Z"),
   closedAt: null,
 };

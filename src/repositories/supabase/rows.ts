@@ -11,6 +11,7 @@ export interface StudyRow {
   custom_prompt: string | null;
   link_token: string;
   status: string;
+  voice_provider: string;
   created_at: string;
   closed_at: string | null;
 }
@@ -26,6 +27,8 @@ export interface InterviewRow {
   transcript: unknown;
   recording_url: string | null;
   vapi_call_id: string | null;
+  voice_provider: string;
+  elevenlabs_conversation_id: string | null;
   created_at: string;
   started_at: string | null;
   completed_at: string | null;
