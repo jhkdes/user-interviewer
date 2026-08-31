@@ -2,7 +2,7 @@ export type CallStatus = "connecting" | "starting" | "in-progress" | "ended" | "
 
 const STATUS_COPY: Record<CallStatus, string> = {
   connecting: "Connecting…",
-  starting: "AI interviewer, Riley, is getting ready…",
+  starting: "AI interviewer is getting ready…",
   "in-progress": "In progress — go ahead and talk",
   ended: "Call ended",
   error: "Something went wrong with the call",
@@ -76,7 +76,8 @@ export function CallShell({
             {formatElapsed(elapsedSeconds)} elapsed
           </p>
           <p className="mt-6 text-sm text-neutral-500 dark:text-neutral-400">
-            Ready to wrap up? Just let Riley know, and it&apos;ll bring the interview to a close.
+            Interview takes about 15 mins. If you need to wrap up early, just let the AI interviewer
+            know.
           </p>
         </>
       )}
