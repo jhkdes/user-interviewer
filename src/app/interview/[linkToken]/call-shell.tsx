@@ -76,8 +76,8 @@ export function CallShell({
             {formatElapsed(elapsedSeconds)} elapsed
           </p>
           <p className="mt-6 text-sm text-neutral-500 dark:text-neutral-400">
-            Interview takes about 15 mins. If you need to wrap up early, just let the AI
-            interviewer know.
+            Interview takes about 15 mins. If you need to wrap up early, just let the AI interviewer
+            know.
           </p>
         </>
       )}
