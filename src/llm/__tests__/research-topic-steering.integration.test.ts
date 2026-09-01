@@ -36,7 +36,8 @@ const context: InterviewPromptContext = {
   researchTopic: RESEARCH_TOPIC,
   customPrompt: null,
   screenerAnswers: null,
-  timeRunningLow: false,
+  isDecisionTurn: false,
+  isFinalWrapTurn: false,
 };
 
 // Fixed replies played back regardless of the interviewer's exact wording —

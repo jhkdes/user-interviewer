@@ -43,6 +43,8 @@ export function runInterviewRepositoryContractTests(
       expect(interview.backgroundedAt).toBeNull();
       expect(interview.screenerAnswers).toBeNull();
       expect(interview.timeCheckAskedAt).toBeNull();
+      expect(interview.extensionGranted).toBeNull();
+      expect(interview.secondTimeCheckAskedAt).toBeNull();
     });
 
     it("creates an interview with screener answers when provided, round-tripping single and multi-select values", async () => {
@@ -226,6 +228,41 @@ export function runInterviewRepositoryContractTests(
 
       expect(updated.timeCheckAskedAt).toEqual(timeCheckAskedAt);
       expect((await repo.getById(created.id))?.timeCheckAskedAt).toEqual(timeCheckAskedAt);
+    });
+
+    it("update can record extensionGranted and secondTimeCheckAskedAt", async () => {
+      const repo = await makeRepository();
+      const created = await repo.create({
+        studyId: getStudyId(),
+        firstName: "Sam",
+        email: "sam@example.com",
+      });
+      const secondTimeCheckAskedAt = new Date("2026-01-01T00:22:00.000Z");
+
+      const updated = await repo.update(created.id, {
+        extensionGranted: true,
+        secondTimeCheckAskedAt,
+      });
+
+      expect(updated.extensionGranted).toBe(true);
+      expect(updated.secondTimeCheckAskedAt).toEqual(secondTimeCheckAskedAt);
+      const reloaded = await repo.getById(created.id);
+      expect(reloaded?.extensionGranted).toBe(true);
+      expect(reloaded?.secondTimeCheckAskedAt).toEqual(secondTimeCheckAskedAt);
+    });
+
+    it("update can record extensionGranted: false", async () => {
+      const repo = await makeRepository();
+      const created = await repo.create({
+        studyId: getStudyId(),
+        firstName: "Sam",
+        email: "sam@example.com",
+      });
+
+      const updated = await repo.update(created.id, { extensionGranted: false });
+
+      expect(updated.extensionGranted).toBe(false);
+      expect((await repo.getById(created.id))?.extensionGranted).toBe(false);
     });
 
     it("delete removes the interview (#5)", async () => {

@@ -17,6 +17,21 @@ export const SOFT_CAP_MINUTES = HARD_CAP_MINUTES - 3;
 export const SOFT_CAP_MS = SOFT_CAP_MINUTES * 60 * 1000;
 
 /**
+ * The ceiling that applies once a participant has explicitly agreed, at the
+ * HARD_CAP_MINUTES check-in, to keep going — see InterviewAgent's
+ * TIME_CHECK_UTTERANCE decision turn and Interview.extensionGranted. Never
+ * applies unless that agreement was actually given; an interview that never
+ * reaches the check-in, or where the participant declines, is still capped
+ * at HARD_CAP_MINUTES.
+ */
+export const EXTENDED_HARD_CAP_MINUTES = 25;
+export const EXTENDED_HARD_CAP_MS = EXTENDED_HARD_CAP_MINUTES * 60 * 1000;
+
+/** Same rationale as SOFT_CAP_MINUTES, offset from the extended cap instead — see InterviewAgent's SECOND_TIME_CHECK_UTTERANCE. */
+export const EXTENDED_SOFT_CAP_MINUTES = EXTENDED_HARD_CAP_MINUTES - 3;
+export const EXTENDED_SOFT_CAP_MS = EXTENDED_SOFT_CAP_MINUTES * 60 * 1000;
+
+/**
  * The LLM's own self-assessment (shouldEndInterview) is only honored once
  * the participant has had at least this many turns — guards against ending
  * after a single surface-level exchange, per REQUIREMENTS.md's depth
@@ -45,11 +60,19 @@ export interface TerminationCheckInput {
    * `isInterviewOver` every time despite the LLM saying so.
    */
   participantRequestedEnd: boolean;
+  /** The effective hard cap for this interview — HARD_CAP_MS unless the participant has agreed to extend (EXTENDED_HARD_CAP_MS, see Interview.extensionGranted). Defaults to HARD_CAP_MS. */
+  hardCapMs?: number;
 }
 
-/** Pure predicate feeding system-prompt.ts's time-check guidance — see SOFT_CAP_MS. */
-export function isApproachingTimeLimit(input: { interviewStartedAt: Date; now: Date }): boolean {
-  return input.now.getTime() - input.interviewStartedAt.getTime() >= SOFT_CAP_MS;
+/** Pure predicate feeding system-prompt.ts's time-check guidance — see SOFT_CAP_MS. `softCapMs` defaults to SOFT_CAP_MS; pass EXTENDED_SOFT_CAP_MS to check against the extended cap's warning window instead. */
+export function isApproachingTimeLimit(input: {
+  interviewStartedAt: Date;
+  now: Date;
+  softCapMs?: number;
+}): boolean {
+  return (
+    input.now.getTime() - input.interviewStartedAt.getTime() >= (input.softCapMs ?? SOFT_CAP_MS)
+  );
 }
 
 /**
@@ -68,7 +91,7 @@ export function isApproachingTimeLimit(input: { interviewStartedAt: Date; now: D
  */
 export function checkTermination(input: TerminationCheckInput): TerminationReason {
   const elapsedMs = input.now.getTime() - input.interviewStartedAt.getTime();
-  if (elapsedMs >= HARD_CAP_MS) {
+  if (elapsedMs >= (input.hardCapMs ?? HARD_CAP_MS)) {
     return "time-cap";
   }
 

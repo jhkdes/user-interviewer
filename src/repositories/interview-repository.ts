@@ -31,6 +31,8 @@ export type InterviewUpdate = Partial<
     | "endedReason"
     | "backgroundedAt"
     | "timeCheckAskedAt"
+    | "extensionGranted"
+    | "secondTimeCheckAskedAt"
   >
 >;
 

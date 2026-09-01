@@ -30,6 +30,10 @@ function toInterview(row: InterviewRow): Interview {
     backgroundedAt: row.backgrounded_at ? new Date(row.backgrounded_at) : null,
     screenerAnswers: (row.screener_answers as Record<string, string | string[]> | null) ?? null,
     timeCheckAskedAt: row.time_check_asked_at ? new Date(row.time_check_asked_at) : null,
+    extensionGranted: row.extension_granted,
+    secondTimeCheckAskedAt: row.second_time_check_asked_at
+      ? new Date(row.second_time_check_asked_at)
+      : null,
   };
 }
 
@@ -63,6 +67,12 @@ function toUpdateRow(patch: InterviewUpdate): Record<string, unknown> {
   }
   if (patch.timeCheckAskedAt !== undefined) {
     row.time_check_asked_at = patch.timeCheckAskedAt ? patch.timeCheckAskedAt.toISOString() : null;
+  }
+  if (patch.extensionGranted !== undefined) row.extension_granted = patch.extensionGranted;
+  if (patch.secondTimeCheckAskedAt !== undefined) {
+    row.second_time_check_asked_at = patch.secondTimeCheckAskedAt
+      ? patch.secondTimeCheckAskedAt.toISOString()
+      : null;
   }
   return row;
 }

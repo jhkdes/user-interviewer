@@ -38,6 +38,8 @@ export interface InterviewRow {
   backgrounded_at: string | null;
   screener_answers: unknown;
   time_check_asked_at: string | null;
+  extension_granted: boolean | null;
+  second_time_check_asked_at: string | null;
 }
 
 export interface SummaryRow {

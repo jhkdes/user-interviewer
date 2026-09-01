@@ -1,7 +1,17 @@
 import { describe, expect, it } from "vitest";
 import { FakeLLMProvider, type InterviewTurn } from "@/llm";
-import { InterviewAgent, TIME_CHECK_UTTERANCE } from "../interview-agent";
-import { HARD_CAP_MS, MIN_PARTICIPANT_TURNS_BEFORE_LLM_CAN_END, SOFT_CAP_MS } from "../termination";
+import {
+  InterviewAgent,
+  SECOND_TIME_CHECK_UTTERANCE,
+  TIME_CHECK_UTTERANCE,
+} from "../interview-agent";
+import {
+  EXTENDED_HARD_CAP_MS,
+  EXTENDED_SOFT_CAP_MS,
+  HARD_CAP_MS,
+  MIN_PARTICIPANT_TURNS_BEFORE_LLM_CAN_END,
+  SOFT_CAP_MS,
+} from "../termination";
 
 const context = {
   participantFirstName: "Jordan",
@@ -56,6 +66,7 @@ describe("InterviewAgent.generateNextTurn", () => {
       isInterviewOver: false,
       terminationReason: null,
       timeCheckJustAsked: false,
+      secondTimeCheckJustAsked: false,
     });
   });
 
@@ -156,6 +167,7 @@ describe("InterviewAgent.generateNextTurn", () => {
       isInterviewOver: false,
       terminationReason: null,
       timeCheckJustAsked: true,
+      secondTimeCheckJustAsked: false,
     });
     // The LLM proved unreliable at initiating this on its own (verified against
     // the real API) — it's scripted instead, so the LLM is never even called here.
@@ -180,7 +192,6 @@ describe("InterviewAgent.generateNextTurn", () => {
       ],
       interviewStartedAt: START,
       now: new Date(START.getTime() + SOFT_CAP_MS + 30_000),
-      timeCheckAlreadyAsked: true,
     });
 
     expect(result.timeCheckJustAsked).toBe(false);
@@ -188,6 +199,9 @@ describe("InterviewAgent.generateNextTurn", () => {
     expect(result.utterance).toBe(
       "Great — one more question: what do you usually rework before using it?",
     );
+    // A trailing "?" on this specific turn is read as the participant having
+    // agreed to extend — persisted by the caller as Interview.extensionGranted.
+    expect(result.extensionDecision).toBe(true);
     expect(llm.calls.generateInterviewerTurn[0].systemPrompt).toMatch(/## Time check/);
     expect(llm.calls.generateInterviewerTurn[0].systemPrompt).toMatch(
       /you've already asked the participant/i,
@@ -217,11 +231,11 @@ describe("InterviewAgent.generateNextTurn", () => {
       conversationHistory: deepHistory,
       interviewStartedAt: START,
       now: new Date(START.getTime() + SOFT_CAP_MS + 30_000),
-      timeCheckAlreadyAsked: true,
     });
 
     expect(result.isInterviewOver).toBe(true);
     expect(result.terminationReason).toBe("llm-self-assessed");
+    expect(result.extensionDecision).toBe(false);
   });
 
   it("does not apply the non-question-means-close override outside the reactive time-check turn", async () => {
@@ -327,5 +341,147 @@ describe("InterviewAgent.generateNextTurn", () => {
       (c) => c.conversationHistory.length,
     );
     expect(historyLengthsSeen).toEqual([0, 2, 4, 6, 8]);
+  });
+
+  describe("extension past the base 15-minute cap", () => {
+    it("continues normally (no one-more-question constraint) past the base hard cap once the participant has agreed to extend", async () => {
+      const llm = new FakeLLMProvider();
+      llm.scriptInterviewerTurns([
+        {
+          utterance: "Great, let's dig into that a bit more — what happens next?",
+          shouldEndInterview: false,
+        },
+      ]);
+      const agent = new InterviewAgent(llm);
+
+      const result = await agent.generateNextTurn({
+        context,
+        conversationHistory: [{ speaker: "participant", text: "Still going" }],
+        interviewStartedAt: START,
+        now: new Date(START.getTime() + HARD_CAP_MS + 60_000), // past the base cap
+        extensionGranted: true,
+      });
+
+      expect(result.isInterviewOver).toBe(false);
+      expect(result.terminationReason).toBeNull();
+      expect(result.utterance).toBe("Great, let's dig into that a bit more — what happens next?");
+      // No "## Time check" guidance on an ordinary extended-interview turn.
+      expect(llm.calls.generateInterviewerTurn[0].systemPrompt).not.toMatch(/## Time check/);
+    });
+
+    it("ends at the base hard cap regardless of the LLM's signal when the participant declined to extend", async () => {
+      const llm = new FakeLLMProvider();
+      llm.scriptInterviewerTurns([
+        { utterance: "One more question...", shouldEndInterview: false },
+      ]);
+      const agent = new InterviewAgent(llm);
+
+      const result = await agent.generateNextTurn({
+        context,
+        conversationHistory: [{ speaker: "participant", text: "Still going" }],
+        interviewStartedAt: START,
+        now: new Date(START.getTime() + HARD_CAP_MS),
+        extensionGranted: false,
+      });
+
+      expect(result.isInterviewOver).toBe(true);
+      expect(result.terminationReason).toBe("time-cap");
+    });
+
+    it("deterministically injects SECOND_TIME_CHECK_UTTERANCE approaching the extended cap, only once extension was granted", async () => {
+      const llm = new FakeLLMProvider();
+      const agent = new InterviewAgent(llm);
+
+      const result = await agent.generateNextTurn({
+        context,
+        conversationHistory: [{ speaker: "participant", text: "Still going" }],
+        interviewStartedAt: START,
+        now: new Date(START.getTime() + EXTENDED_SOFT_CAP_MS),
+        extensionGranted: true,
+      });
+
+      expect(result).toEqual({
+        utterance: SECOND_TIME_CHECK_UTTERANCE,
+        isInterviewOver: false,
+        terminationReason: null,
+        timeCheckJustAsked: false,
+        secondTimeCheckJustAsked: true,
+      });
+      expect(llm.calls.generateInterviewerTurn).toHaveLength(0);
+    });
+
+    it("does not inject the second check-in if extension was never granted, even past the extended soft cap", async () => {
+      const llm = new FakeLLMProvider();
+      llm.scriptInterviewerTurns([{ utterance: "Wrapping up now...", shouldEndInterview: false }]);
+      const agent = new InterviewAgent(llm);
+
+      const result = await agent.generateNextTurn({
+        context,
+        conversationHistory: [{ speaker: "participant", text: "Still going" }],
+        interviewStartedAt: START,
+        now: new Date(START.getTime() + EXTENDED_SOFT_CAP_MS),
+        extensionGranted: null,
+      });
+
+      expect(result.utterance).not.toBe(SECOND_TIME_CHECK_UTTERANCE);
+    });
+
+    it("closes on the turn reacting to SECOND_TIME_CHECK_UTTERANCE when the utterance isn't a question", async () => {
+      const llm = new FakeLLMProvider();
+      llm.scriptInterviewerTurns([
+        {
+          utterance: "That's everything — thank you so much for your time today.",
+          shouldEndInterview: false,
+        },
+      ]);
+      const agent = new InterviewAgent(llm);
+
+      const deepHistory: InterviewTurn[] = [
+        { speaker: "interviewer", text: TIME_CHECK_UTTERANCE },
+        { speaker: "participant", text: "Sure, happy to keep going." },
+        { speaker: "interviewer", text: SECOND_TIME_CHECK_UTTERANCE },
+        ...Array.from({ length: MIN_PARTICIPANT_TURNS_BEFORE_LLM_CAN_END }, (_, i) => ({
+          speaker: "participant" as const,
+          text: `Detail ${i + 1}`,
+        })),
+      ];
+
+      const result = await agent.generateNextTurn({
+        context,
+        conversationHistory: deepHistory,
+        interviewStartedAt: START,
+        now: new Date(START.getTime() + EXTENDED_SOFT_CAP_MS + 30_000),
+        extensionGranted: true,
+      });
+
+      expect(result.isInterviewOver).toBe(true);
+      expect(result.terminationReason).toBe("llm-self-assessed");
+    });
+
+    it("ends at the extended hard cap even if the LLM wants to continue", async () => {
+      const llm = new FakeLLMProvider();
+      llm.scriptInterviewerTurns([
+        { utterance: "One more question...", shouldEndInterview: false },
+      ]);
+      const agent = new InterviewAgent(llm);
+
+      const deepHistory: InterviewTurn[] = [
+        { speaker: "interviewer", text: TIME_CHECK_UTTERANCE },
+        { speaker: "participant", text: "Sure, happy to keep going." },
+        { speaker: "interviewer", text: SECOND_TIME_CHECK_UTTERANCE },
+        { speaker: "participant", text: "Sounds good." },
+      ];
+
+      const result = await agent.generateNextTurn({
+        context,
+        conversationHistory: deepHistory,
+        interviewStartedAt: START,
+        now: new Date(START.getTime() + EXTENDED_HARD_CAP_MS),
+        extensionGranted: true,
+      });
+
+      expect(result.isInterviewOver).toBe(true);
+      expect(result.terminationReason).toBe("time-cap");
+    });
   });
 });
