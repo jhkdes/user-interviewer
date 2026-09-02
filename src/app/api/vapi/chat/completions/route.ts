@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { InterviewAgent } from "@/interview-agent";
+import { isVoiceSessionDebugEnabled } from "@/lib/debug";
 import { getLLMProvider } from "@/llm";
 import { getInterviewRepository } from "@/repositories/get-interview-repository";
 import { getStudyRepository } from "@/repositories/get-study-repository";
@@ -11,9 +12,21 @@ import {
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
-  const body = (await request
-    .json()
-    .catch(() => null)) as VapiCustomLlmChatCompletionRequest | null;
+  const rawBody = await request.text();
+  // Gated — this is real participant conversation content, not something to
+  // log unconditionally in production. Set DEBUG_VOICE_SESSION=true to
+  // enable (see src/lib/debug.ts).
+  if (isVoiceSessionDebugEnabled()) {
+    console.log("[vapi custom-llm] raw request body:", rawBody);
+  }
+
+  const body = (() => {
+    try {
+      return JSON.parse(rawBody) as VapiCustomLlmChatCompletionRequest;
+    } catch {
+      return null;
+    }
+  })();
   if (!body) {
     return NextResponse.json({ error: "Request body must be JSON" }, { status: 400 });
   }
@@ -27,6 +40,10 @@ export async function POST(request: Request) {
       },
       body,
     );
+
+    if (isVoiceSessionDebugEnabled()) {
+      console.log("[vapi custom-llm] response SSE body:", sseBody);
+    }
 
     return new NextResponse(sseBody, {
       status: 200,

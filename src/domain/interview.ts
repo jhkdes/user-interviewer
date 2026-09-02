@@ -54,4 +54,8 @@ export interface Interview {
   screenerAnswers: Record<string, string | string[]> | null;
   /** When InterviewAgent deterministically injected the "we're running low on time, can you keep going?" check-in (see termination.ts's SOFT_CAP_MS) — scripted rather than left to the LLM, since it proved unreliable at noticing the cue on its own. `null` until that turn happens; once set, it's asked exactly once per interview. */
   timeCheckAskedAt: Date | null;
+  /** Whether the participant agreed (`true`) or declined (`false`) to extend the interview past the base 15-minute cap, decided on the turn immediately following the `timeCheckAskedAt` check-in — see InterviewAgent's TIME_CHECK_UTTERANCE decision turn. `null` until that turn resolves it, including for interviews that never reach the check-in at all. */
+  extensionGranted: boolean | null;
+  /** When InterviewAgent deterministically injected the final "we're almost out of time" check-in — only asked for interviews where `extensionGranted` is true, once approaching the extended 25-minute cap (see termination.ts's EXTENDED_SOFT_CAP_MS). `null` until that turn happens. */
+  secondTimeCheckAskedAt: Date | null;
 }

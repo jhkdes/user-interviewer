@@ -42,9 +42,10 @@ export interface GenerateTurnOutput {
  * Provider-agnostic core of the custom-LLM integration: resolves the
  * Interview + Study behind `interviewId`, replays the conversation so far
  * into InterviewAgent (M3) — which owns the system prompt and, on every
- * turn, the hard 15-minute cap (T6.4) via its own termination check — and
- * returns `isInterviewOver` for the caller to encode however its provider's
- * wire format requires (Vapi: an appended exact-phrase; ElevenLabs: an
+ * turn, the hard time cap (15 min, or 25 min once the participant has
+ * agreed to extend — see interview-agent's termination check) — and returns
+ * `isInterviewOver` for the caller to encode however its provider's wire
+ * format requires (Vapi: an appended exact-phrase; ElevenLabs: an
  * `end_call` tool call — see each provider's `custom-llm-handler.ts`).
  */
 export async function generateTurn(
@@ -60,24 +61,35 @@ export async function generateTurn(
   if (!study) throw new StudyNotFoundError(interview.studyId);
 
   const now = deps.now ?? new Date();
-  const { utterance, isInterviewOver, timeCheckJustAsked } =
-    await deps.interviewAgent.generateNextTurn({
-      context: {
-        participantFirstName: interview.firstName,
-        participantRoleDescription: interview.roleDescription,
-        targetProfile: study.targetProfile,
-        researchTopic: study.researchTopic,
-        customPrompt: study.customPrompt,
-        screenerAnswers: interview.screenerAnswers,
-      },
-      conversationHistory: toConversationHistory(input.messages),
-      interviewStartedAt: interview.startedAt ?? interview.createdAt,
-      timeCheckAlreadyAsked: interview.timeCheckAskedAt !== null,
-      now,
-    });
+  const {
+    utterance,
+    isInterviewOver,
+    timeCheckJustAsked,
+    secondTimeCheckJustAsked,
+    extensionDecision,
+  } = await deps.interviewAgent.generateNextTurn({
+    context: {
+      participantFirstName: interview.firstName,
+      participantRoleDescription: interview.roleDescription,
+      targetProfile: study.targetProfile,
+      researchTopic: study.researchTopic,
+      customPrompt: study.customPrompt,
+      screenerAnswers: interview.screenerAnswers,
+    },
+    conversationHistory: toConversationHistory(input.messages),
+    interviewStartedAt: interview.startedAt ?? interview.createdAt,
+    extensionGranted: interview.extensionGranted,
+    now,
+  });
 
   if (timeCheckJustAsked) {
     await deps.interviewRepo.update(interviewId, { timeCheckAskedAt: now });
+  }
+  if (secondTimeCheckJustAsked) {
+    await deps.interviewRepo.update(interviewId, { secondTimeCheckAskedAt: now });
+  }
+  if (extensionDecision !== undefined) {
+    await deps.interviewRepo.update(interviewId, { extensionGranted: extensionDecision });
   }
 
   return { utterance, isInterviewOver };

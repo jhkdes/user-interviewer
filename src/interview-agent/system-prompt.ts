@@ -35,18 +35,29 @@ export interface InterviewPromptContext {
    */
   screenerAnswers: Record<string, string | string[]> | null;
   /**
-   * True once the interview has passed termination.ts's SOFT_CAP_MS — a few
-   * minutes before the hard cap. Computed by InterviewAgent from
-   * `interviewStartedAt`/`now`, not supplied by callers directly (see
-   * InterviewAgentTurnInput). Drives the "Time check" guidance below. Note
-   * the actual "can you keep going a few more minutes?" check-in is *not*
-   * left to the LLM to initiate — InterviewAgent injects it deterministically
-   * (see TIME_CHECK_UTTERANCE) the moment this first goes true, since the LLM
-   * proved unreliable at noticing the cue on its own turn. This guidance only
-   * governs how the LLM reacts once that scripted question is already
-   * sitting in the transcript.
+   * True only on the single turn immediately following TIME_CHECK_UTTERANCE
+   * — the participant's reply to "are you able to keep going a few more
+   * minutes?". Computed by InterviewAgent from the conversation history
+   * (not supplied by callers directly — see InterviewAgentTurnInput).
+   * Drives TIME_CHECK_GUIDANCE below, which tells the LLM to either continue
+   * normally (if they agreed) or close now (if they didn't). Neither the
+   * "can you keep going?" check-in nor this reactive guidance is left to the
+   * LLM to initiate on its own — InterviewAgent injects the check-in
+   * deterministically (see TIME_CHECK_UTTERANCE) since the LLM proved
+   * unreliable at noticing the cue on its own turn, and this flag is scoped
+   * to exactly the one turn reacting to it, never any turn after — "look at
+   * how they responded" only makes sense read against that specific
+   * exchange, not several turns later.
    */
-  timeRunningLow: boolean;
+  isDecisionTurn: boolean;
+  /**
+   * True only on the single turn immediately following
+   * SECOND_TIME_CHECK_UTTERANCE — the final heads-up shown once an extended
+   * interview (participant agreed to continue past HARD_CAP_MINUTES)
+   * approaches EXTENDED_HARD_CAP_MINUTES. Drives SECOND_TIME_CHECK_GUIDANCE.
+   * Mutually exclusive with isDecisionTurn.
+   */
+  isFinalWrapTurn: boolean;
 }
 
 /**
@@ -92,7 +103,7 @@ function formatScreenerContext(answers: Record<string, string | string[]> | null
 }
 
 /**
- * Prepended — not appended — once `timeRunningLow` is true, regardless of
+ * Prepended — not appended — once `isDecisionTurn` is true, regardless of
  * custom vs. generated template. Appending guidance after a long, highly
  * directive "Structure"/technique section empirically got ignored by the
  * model (verified against the real API, not just unit tests). Unlike an
@@ -110,9 +121,26 @@ function formatScreenerContext(answers: Record<string, string | string[]> | null
 const TIME_CHECK_GUIDANCE = `## Time check
 This interview is running low on time. You've already asked the participant, in your immediately preceding turn, whether they're able to keep going for a few more minutes — do not ask that again.
 
-Look at how they responded: if they said they can keep going, ask at most one more focused question before wrapping up. If they said they can't, or didn't clearly say yes, close immediately instead — do not ask another question first.
+Look at how they responded: if they said they can keep going, continue the interview normally from here — ask a real follow-up question grounded in what they've said, the same as any other turn. Don't mention time again unless they bring it up; we'll check in again later if it becomes relevant. This turn's utterance must literally end with a "?" character — phrase it as a direct question ("What...", "How...", "Can you tell me...") rather than an instruction like "Walk me through...", which reads as a question to a person but doesn't end in "?". Code downstream uses the literal trailing "?" to detect that you're continuing, not closing.
 
-Either way, when you do close: that turn's utterance must be a closing statement only, never mixed with a new question, and you must set shouldEndInterview to true on that same turn — a goodbye-sounding utterance without also setting shouldEndInterview leaves the call hanging.
+If they said they can't, or didn't clearly say yes, close immediately instead — do not ask another question first. That turn's utterance must be a closing statement only, never mixed with a new question, and must NOT end with a "?" — and you must set shouldEndInterview to true on that same turn — a goodbye-sounding utterance without also setting shouldEndInterview leaves the call hanging.
+
+---
+
+`;
+
+/**
+ * Same shape as TIME_CHECK_GUIDANCE, for the second (extended-interview)
+ * check-in — here the reaction is always "wrap up soon" rather than a real
+ * yes/no decision, so this always steers toward closing rather than
+ * continuing indefinitely.
+ */
+const SECOND_TIME_CHECK_GUIDANCE = `## Final time check
+We're almost out of time for this interview. You've already told the participant, in your immediately preceding turn, that you're wrapping up in the next couple of minutes — do not repeat that.
+
+Ask at most one more focused question before closing, phrased as a direct question ending literally with a "?" character ("What...", "How...", "Can you tell me..." rather than an instruction like "Walk me through..."), or close immediately if there's nothing more worth asking.
+
+Either way, when you do close: that turn's utterance must be a closing statement only, never mixed with a new question, must NOT end with a "?", and you must set shouldEndInterview to true on that same turn — a goodbye-sounding utterance without also setting shouldEndInterview leaves the call hanging.
 
 ---
 
@@ -138,9 +166,9 @@ export const INTERVIEWER_NAME = "Riley";
  * Builds the Mom Test-style system prompt for a single interview, per the
  * "Interview Agent Behavior" section of REQUIREMENTS.md. Pure function of
  * the interview's context — no conversation state of its own, but rebuilt
- * fresh each turn by InterviewAgent so `timeRunningLow` stays current (the
- * hard 15-minute cap and depth guard remain enforced by termination.ts,
- * independent of what this text says).
+ * fresh each turn by InterviewAgent so `isDecisionTurn`/`isFinalWrapTurn`
+ * stay current (the hard-cap and depth guards remain enforced by
+ * termination.ts, independent of what this text says).
  */
 export function buildInterviewSystemPrompt(context: InterviewPromptContext): string {
   const {
@@ -149,10 +177,15 @@ export function buildInterviewSystemPrompt(context: InterviewPromptContext): str
     researchTopic,
     customPrompt,
     screenerAnswers,
-    timeRunningLow,
+    isDecisionTurn,
+    isFinalWrapTurn,
   } = context;
   const screenerContext = formatScreenerContext(screenerAnswers);
-  const timeCheckGuidance = timeRunningLow ? TIME_CHECK_GUIDANCE : "";
+  const timeCheckGuidance = isDecisionTurn
+    ? TIME_CHECK_GUIDANCE
+    : isFinalWrapTurn
+      ? SECOND_TIME_CHECK_GUIDANCE
+      : "";
 
   if (customPrompt) {
     const interpolated = interpolate(customPrompt, {

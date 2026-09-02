@@ -15,7 +15,8 @@ const context = {
   researchTopic: null,
   customPrompt: null,
   screenerAnswers: null,
-  timeRunningLow: false,
+  isDecisionTurn: false,
+  isFinalWrapTurn: false,
 };
 
 describe("buildInterviewSystemPrompt", () => {
@@ -217,33 +218,31 @@ describe("buildInterviewSystemPrompt", () => {
   });
 
   describe("time check", () => {
-    it("appends nothing when time isn't running low", () => {
-      expect(buildInterviewSystemPrompt({ ...context, timeRunningLow: false })).not.toMatch(
+    it("appends nothing when not on a decision turn", () => {
+      expect(buildInterviewSystemPrompt({ ...context, isDecisionTurn: false })).not.toMatch(
         /Time check/i,
       );
     });
 
     it("instructs reacting to the already-asked check-in rather than asking it again itself", () => {
-      const prompt = buildInterviewSystemPrompt({ ...context, timeRunningLow: true });
+      const prompt = buildInterviewSystemPrompt({ ...context, isDecisionTurn: true });
 
       expect(prompt).toMatch(/## Time check/);
       expect(prompt).toMatch(/you've already asked the participant/i);
       expect(prompt).toMatch(/do not ask that again/i);
-      expect(prompt).toMatch(
-        /if they said they can keep going, ask at most one more focused question/i,
-      );
+      expect(prompt).toMatch(/if they said they can keep going, continue the interview normally/i);
       expect(prompt).toMatch(/if they said they can't.*close immediately instead/i);
     });
 
     it("is positioned first in the prompt, not appended at the end", () => {
-      const prompt = buildInterviewSystemPrompt({ ...context, timeRunningLow: true });
+      const prompt = buildInterviewSystemPrompt({ ...context, isDecisionTurn: true });
 
       expect(prompt.indexOf("## Time check")).toBe(0);
       expect(prompt.indexOf("## Time check")).toBeLessThan(prompt.indexOf("## Structure"));
     });
 
     it("instructs a closing-statement-only turn once they do wrap up, never mixed with a new question, and requires setting shouldEndInterview", () => {
-      const prompt = buildInterviewSystemPrompt({ ...context, timeRunningLow: true });
+      const prompt = buildInterviewSystemPrompt({ ...context, isDecisionTurn: true });
 
       expect(prompt).toMatch(/that turn's utterance must be a closing statement only/i);
       expect(prompt).toMatch(/never mixed with a new question/i);
@@ -254,10 +253,34 @@ describe("buildInterviewSystemPrompt", () => {
       const prompt = buildInterviewSystemPrompt({
         ...context,
         customPrompt: "You are talking with {{participant_name}}.",
-        timeRunningLow: true,
+        isDecisionTurn: true,
       });
 
       expect(prompt).toMatch(/## Time check/);
+    });
+  });
+
+  describe("final time check", () => {
+    it("appends nothing when not on the final wrap turn", () => {
+      expect(buildInterviewSystemPrompt({ ...context, isFinalWrapTurn: false })).not.toMatch(
+        /Final time check/i,
+      );
+    });
+
+    it("instructs reacting to the already-asked final check-in, always steering toward closing", () => {
+      const prompt = buildInterviewSystemPrompt({ ...context, isFinalWrapTurn: true });
+
+      expect(prompt).toMatch(/## Final time check/);
+      expect(prompt).toMatch(/you've already told the participant/i);
+      expect(prompt).toMatch(/ask at most one more focused question before closing/i);
+      expect(prompt).toMatch(/that turn's utterance must be a closing statement only/i);
+      expect(prompt).toMatch(/you must set shouldEndInterview to true on that same turn/i);
+    });
+
+    it("is mutually exclusive with the decision-turn guidance", () => {
+      const prompt = buildInterviewSystemPrompt({ ...context, isFinalWrapTurn: true });
+
+      expect(prompt).not.toMatch(/## Time check\n/);
     });
   });
 

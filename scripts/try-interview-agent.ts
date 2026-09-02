@@ -77,7 +77,8 @@ Warm, curious, unhurried, conversational — not interrogative, not clinical, no
 
 End when you've reached real depth on at least two or three of the four areas above, or at the hard 15-minute cap, whichever comes first. Before ending, ask a brief catch-all: "anything else about AI and your day-to-day that we haven't touched on?" Close warmly and thank them specifically for something concrete they shared, not a generic sign-off.`,
   screenerAnswers: null,
-  timeRunningLow: false,
+  isDecisionTurn: false,
+  isFinalWrapTurn: false,
 };
 
 async function main() {
