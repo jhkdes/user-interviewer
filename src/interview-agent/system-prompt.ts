@@ -121,9 +121,9 @@ function formatScreenerContext(answers: Record<string, string | string[]> | null
 const TIME_CHECK_GUIDANCE = `## Time check
 This interview is running low on time. You've already asked the participant, in your immediately preceding turn, whether they're able to keep going for a few more minutes — do not ask that again.
 
-Look at how they responded: if they said they can keep going, continue the interview normally from here — ask a real follow-up question grounded in what they've said, the same as any other turn. Don't mention time again unless they bring it up; we'll check in again later if it becomes relevant.
+Look at how they responded: if they said they can keep going, continue the interview normally from here — ask a real follow-up question grounded in what they've said, the same as any other turn. Don't mention time again unless they bring it up; we'll check in again later if it becomes relevant. This turn's utterance must literally end with a "?" character — phrase it as a direct question ("What...", "How...", "Can you tell me...") rather than an instruction like "Walk me through...", which reads as a question to a person but doesn't end in "?". Code downstream uses the literal trailing "?" to detect that you're continuing, not closing.
 
-If they said they can't, or didn't clearly say yes, close immediately instead — do not ask another question first. That turn's utterance must be a closing statement only, never mixed with a new question, and you must set shouldEndInterview to true on that same turn — a goodbye-sounding utterance without also setting shouldEndInterview leaves the call hanging.
+If they said they can't, or didn't clearly say yes, close immediately instead — do not ask another question first. That turn's utterance must be a closing statement only, never mixed with a new question, and must NOT end with a "?" — and you must set shouldEndInterview to true on that same turn — a goodbye-sounding utterance without also setting shouldEndInterview leaves the call hanging.
 
 ---
 
@@ -138,9 +138,9 @@ If they said they can't, or didn't clearly say yes, close immediately instead �
 const SECOND_TIME_CHECK_GUIDANCE = `## Final time check
 We're almost out of time for this interview. You've already told the participant, in your immediately preceding turn, that you're wrapping up in the next couple of minutes — do not repeat that.
 
-Ask at most one more focused question before closing, or close immediately if there's nothing more worth asking.
+Ask at most one more focused question before closing, phrased as a direct question ending literally with a "?" character ("What...", "How...", "Can you tell me..." rather than an instruction like "Walk me through..."), or close immediately if there's nothing more worth asking.
 
-Either way, when you do close: that turn's utterance must be a closing statement only, never mixed with a new question, and you must set shouldEndInterview to true on that same turn — a goodbye-sounding utterance without also setting shouldEndInterview leaves the call hanging.
+Either way, when you do close: that turn's utterance must be a closing statement only, never mixed with a new question, must NOT end with a "?", and you must set shouldEndInterview to true on that same turn — a goodbye-sounding utterance without also setting shouldEndInterview leaves the call hanging.
 
 ---
 

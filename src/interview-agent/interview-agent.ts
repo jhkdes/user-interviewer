@@ -54,15 +54,38 @@ export interface InterviewAgentTurnOutput {
   extensionDecision?: boolean;
 }
 
-function wasUtteranceSpoken(history: InterviewTurn[], utterance: string): boolean {
-  return history.some((turn) => turn.speaker === "interviewer" && turn.text === utterance);
+/**
+ * Distinctive fragments of each scripted line, robust to the minor
+ * rewording some providers introduce when replaying "what the assistant
+ * said" back to us on the next turn. Confirmed via a real Vapi call
+ * (2026-09-02): our exact TIME_CHECK_UTTERANCE ("Hey, I want to flag...")
+ * came back in the next request's conversation history as "Hey. I wanna
+ * flag..." — contractions and punctuation changed, but the substance
+ * didn't. Exact string equality never matched, so `firstCheckInAsked`
+ * stayed permanently false, the decision turn never triggered, and the
+ * interview ran to the un-extended hard cap and got cut off mid-turn.
+ * Matching on stable substrings instead survives that kind of rewording.
+ */
+const TIME_CHECK_FRAGMENTS = ["running a little low on time", "keep going for a few more minutes"];
+const SECOND_TIME_CHECK_FRAGMENTS = ["almost at the end of our time together", "wrap up"];
+
+function utteranceContainsAllFragments(text: string, fragments: string[]): boolean {
+  return fragments.every((fragment) => text.includes(fragment));
 }
 
-function lastInterviewerUtterance(history: InterviewTurn[]): string | undefined {
+function wasUtteranceSpoken(history: InterviewTurn[], fragments: string[]): boolean {
+  return history.some(
+    (turn) => turn.speaker === "interviewer" && utteranceContainsAllFragments(turn.text, fragments),
+  );
+}
+
+function lastInterviewerUtteranceMatches(history: InterviewTurn[], fragments: string[]): boolean {
   for (let i = history.length - 1; i >= 0; i--) {
-    if (history[i].speaker === "interviewer") return history[i].text;
+    if (history[i].speaker === "interviewer") {
+      return utteranceContainsAllFragments(history[i].text, fragments);
+    }
   }
-  return undefined;
+  return false;
 }
 
 /**
@@ -90,9 +113,8 @@ export class InterviewAgent {
     const history = input.conversationHistory;
     const interviewStartedAt = input.interviewStartedAt;
 
-    const firstCheckInAsked = wasUtteranceSpoken(history, TIME_CHECK_UTTERANCE);
-    const secondCheckInAsked = wasUtteranceSpoken(history, SECOND_TIME_CHECK_UTTERANCE);
-    const lastUtterance = lastInterviewerUtterance(history);
+    const firstCheckInAsked = wasUtteranceSpoken(history, TIME_CHECK_FRAGMENTS);
+    const secondCheckInAsked = wasUtteranceSpoken(history, SECOND_TIME_CHECK_FRAGMENTS);
 
     // ---- First check-in: inject once the soft cap is reached, if not already asked ----
     if (!firstCheckInAsked && isApproachingTimeLimit({ interviewStartedAt, now })) {
@@ -150,10 +172,13 @@ export class InterviewAgent {
 
     // A decision turn only exists while no decision has been recorded yet —
     // once extensionGranted is persisted, this never fires again, even if a
-    // later turn happens to end with TIME_CHECK_UTTERANCE for some reason.
+    // later turn happens to match TIME_CHECK_FRAGMENTS for some reason.
     const isDecisionTurn =
-      firstCheckInAsked && input.extensionGranted == null && lastUtterance === TIME_CHECK_UTTERANCE;
-    const isFinalWrapTurn = secondCheckInAsked && lastUtterance === SECOND_TIME_CHECK_UTTERANCE;
+      firstCheckInAsked &&
+      input.extensionGranted == null &&
+      lastInterviewerUtteranceMatches(history, TIME_CHECK_FRAGMENTS);
+    const isFinalWrapTurn =
+      secondCheckInAsked && lastInterviewerUtteranceMatches(history, SECOND_TIME_CHECK_FRAGMENTS);
 
     const systemPrompt = buildInterviewSystemPrompt({
       ...input.context,

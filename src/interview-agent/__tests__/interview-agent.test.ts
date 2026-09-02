@@ -208,6 +208,41 @@ describe("InterviewAgent.generateNextTurn", () => {
     );
   });
 
+  it("still recognizes the check-in as already asked when the provider replays a slightly reworded version of it (confirmed via a real Vapi call, 2026-09-02)", async () => {
+    const llm = new FakeLLMProvider();
+    llm.scriptInterviewerTurns([
+      {
+        utterance: "Great — one more question: what do you usually rework before using it?",
+        shouldEndInterview: false,
+      },
+    ]);
+    const agent = new InterviewAgent(llm);
+
+    const result = await agent.generateNextTurn({
+      context,
+      conversationHistory: [
+        {
+          speaker: "interviewer",
+          // Real text Vapi's conversation history replayed back, verbatim —
+          // contractions and punctuation differ from TIME_CHECK_UTTERANCE,
+          // but the substance survives.
+          text: "Hey. I wanna flag that we're running a little low on time. Are you able to keep going for a few more minutes?",
+        },
+        { speaker: "participant", text: "Yeah, a few more minutes is fine." },
+      ],
+      interviewStartedAt: START,
+      now: new Date(START.getTime() + SOFT_CAP_MS + 30_000),
+    });
+
+    // Must be treated as the reactive decision turn (Time check guidance
+    // applied, extensionDecision computed) rather than a normal turn that
+    // then gets force-ended once elapsed time crosses the un-extended hard
+    // cap — the exact bug this fragment-based matching fixes.
+    expect(result.extensionDecision).toBe(true);
+    expect(result.isInterviewOver).toBe(false);
+    expect(llm.calls.generateInterviewerTurn[0].systemPrompt).toMatch(/## Time check/);
+  });
+
   it("treats a non-question utterance on the reactive time-check turn as a close, even if the LLM's own shouldEndInterview flag says otherwise", async () => {
     const llm = new FakeLLMProvider();
     llm.scriptInterviewerTurns([
