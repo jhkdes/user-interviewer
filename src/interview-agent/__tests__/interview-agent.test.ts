@@ -243,6 +243,36 @@ describe("InterviewAgent.generateNextTurn", () => {
     expect(llm.calls.generateInterviewerTurn[0].systemPrompt).toMatch(/## Time check/);
   });
 
+  it("does not force-end the decision turn itself even if elapsed time has already crossed the un-extended hard cap (confirmed via a real ElevenLabs call, 2026-09-02)", async () => {
+    const llm = new FakeLLMProvider();
+    llm.scriptInterviewerTurns([
+      {
+        utterance: "Great — one last question: what's the one thing you'd never hand off to AI?",
+        shouldEndInterview: false,
+      },
+    ]);
+    const agent = new InterviewAgent(llm);
+
+    const result = await agent.generateNextTurn({
+      context,
+      conversationHistory: [
+        { speaker: "interviewer", text: TIME_CHECK_UTTERANCE },
+        { speaker: "participant", text: "Yeah, I could keep going." },
+      ],
+      interviewStartedAt: START,
+      // Elapsed time already past the base HARD_CAP_MS, e.g. because of
+      // real-world delay between the check-in and the participant's reply
+      // reaching this turn. Extension is being decided on *this* turn, so
+      // it must not be judged against the stale un-extended cap.
+      now: new Date(START.getTime() + HARD_CAP_MS + 60_000),
+      extensionGranted: null,
+    });
+
+    expect(result.extensionDecision).toBe(true);
+    expect(result.isInterviewOver).toBe(false);
+    expect(result.terminationReason).toBeNull();
+  });
+
   it("treats a non-question utterance on the reactive time-check turn as a close, even if the LLM's own shouldEndInterview flag says otherwise", async () => {
     const llm = new FakeLLMProvider();
     llm.scriptInterviewerTurns([

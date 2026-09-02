@@ -143,8 +143,6 @@ export class InterviewAgent {
       }
     }
 
-    const effectiveHardCapMs = input.extensionGranted === true ? EXTENDED_HARD_CAP_MS : HARD_CAP_MS;
-
     // ---- Second check-in: only once the participant has agreed to extend ----
     if (
       input.extensionGranted === true &&
@@ -207,13 +205,25 @@ export class InterviewAgent {
       if (!utterance.trim().endsWith("?")) llmSuggestsEnd = true;
     }
 
+    // Re-derive the cap for *this* turn's termination check using the
+    // decision just made, not the value read from the DB at the top of the
+    // request. input.extensionGranted reflects only what a *previous* turn
+    // persisted — on the decision turn itself, the participant's "yes, I can
+    // keep going" is being processed right now, so checking against the
+    // stale un-extended cap could force an immediate cutoff on the very
+    // question meant to confirm the extension worked (confirmed via a real
+    // ElevenLabs call, 2026-09-02: the interviewer asked one more question
+    // and `end_call` fired before the participant could ever answer).
+    const grantedForThisTurn = extensionDecision ?? input.extensionGranted;
+    const hardCapMs = grantedForThisTurn === true ? EXTENDED_HARD_CAP_MS : HARD_CAP_MS;
+
     const terminationReason = checkTermination({
       conversationHistory: history,
       interviewStartedAt,
       now,
       llmSuggestsEnd,
       participantRequestedEnd: participantRequestedEnd ?? false,
-      hardCapMs: effectiveHardCapMs,
+      hardCapMs,
     });
 
     return {
