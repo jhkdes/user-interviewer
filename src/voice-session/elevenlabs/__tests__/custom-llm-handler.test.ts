@@ -4,7 +4,7 @@ import { FakeLLMProvider } from "@/llm";
 import { InMemoryInterviewRepository } from "@/repositories/in-memory/in-memory-interview-repository";
 import { InMemoryStudyRepository } from "@/repositories/in-memory/in-memory-study-repository";
 import { MissingInterviewIdError } from "../../errors";
-import { handleElevenLabsCustomLlmRequest } from "../custom-llm-handler";
+import { resolveElevenLabsStreamContext, streamElevenLabsCustomLlmResponse } from "../custom-llm-handler";
 import type { ElevenLabsCustomLlmChatCompletionRequest } from "../types";
 
 const targetProfile = {
@@ -48,64 +48,129 @@ function requestFor(
   } satisfies ElevenLabsCustomLlmChatCompletionRequest;
 }
 
-function sseChunks(sseBody: string) {
-  return sseBody
-    .split("\n\n")
-    .filter(Boolean)
-    .map((line) => line.replace(/^data: /, ""))
-    .filter((line) => line !== "[DONE]")
-    .map((line) => JSON.parse(line));
+interface StreamedChunk {
+  choices: [
+    {
+      delta: {
+        role?: string;
+        content?: string;
+        tool_calls?: [{ function: { name: string; arguments: string } }];
+      };
+      finish_reason: string | null;
+    },
+  ];
 }
 
-describe("handleElevenLabsCustomLlmRequest", () => {
-  it("streams the utterance as a plain content chunk when the interview should continue", async () => {
-    const { interviewAgent, interviewRepo, studyRepo, llm, interview } = await setup();
+async function drain(stream: AsyncGenerator<string, void, unknown>): Promise<StreamedChunk[]> {
+  const chunks: StreamedChunk[] = [];
+  for await (const raw of stream) {
+    for (const line of raw.split("\n\n").filter(Boolean)) {
+      const data = line.replace(/^data: /, "");
+      if (data === "[DONE]") continue;
+      chunks.push(JSON.parse(data) as StreamedChunk);
+    }
+  }
+  return chunks;
+}
+
+describe("streamElevenLabsCustomLlmResponse", () => {
+  it("streams the utterance incrementally, one content-delta chunk per scripted text chunk, before the decision is known", async () => {
+    const { interviewAgent, interviewRepo, studyRepo, llm, interview, study } = await setup();
     const now = new Date("2026-08-19T12:01:00.000Z");
     await interviewRepo.update(interview.id, { startedAt: now });
-    llm.scriptInterviewerTurns([{ utterance: "What happens next?", shouldEndInterview: false }]);
+    llm.scriptInterviewerTurnStreams([
+      { textChunks: ["What happens ", "next?"], shouldEndInterview: false },
+    ]);
 
-    const sseBody = await handleElevenLabsCustomLlmRequest(
-      { interviewAgent, interviewRepo, studyRepo, now },
-      requestFor(interview.id, [{ role: "user", content: "It's frustrating." }]),
+    const chunks = await drain(
+      streamElevenLabsCustomLlmResponse(
+        { interviewAgent, interviewRepo, studyRepo, now },
+        requestFor(interview.id, [{ role: "user", content: "It's frustrating." }]),
+        { interviewId: interview.id, interview, study },
+      ),
     );
 
-    const chunks = sseChunks(sseBody);
-    expect(chunks[0].choices[0].delta.content).toBe("What happens next?");
+    expect(chunks[0].choices[0].delta.content).toBe("What happens ");
+    expect(chunks[0].choices[0].delta.role).toBe("assistant");
+    expect(chunks[0].choices[0].finish_reason).toBeNull();
+
+    expect(chunks[1].choices[0].delta.content).toBe("next?");
+    expect(chunks[1].choices[0].delta.role).toBeUndefined();
+    expect(chunks[1].choices[0].finish_reason).toBeNull();
+
+    // The finish chunk is only yielded after all text chunks.
+    expect(chunks[2].choices[0].finish_reason).toBe("stop");
     expect(chunks.some((c) => c.choices[0].delta.tool_calls)).toBe(false);
   });
 
   it("streams the utterance followed by an end_call tool call when the interview is over", async () => {
-    const { interviewAgent, interviewRepo, studyRepo, llm, interview } = await setup();
+    const { interviewAgent, interviewRepo, studyRepo, llm, interview, study } = await setup();
     const now = new Date("2026-08-19T12:01:00.000Z");
     await interviewRepo.update(interview.id, { startedAt: now });
     const history = Array.from({ length: 4 }, (_, i) => [
       { role: "assistant" as const, content: `Q${i}` },
       { role: "user" as const, content: `A${i}` },
     ]).flat();
-    llm.scriptInterviewerTurns([
-      { utterance: "Thanks so much for your time.", shouldEndInterview: true },
+    llm.scriptInterviewerTurnStreams([
+      { textChunks: ["Thanks so much for your time."], shouldEndInterview: true },
     ]);
 
-    const sseBody = await handleElevenLabsCustomLlmRequest(
-      { interviewAgent, interviewRepo, studyRepo, now },
-      requestFor(interview.id, history),
+    const chunks = await drain(
+      streamElevenLabsCustomLlmResponse(
+        { interviewAgent, interviewRepo, studyRepo, now },
+        requestFor(interview.id, history),
+        { interviewId: interview.id, interview, study },
+      ),
     );
 
-    const chunks = sseChunks(sseBody);
     expect(chunks[0].choices[0].delta.content).toBe("Thanks so much for your time.");
-    const toolCall = chunks[1].choices[0].delta.tool_calls[0];
-    expect(toolCall.function.name).toBe("end_call");
-    expect(chunks[1].choices[0].finish_reason).toBe("tool_calls");
+    const last = chunks[chunks.length - 1];
+    const toolCall = last.choices[0].delta.tool_calls?.[0];
+    expect(toolCall?.function.name).toBe("end_call");
+    expect(last.choices[0].finish_reason).toBe("tool_calls");
   });
 
+  it("forwards a degenerate/empty utterance with no retry — no safety net on the streaming path", async () => {
+    const { interviewAgent, interviewRepo, studyRepo, llm, interview, study } = await setup();
+    const now = new Date("2026-08-19T12:01:00.000Z");
+    await interviewRepo.update(interview.id, { startedAt: now });
+    llm.scriptInterviewerTurnStreams([{ textChunks: [""], shouldEndInterview: false }]);
+
+    const chunks = await drain(
+      streamElevenLabsCustomLlmResponse(
+        { interviewAgent, interviewRepo, studyRepo, now },
+        requestFor(interview.id, [{ role: "user", content: "..." }]),
+        { interviewId: interview.id, interview, study },
+      ),
+    );
+
+    expect(chunks[0].choices[0].delta.content).toBe("");
+    expect(llm.calls.generateInterviewerTurnStreaming).toHaveLength(1);
+  });
+});
+
+describe("resolveElevenLabsStreamContext", () => {
   it("throws MissingInterviewIdError when elevenlabs_extra_body.interviewId is absent", async () => {
     const { interviewAgent, interviewRepo, studyRepo } = await setup();
 
     await expect(
-      handleElevenLabsCustomLlmRequest(
+      resolveElevenLabsStreamContext(
         { interviewAgent, interviewRepo, studyRepo },
         { model: "gpt-4o", messages: [] },
       ),
     ).rejects.toThrow(MissingInterviewIdError);
+  });
+
+  it("resolves the interview and study eagerly, before any stream is opened", async () => {
+    const { interviewAgent, interviewRepo, studyRepo, interview, study } = await setup();
+
+    const context = await resolveElevenLabsStreamContext(
+      { interviewAgent, interviewRepo, studyRepo },
+      requestFor(interview.id, []),
+    );
+
+    expect(context.interviewId).toBe(interview.id);
+    expect(context.interview.id).toBe(interview.id);
+    expect(context.study.id).toBe(study.id);
   });
 });

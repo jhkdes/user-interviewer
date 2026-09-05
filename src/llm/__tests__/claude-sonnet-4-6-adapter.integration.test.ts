@@ -35,6 +35,33 @@ describe.skipIf(!hasAnthropicTestEnv)("ClaudeSonnet46Adapter (integration)", () 
     expect(typeof result.shouldEndInterview).toBe("boolean");
   }, 20000);
 
+  it("generateInterviewerTurnStreaming yields text before the done event, against the real API — the one place the text-before-tool-use ordering assumption can be checked", async () => {
+    const events: Array<{ type: string }> = [];
+    for await (const event of adapter.generateInterviewerTurnStreaming({
+      systemPrompt:
+        "You are a calm, curious product research interviewer. Greet the participant briefly and ask an open-ended question about their day-to-day role. Keep it to one or two sentences. Say your utterance as plain text first, then call report_turn_decision.",
+      conversationHistory: [],
+    })) {
+      events.push(event);
+    }
+
+    const firstTextIndex = events.findIndex((e) => e.type === "text-delta");
+    const doneIndex = events.findIndex((e) => e.type === "done");
+    expect(firstTextIndex).toBeGreaterThanOrEqual(0);
+    expect(doneIndex).toBe(events.length - 1);
+    expect(firstTextIndex).toBeLessThan(doneIndex);
+
+    const done = events[doneIndex] as {
+      type: "done";
+      utterance: string;
+      shouldEndInterview: boolean;
+      participantRequestedEnd: boolean;
+    };
+    expect(done.utterance.length).toBeGreaterThan(0);
+    expect(typeof done.shouldEndInterview).toBe("boolean");
+    expect(typeof done.participantRequestedEnd).toBe("boolean");
+  }, 20000);
+
   it("generateSummary returns structured pain points, quotes, and takeaways", async () => {
     const result = await adapter.generateSummary({
       transcript: [

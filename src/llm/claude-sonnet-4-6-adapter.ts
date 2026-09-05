@@ -7,6 +7,7 @@ import type {
   GenerateStudyReportOutput,
   GenerateSummaryInput,
   GenerateSummaryOutput,
+  InterviewerTurnStreamEvent,
   InterviewTurn,
   LLMProviderAdapter,
   StudyReportInterviewInput,
@@ -28,6 +29,40 @@ const MAX_INTERVIEWER_TURN_ATTEMPTS = 2;
 function isMeaningfulUtterance(utterance: string): boolean {
   return /[a-zA-Z]/.test(utterance);
 }
+
+/**
+ * Tool the streaming interviewer-turn call uses to report the decision flags
+ * separately from the spoken utterance, since a single structured-JSON
+ * response (the non-streaming call's approach, `interviewerTurnSchema`)
+ * isn't streamable — Claude must finish generating the whole JSON object
+ * before any of it can be spoken. This tool lets the utterance stream as
+ * plain text while the flags arrive afterward, without blocking speech.
+ * `tool_choice` is left at the default (`auto`) rather than forced — forcing
+ * it risks suppressing the text block entirely.
+ */
+const REPORT_TURN_DECISION_TOOL: Anthropic.Tool = {
+  name: "report_turn_decision",
+  description:
+    "Call this exactly once, immediately after you finish saying your utterance as plain " +
+    "text (not before, not instead of it), to report whether the interview should end. " +
+    "Do not write any text after calling this tool.",
+  input_schema: {
+    type: "object",
+    properties: {
+      shouldEndInterview: {
+        type: "boolean",
+        description:
+          "True if sufficient, concrete pain points have been surfaced and the interview should wrap up after this utterance.",
+      },
+      participantRequestedEnd: {
+        type: "boolean",
+        description:
+          'True if the participant explicitly and unambiguously asked to end the interview right now, or said they have to leave/go (e.g. "I have to go," "can you end this?," "let\'s stop here," a clear goodbye) — regardless of how much depth has been reached so far. Distinct from shouldEndInterview: this overrides the normal minimum-depth requirement and ends the call immediately after this turn. False otherwise, including when they are just answering slowly, going quiet, or the conversation is naturally winding down without an explicit request to stop.',
+      },
+    },
+    required: ["shouldEndInterview", "participantRequestedEnd"],
+  },
+};
 
 const SUMMARY_SYSTEM_PROMPT = `You produce a structured summary of a single user-research interview transcript.
 Extract:
@@ -161,6 +196,80 @@ export class ClaudeSonnet46Adapter implements LLMProviderAdapter {
     throw new Error(
       `Failed to generate interviewer turn: model returned a non-substantive utterance after ${MAX_INTERVIEWER_TURN_ATTEMPTS} attempts (${JSON.stringify(lastAttempt?.utterance)})`,
     );
+  }
+
+  /**
+   * Streaming counterpart to `generateInterviewerTurn`: forwards utterance
+   * text live as `text-delta` events the instant Claude generates it (so
+   * TTS can start speaking immediately, rather than waiting for the whole
+   * response as the non-streaming call requires), and resolves
+   * shouldEndInterview/participantRequestedEnd afterward via the
+   * `report_turn_decision` tool call rather than structured JSON output
+   * (which isn't streamable). Deliberately has no retry-on-degenerate-output
+   * safety net (unlike `generateInterviewerTurn`) — by the time a degenerate
+   * utterance could be detected, its text has already been streamed and
+   * spoken; there is nothing to retry.
+   */
+  async *generateInterviewerTurnStreaming(
+    input: GenerateInterviewerTurnInput,
+  ): AsyncGenerator<InterviewerTurnStreamEvent, void, unknown> {
+    const streamStart = Date.now();
+    const stream = this.client.messages.stream({
+      model: MODEL,
+      max_tokens: 1024,
+      system: [
+        {
+          type: "text",
+          text: input.systemPrompt,
+          cache_control: { type: "ephemeral" },
+        },
+      ],
+      messages: buildInterviewMessages(input.conversationHistory),
+      thinking: { type: "disabled" },
+      tools: [REPORT_TURN_DECISION_TOOL],
+    });
+
+    for await (const event of stream) {
+      if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
+        yield { type: "text-delta", text: event.delta.text };
+      }
+    }
+
+    let finalMessage: Anthropic.Message;
+    try {
+      finalMessage = await stream.finalMessage();
+    } catch (cause) {
+      throw new Error("Failed to generate interviewer turn (streaming)", { cause });
+    }
+    if (isVoiceSessionDebugEnabled()) {
+      console.log(
+        `[timing] claude messages.stream ms=${Date.now() - streamStart} cacheReadTokens=${finalMessage.usage?.cache_read_input_tokens ?? 0} cacheCreationTokens=${finalMessage.usage?.cache_creation_input_tokens ?? 0} inputTokens=${finalMessage.usage?.input_tokens ?? 0} outputTokens=${finalMessage.usage?.output_tokens ?? 0}`,
+      );
+    }
+
+    const utterance = finalMessage.content
+      .filter((block): block is Anthropic.TextBlock => block.type === "text")
+      .map((block) => block.text)
+      .join("");
+
+    const toolUse = finalMessage.content.find(
+      (block): block is Anthropic.ToolUseBlock =>
+        block.type === "tool_use" && block.name === "report_turn_decision",
+    );
+    // Safe default when Claude never calls the tool at all: never auto-end
+    // an interview the model didn't explicitly flag — a missed "end" signal
+    // just costs one extra turn, while a spurious forced end would hang up
+    // on a live participant mid-conversation.
+    const decision = toolUse?.input as
+      | { shouldEndInterview?: boolean; participantRequestedEnd?: boolean }
+      | undefined;
+
+    yield {
+      type: "done",
+      utterance,
+      shouldEndInterview: decision?.shouldEndInterview ?? false,
+      participantRequestedEnd: decision?.participantRequestedEnd ?? false,
+    };
   }
 
   async generateSummary(input: GenerateSummaryInput): Promise<GenerateSummaryOutput> {

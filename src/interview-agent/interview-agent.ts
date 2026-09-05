@@ -1,4 +1,4 @@
-import type { InterviewTurn, LLMProviderAdapter } from "@/llm";
+import type { InterviewerTurnStreamEvent, InterviewTurn, LLMProviderAdapter } from "@/llm";
 import { buildInterviewSystemPrompt, type InterviewPromptContext } from "./system-prompt";
 import {
   checkTermination,
@@ -41,6 +41,10 @@ export interface InterviewAgentTurnInput {
   /** Defaults to `new Date()` — overridable so tests can simulate elapsed time deterministically. */
   now?: Date;
 }
+
+export type InterviewAgentStreamEvent =
+  | { type: "text-delta"; text: string }
+  | { type: "done"; result: InterviewAgentTurnOutput };
 
 export interface InterviewAgentTurnOutput {
   utterance: string;
@@ -108,11 +112,19 @@ function lastInterviewerUtteranceMatches(history: InterviewTurn[], fragments: st
 export class InterviewAgent {
   constructor(private readonly llm: LLMProviderAdapter) {}
 
-  async generateNextTurn(input: InterviewAgentTurnInput): Promise<InterviewAgentTurnOutput> {
-    const now = input.now ?? new Date();
-    const history = input.conversationHistory;
-    const interviewStartedAt = input.interviewStartedAt;
-
+  /**
+   * Returns the scripted check-in turn to short-circuit on (never calling
+   * the LLM), or `null` if neither applies and the caller should proceed to
+   * a normal LLM-driven turn. Shared by both `generateNextTurn` and
+   * `generateNextTurnStreaming` — the scripted turns are identical either
+   * way, just delivered as one immediate text-delta on the streaming path.
+   */
+  private resolveScriptedTurn(
+    input: InterviewAgentTurnInput,
+    history: InterviewTurn[],
+    now: Date,
+    interviewStartedAt: Date,
+  ): InterviewAgentTurnOutput | null {
     const firstCheckInAsked = wasUtteranceSpoken(history, TIME_CHECK_FRAGMENTS);
     const secondCheckInAsked = wasUtteranceSpoken(history, SECOND_TIME_CHECK_FRAGMENTS);
 
@@ -168,25 +180,46 @@ export class InterviewAgent {
       }
     }
 
+    return null;
+  }
+
+  private computeTurnFlags(
+    history: InterviewTurn[],
+    extensionGranted: boolean | null | undefined,
+  ): { isDecisionTurn: boolean; isFinalWrapTurn: boolean } {
+    const firstCheckInAsked = wasUtteranceSpoken(history, TIME_CHECK_FRAGMENTS);
+    const secondCheckInAsked = wasUtteranceSpoken(history, SECOND_TIME_CHECK_FRAGMENTS);
+
     // A decision turn only exists while no decision has been recorded yet —
     // once extensionGranted is persisted, this never fires again, even if a
     // later turn happens to match TIME_CHECK_FRAGMENTS for some reason.
     const isDecisionTurn =
       firstCheckInAsked &&
-      input.extensionGranted == null &&
+      extensionGranted == null &&
       lastInterviewerUtteranceMatches(history, TIME_CHECK_FRAGMENTS);
     const isFinalWrapTurn =
       secondCheckInAsked && lastInterviewerUtteranceMatches(history, SECOND_TIME_CHECK_FRAGMENTS);
 
-    const systemPrompt = buildInterviewSystemPrompt({
-      ...input.context,
-      isDecisionTurn,
-      isFinalWrapTurn,
-    });
+    return { isDecisionTurn, isFinalWrapTurn };
+  }
 
-    const { utterance, shouldEndInterview, participantRequestedEnd } =
-      await this.llm.generateInterviewerTurn({ systemPrompt, conversationHistory: history });
-
+  /**
+   * Combines the LLM's raw output with the pure termination heuristics
+   * (extension-decision-from-utterance-shape, `checkTermination`) into the
+   * final turn output. Shared, unmodified logic for both call paths — the
+   * streaming path calls this only once the underlying stream has fully
+   * resolved (utterance text and decision flags both known).
+   */
+  private finalizeTurn(
+    input: InterviewAgentTurnInput,
+    history: InterviewTurn[],
+    interviewStartedAt: Date,
+    now: Date,
+    isDecisionTurn: boolean,
+    isFinalWrapTurn: boolean,
+    llmOutput: { utterance: string; shouldEndInterview: boolean; participantRequestedEnd?: boolean },
+  ): InterviewAgentTurnOutput {
+    const { utterance, shouldEndInterview, participantRequestedEnd } = llmOutput;
     let llmSuggestsEnd = shouldEndInterview;
     let extensionDecision: boolean | undefined;
 
@@ -233,6 +266,99 @@ export class InterviewAgent {
       timeCheckJustAsked: false,
       secondTimeCheckJustAsked: false,
       extensionDecision,
+    };
+  }
+
+  async generateNextTurn(input: InterviewAgentTurnInput): Promise<InterviewAgentTurnOutput> {
+    const now = input.now ?? new Date();
+    const history = input.conversationHistory;
+    const interviewStartedAt = input.interviewStartedAt;
+
+    const scripted = this.resolveScriptedTurn(input, history, now, interviewStartedAt);
+    if (scripted) return scripted;
+
+    const { isDecisionTurn, isFinalWrapTurn } = this.computeTurnFlags(
+      history,
+      input.extensionGranted,
+    );
+    const systemPrompt = buildInterviewSystemPrompt({
+      ...input.context,
+      isDecisionTurn,
+      isFinalWrapTurn,
+    });
+
+    const llmOutput = await this.llm.generateInterviewerTurn({ systemPrompt, conversationHistory: history });
+
+    return this.finalizeTurn(
+      input,
+      history,
+      interviewStartedAt,
+      now,
+      isDecisionTurn,
+      isFinalWrapTurn,
+      llmOutput,
+    );
+  }
+
+  /**
+   * Streaming counterpart to `generateNextTurn`, used by the ElevenLabs
+   * voice-session path. Yields `text-delta` events as the utterance is
+   * generated (or, for the scripted check-in turns, immediately as a single
+   * chunk — those never call the LLM, so there's nothing to stream), then a
+   * terminal `done` event carrying the same `InterviewAgentTurnOutput` that
+   * `generateNextTurn` would return. Termination heuristics are shared via
+   * `finalizeTurn`/`resolveScriptedTurn` — no duplicated logic.
+   */
+  async *generateNextTurnStreaming(
+    input: InterviewAgentTurnInput,
+  ): AsyncGenerator<InterviewAgentStreamEvent, void, unknown> {
+    const now = input.now ?? new Date();
+    const history = input.conversationHistory;
+    const interviewStartedAt = input.interviewStartedAt;
+
+    const scripted = this.resolveScriptedTurn(input, history, now, interviewStartedAt);
+    if (scripted) {
+      yield { type: "text-delta", text: scripted.utterance };
+      yield { type: "done", result: scripted };
+      return;
+    }
+
+    const { isDecisionTurn, isFinalWrapTurn } = this.computeTurnFlags(
+      history,
+      input.extensionGranted,
+    );
+    const systemPrompt = buildInterviewSystemPrompt({
+      ...input.context,
+      isDecisionTurn,
+      isFinalWrapTurn,
+    });
+
+    let llmOutput: Extract<InterviewerTurnStreamEvent, { type: "done" }> | undefined;
+    for await (const event of this.llm.generateInterviewerTurnStreaming({
+      systemPrompt,
+      conversationHistory: history,
+    })) {
+      if (event.type === "text-delta") {
+        yield { type: "text-delta", text: event.text };
+      } else {
+        llmOutput = event;
+      }
+    }
+    if (!llmOutput) {
+      throw new Error("generateNextTurnStreaming: LLM stream ended without a done event");
+    }
+
+    yield {
+      type: "done",
+      result: this.finalizeTurn(
+        input,
+        history,
+        interviewStartedAt,
+        now,
+        isDecisionTurn,
+        isFinalWrapTurn,
+        llmOutput,
+      ),
     };
   }
 }

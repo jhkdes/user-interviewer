@@ -1,3 +1,4 @@
+import type { Interview, Study } from "@/domain";
 import type { InterviewAgent } from "@/interview-agent";
 import type { InterviewTurn } from "@/llm";
 import type { InterviewRepository } from "@/repositories/interview-repository";
@@ -31,11 +32,79 @@ export interface GenerateTurnDeps {
 export interface GenerateTurnInput {
   interviewId: string;
   messages: OpenAIChatMessage[];
+  /**
+   * Pre-resolved Interview/Study, when the caller already validated
+   * `interviewId` eagerly (e.g. `resolveElevenLabsStreamContext`, so a bad
+   * request fails before an SSE stream opens) — skips the redundant DB
+   * lookup this function would otherwise do itself.
+   */
+  preloaded?: { interview: Interview; study: Study };
 }
 
 export interface GenerateTurnOutput {
   utterance: string;
   isInterviewOver: boolean;
+}
+
+export type GenerateTurnStreamEvent =
+  | { type: "text-delta"; text: string }
+  | { type: "done"; utterance: string; isInterviewOver: boolean };
+
+/** Resolves the Interview + Study behind `interviewId`, shared by `generateTurn` and `generateTurnStreaming`. */
+export async function loadInterviewAndStudy(
+  deps: GenerateTurnDeps,
+  interviewId: string,
+): Promise<{ interview: Interview; study: Study }> {
+  const interview = await deps.interviewRepo.getById(interviewId);
+  if (!interview) throw new InterviewNotFoundError(interviewId);
+
+  const study = await deps.studyRepo.getById(interview.studyId);
+  if (!study) throw new StudyNotFoundError(interview.studyId);
+
+  return { interview, study };
+}
+
+function buildAgentInput(
+  interview: Interview,
+  study: Study,
+  messages: OpenAIChatMessage[],
+  now: Date,
+) {
+  return {
+    context: {
+      participantFirstName: interview.firstName,
+      participantRoleDescription: interview.roleDescription,
+      targetProfile: study.targetProfile,
+      researchTopic: study.researchTopic,
+      customPrompt: study.customPrompt,
+      screenerAnswers: interview.screenerAnswers,
+    },
+    conversationHistory: toConversationHistory(messages),
+    interviewStartedAt: interview.startedAt ?? interview.createdAt,
+    extensionGranted: interview.extensionGranted,
+    now,
+  };
+}
+
+async function persistTurnSideEffects(
+  deps: GenerateTurnDeps,
+  interviewId: string,
+  now: Date,
+  result: {
+    timeCheckJustAsked: boolean;
+    secondTimeCheckJustAsked: boolean;
+    extensionDecision?: boolean;
+  },
+): Promise<void> {
+  if (result.timeCheckJustAsked) {
+    await deps.interviewRepo.update(interviewId, { timeCheckAskedAt: now });
+  }
+  if (result.secondTimeCheckJustAsked) {
+    await deps.interviewRepo.update(interviewId, { secondTimeCheckAskedAt: now });
+  }
+  if (result.extensionDecision !== undefined) {
+    await deps.interviewRepo.update(interviewId, { extensionGranted: result.extensionDecision });
+  }
 }
 
 /**
@@ -52,45 +121,48 @@ export async function generateTurn(
   deps: GenerateTurnDeps,
   input: GenerateTurnInput,
 ): Promise<GenerateTurnOutput> {
-  const { interviewId } = input;
-
-  const interview = await deps.interviewRepo.getById(interviewId);
-  if (!interview) throw new InterviewNotFoundError(interviewId);
-
-  const study = await deps.studyRepo.getById(interview.studyId);
-  if (!study) throw new StudyNotFoundError(interview.studyId);
-
+  const { interview, study } = input.preloaded ?? (await loadInterviewAndStudy(deps, input.interviewId));
   const now = deps.now ?? new Date();
-  const {
-    utterance,
-    isInterviewOver,
-    timeCheckJustAsked,
-    secondTimeCheckJustAsked,
-    extensionDecision,
-  } = await deps.interviewAgent.generateNextTurn({
-    context: {
-      participantFirstName: interview.firstName,
-      participantRoleDescription: interview.roleDescription,
-      targetProfile: study.targetProfile,
-      researchTopic: study.researchTopic,
-      customPrompt: study.customPrompt,
-      screenerAnswers: interview.screenerAnswers,
-    },
-    conversationHistory: toConversationHistory(input.messages),
-    interviewStartedAt: interview.startedAt ?? interview.createdAt,
-    extensionGranted: interview.extensionGranted,
-    now,
-  });
 
-  if (timeCheckJustAsked) {
-    await deps.interviewRepo.update(interviewId, { timeCheckAskedAt: now });
+  const result = await deps.interviewAgent.generateNextTurn(
+    buildAgentInput(interview, study, input.messages, now),
+  );
+
+  await persistTurnSideEffects(deps, input.interviewId, now, result);
+
+  return { utterance: result.utterance, isInterviewOver: result.isInterviewOver };
+}
+
+/**
+ * Streaming counterpart to `generateTurn`, used by the ElevenLabs
+ * voice-session path — yields `text-delta` events as the utterance is
+ * generated, then a terminal `done` event once the decision is known. The
+ * DB side-effect writes happen at the same point as `generateTurn` (after
+ * the decision is known), so they never delay any token the participant
+ * hears — only the trailing finish/`end_call` SSE chunk.
+ */
+export async function* generateTurnStreaming(
+  deps: GenerateTurnDeps,
+  input: GenerateTurnInput,
+): AsyncGenerator<GenerateTurnStreamEvent, void, unknown> {
+  const { interview, study } = input.preloaded ?? (await loadInterviewAndStudy(deps, input.interviewId));
+  const now = deps.now ?? new Date();
+
+  let final: Awaited<ReturnType<InterviewAgent["generateNextTurn"]>> | undefined;
+  for await (const event of deps.interviewAgent.generateNextTurnStreaming(
+    buildAgentInput(interview, study, input.messages, now),
+  )) {
+    if (event.type === "text-delta") {
+      yield { type: "text-delta", text: event.text };
+    } else {
+      final = event.result;
+    }
   }
-  if (secondTimeCheckJustAsked) {
-    await deps.interviewRepo.update(interviewId, { secondTimeCheckAskedAt: now });
-  }
-  if (extensionDecision !== undefined) {
-    await deps.interviewRepo.update(interviewId, { extensionGranted: extensionDecision });
+  if (!final) {
+    throw new Error("generateTurnStreaming: interview agent stream ended without a final result");
   }
 
-  return { utterance, isInterviewOver };
+  await persistTurnSideEffects(deps, input.interviewId, now, final);
+
+  yield { type: "done", utterance: final.utterance, isInterviewOver: final.isInterviewOver };
 }

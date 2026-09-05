@@ -8,6 +8,14 @@ class DummyProvider implements LLMProviderAdapter {
   async generateInterviewerTurn() {
     return { utterance: "dummy", shouldEndInterview: false };
   }
+  async *generateInterviewerTurnStreaming() {
+    yield {
+      type: "done" as const,
+      utterance: "dummy",
+      shouldEndInterview: false,
+      participantRequestedEnd: false,
+    };
+  }
   async generateSummary() {
     return { painPoints: [], notableQuotes: [], takeaways: [], roleDescription: null };
   }

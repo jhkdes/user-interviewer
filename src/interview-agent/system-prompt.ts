@@ -72,6 +72,18 @@ const RESPONSE_CONTRACT = `## Every response
 Produce the next thing you'll say out loud, your honest assessment of whether the interview should end after this turn (shouldEndInterview — because sufficient depth has been reached), and whether the participant has explicitly and unambiguously asked to end the interview right now — said they have to go, asked you to end the call, said a clear goodbye — regardless of how much has been covered so far (participantRequestedEnd). These are different signals: shouldEndInterview is about depth being reached; participantRequestedEnd is about honoring a real person telling you to stop, which always takes priority over continuing to probe, no matter how early in the interview it happens. If participantRequestedEnd is true, your utterance this turn must be a brief, warm closing statement only — never a new question, never more probing — even if you've barely started. The utterance is read aloud to the participant verbatim — it must always be a real, complete sentence or two. Never respond with a placeholder, an ellipsis, or blank/empty text, even mid-thought.`;
 
 /**
+ * Only meaningful on the streaming call path, which declares the
+ * `report_turn_decision` tool instead of enforcing shouldEndInterview/
+ * participantRequestedEnd via json_schema output_config (that call is no
+ * longer streamable). Always appended regardless of provider/path — inert
+ * when no such tool is declared (the non-streaming Vapi path), and keeps the
+ * two paths' prompts byte-identical rather than adding another
+ * prompt-cache-breaking variant.
+ */
+const TOOL_DECISION_CONTRACT = `## If a report_turn_decision tool is available to you
+Say your utterance out loud as plain spoken text first — never call any tool before or instead of speaking it. Only once you have finished speaking it, call report_turn_decision exactly once to report shouldEndInterview and participantRequestedEnd for this turn, and write no text after calling it.`;
+
+/**
  * Screener answer values (see participant-intake/screener-questions.ts's
  * `sideAiProject` question) indicating the participant does have a side AI
  * project outside of work — as opposed to "No, but I'd like to" / "No, not
@@ -192,7 +204,7 @@ export function buildInterviewSystemPrompt(context: InterviewPromptContext): str
       participant_name: participantFirstName,
       participant_role: targetProfile.jobTitle,
     });
-    return `${timeCheckGuidance}${interpolated}${screenerContext}\n\n${RESPONSE_CONTRACT}`;
+    return `${timeCheckGuidance}${interpolated}${screenerContext}\n\n${RESPONSE_CONTRACT}\n\n${TOOL_DECISION_CONTRACT}`;
   }
 
   const researchFocusSection = researchTopic
@@ -225,5 +237,7 @@ This interview is part of a study of people in ${targetProfile.industry}, with $
 ## Tone
 Neutral, curious, conversational — not interrogative. Keep your own turns brief: short acknowledgments, one question at a time, no long monologues.
 
-${RESPONSE_CONTRACT}${screenerContext}`;
+${RESPONSE_CONTRACT}${screenerContext}
+
+${TOOL_DECISION_CONTRACT}`;
 }

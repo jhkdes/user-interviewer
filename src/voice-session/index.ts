@@ -8,5 +8,8 @@ export * from "./vapi/webhook-handler";
 export * from "./vapi/custom-llm-handler";
 export * from "./elevenlabs/types";
 export * from "./elevenlabs/webhook-handler";
-export * from "./elevenlabs/custom-llm-handler";
+export {
+  resolveElevenLabsStreamContext,
+  streamElevenLabsCustomLlmResponse,
+} from "./elevenlabs/custom-llm-handler";
 export * from "./elevenlabs/sse";

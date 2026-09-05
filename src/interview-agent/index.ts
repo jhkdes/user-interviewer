@@ -18,6 +18,7 @@ export {
   InterviewAgent,
   SECOND_TIME_CHECK_UTTERANCE,
   TIME_CHECK_UTTERANCE,
+  type InterviewAgentStreamEvent,
   type InterviewAgentTurnInput,
   type InterviewAgentTurnOutput,
 } from "./interview-agent";
