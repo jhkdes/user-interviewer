@@ -43,8 +43,7 @@ export interface InterviewAgentTurnInput {
 }
 
 export type InterviewAgentStreamEvent =
-  | { type: "text-delta"; text: string }
-  | { type: "done"; result: InterviewAgentTurnOutput };
+  { type: "text-delta"; text: string } | { type: "done"; result: InterviewAgentTurnOutput };
 
 export interface InterviewAgentTurnOutput {
   utterance: string;
@@ -217,25 +216,52 @@ export class InterviewAgent {
     now: Date,
     isDecisionTurn: boolean,
     isFinalWrapTurn: boolean,
-    llmOutput: { utterance: string; shouldEndInterview: boolean; participantRequestedEnd?: boolean },
+    llmOutput: {
+      utterance: string;
+      shouldEndInterview: boolean;
+      participantRequestedEnd?: boolean;
+    },
   ): InterviewAgentTurnOutput {
     const { utterance, shouldEndInterview, participantRequestedEnd } = llmOutput;
     let llmSuggestsEnd = shouldEndInterview;
     let extensionDecision: boolean | undefined;
+    const endsWithQuestion = utterance.trim().endsWith("?");
 
     // On both reactive turns, the model is constrained to exactly two
     // shapes by the guidance above: a genuine follow-up question (ends with
     // "?") or a closing statement (doesn't). Empirically (verified against
-    // the real API) the model sometimes produces a clearly closing utterance
-    // while still leaving shouldEndInterview: false — detecting from the
-    // utterance shape itself is more reliable than trusting the flag alone,
-    // scoped tightly to these two turns; elsewhere a non-question utterance
-    // is normal and not a signal of anything.
+    // the real API, and against two real transcripts where a live call cut
+    // off mid-question with no chance for the participant to answer) the
+    // model's own shouldEndInterview flag is unreliable on these turns in
+    // *both* directions: it can leave shouldEndInterview: false on an
+    // obviously closing utterance, and — the newly-confirmed failure mode —
+    // it can also leave shouldEndInterview: true while asking a perfectly
+    // good, real follow-up question, apparently from its own generic
+    // "sufficient depth reached" judgment (Structure step 6) bleeding into a
+    // turn that's supposed to be governed entirely by this reactive
+    // decision instead. Deriving the flag deterministically from the
+    // utterance shape — which the guidance above already constrains the
+    // model to produce correctly — closes both directions at once, rather
+    // than only ever forcing it from false to true.
     if (isDecisionTurn) {
-      extensionDecision = utterance.trim().endsWith("?");
-      if (!extensionDecision) llmSuggestsEnd = true;
+      extensionDecision = endsWithQuestion;
+      llmSuggestsEnd = !endsWithQuestion;
     } else if (isFinalWrapTurn) {
-      if (!utterance.trim().endsWith("?")) llmSuggestsEnd = true;
+      llmSuggestsEnd = !endsWithQuestion;
+    } else if (endsWithQuestion) {
+      // Same failure mode, confirmed on an *ordinary* turn too (a real
+      // transcript where the model asked the customPrompt's mandated
+      // pre-close catch-all — "anything else...?" — and set
+      // shouldEndInterview: true on that same turn, ending the call before
+      // the participant could ever answer it). A turn that's genuinely
+      // asking something can never legitimately also be the closing turn —
+      // RESPONSE_CONTRACT and Structure step 6 both already tell the model a
+      // real close is a statement with no question attached — so forcing
+      // false here only ever corrects that internal inconsistency, never
+      // suppresses a legitimate end. Only this direction applies outside the
+      // two reactive turns: an ordinary non-question utterance is normal and
+      // says nothing about whether the interview should end.
+      llmSuggestsEnd = false;
     }
 
     // Re-derive the cap for *this* turn's termination check using the
@@ -287,7 +313,10 @@ export class InterviewAgent {
       isFinalWrapTurn,
     });
 
-    const llmOutput = await this.llm.generateInterviewerTurn({ systemPrompt, conversationHistory: history });
+    const llmOutput = await this.llm.generateInterviewerTurn({
+      systemPrompt,
+      conversationHistory: history,
+    });
 
     return this.finalizeTurn(
       input,

@@ -2,7 +2,11 @@ import { describe, expect, it } from "vitest";
 import { IncrementalJsonStringExtractor } from "../incremental-json-string-extractor";
 
 /** Feeds a full JSON fragment split into fixed-size chunks, to simulate arbitrary stream boundaries. */
-function feedInChunks(extractor: IncrementalJsonStringExtractor, text: string, chunkSize: number): string {
+function feedInChunks(
+  extractor: IncrementalJsonStringExtractor,
+  text: string,
+  chunkSize: number,
+): string {
   let out = "";
   for (let i = 0; i < text.length; i += chunkSize) {
     out += extractor.feed(text.slice(i, i + chunkSize));
@@ -40,7 +44,9 @@ describe("IncrementalJsonStringExtractor", () => {
 
   it("decodes standard escape sequences", () => {
     const extractor = new IncrementalJsonStringExtractor("utterance");
-    const out = extractor.feed(String.raw`{"utterance": "Line1\nLine2\tTabbed \"quoted\" and \\backslash\\"}`);
+    const out = extractor.feed(
+      String.raw`{"utterance": "Line1\nLine2\tTabbed \"quoted\" and \\backslash\\"}`,
+    );
     expect(out).toBe('Line1\nLine2\tTabbed "quoted" and \\backslash\\');
     expect(extractor.isDone).toBe(true);
   });
@@ -70,7 +76,9 @@ describe("IncrementalJsonStringExtractor", () => {
 
   it("stops at the closing quote and ignores everything after it", () => {
     const extractor = new IncrementalJsonStringExtractor("utterance");
-    const out = extractor.feed('{"utterance": "Done here"} some trailing garbage "utterance": "ignored"');
+    const out = extractor.feed(
+      '{"utterance": "Done here"} some trailing garbage "utterance": "ignored"',
+    );
     expect(out).toBe("Done here");
     expect(extractor.isDone).toBe(true);
     expect(extractor.feed("more text")).toBe("");

@@ -234,7 +234,10 @@ describe("ClaudeSonnet46Adapter.generateInterviewerTurnStreaming", () => {
 
   it("yields text-delta events decoded from the forced tool call's streamed JSON, then a done event from the fully-parsed input", async () => {
     const stream = makeToolCallStream(
-      ['{"utterance": "Tell', ' me more.", "shouldEndInterview": false, "participantRequestedEnd": false}'],
+      [
+        '{"utterance": "Tell',
+        ' me more.", "shouldEndInterview": false, "participantRequestedEnd": false}',
+      ],
       { utterance: "Tell me more.", shouldEndInterview: false, participantRequestedEnd: false },
     );
     const streamFn = vi.fn().mockReturnValue(stream);
@@ -267,7 +270,9 @@ describe("ClaudeSonnet46Adapter.generateInterviewerTurnStreaming", () => {
 
   it("defaults both decision flags to false when the parsed tool input omits them", async () => {
     const stream = makeToolCallStream(['{"utterance": "Just text."}'], { utterance: "Just text." });
-    const client = { messages: { stream: vi.fn().mockReturnValue(stream) } } as unknown as Anthropic;
+    const client = {
+      messages: { stream: vi.fn().mockReturnValue(stream) },
+    } as unknown as Anthropic;
     const adapter = new ClaudeSonnet46Adapter(client);
 
     const events = await drain(
@@ -290,7 +295,9 @@ describe("ClaudeSonnet46Adapter.generateInterviewerTurnStreaming", () => {
       [Symbol.asyncIterator]: async function* () {},
       finalMessage: vi.fn().mockRejectedValue(new Error("stream broke")),
     };
-    const client = { messages: { stream: vi.fn().mockReturnValue(stream) } } as unknown as Anthropic;
+    const client = {
+      messages: { stream: vi.fn().mockReturnValue(stream) },
+    } as unknown as Anthropic;
     const adapter = new ClaudeSonnet46Adapter(client);
 
     await expect(
@@ -304,16 +311,24 @@ describe("ClaudeSonnet46Adapter.generateInterviewerTurnStreaming", () => {
   });
 
   it("silently retries a turn whose utterance field decoded to nothing and succeeds on the retry", async () => {
-    const emptyStream = makeToolCallStream(['{"utterance": "", "shouldEndInterview": false, "participantRequestedEnd": false}'], {
-      utterance: "",
-      shouldEndInterview: false,
-      participantRequestedEnd: false,
-    });
-    const spokenStream = makeToolCallStream(['{"utterance": "Sorry, could you say that again?", "shouldEndInterview": false, "participantRequestedEnd": false}'], {
-      utterance: "Sorry, could you say that again?",
-      shouldEndInterview: false,
-      participantRequestedEnd: false,
-    });
+    const emptyStream = makeToolCallStream(
+      ['{"utterance": "", "shouldEndInterview": false, "participantRequestedEnd": false}'],
+      {
+        utterance: "",
+        shouldEndInterview: false,
+        participantRequestedEnd: false,
+      },
+    );
+    const spokenStream = makeToolCallStream(
+      [
+        '{"utterance": "Sorry, could you say that again?", "shouldEndInterview": false, "participantRequestedEnd": false}',
+      ],
+      {
+        utterance: "Sorry, could you say that again?",
+        shouldEndInterview: false,
+        participantRequestedEnd: false,
+      },
+    );
     const streamFn = vi.fn().mockReturnValueOnce(emptyStream).mockReturnValueOnce(spokenStream);
     const client = { messages: { stream: streamFn } } as unknown as Anthropic;
     const adapter = new ClaudeSonnet46Adapter(client);
@@ -339,11 +354,14 @@ describe("ClaudeSonnet46Adapter.generateInterviewerTurnStreaming", () => {
   });
 
   it("throws a clear error if every attempt's utterance field decodes to nothing", async () => {
-    const emptyStream = makeToolCallStream(['{"utterance": "", "shouldEndInterview": true, "participantRequestedEnd": false}'], {
-      utterance: "",
-      shouldEndInterview: true,
-      participantRequestedEnd: false,
-    });
+    const emptyStream = makeToolCallStream(
+      ['{"utterance": "", "shouldEndInterview": true, "participantRequestedEnd": false}'],
+      {
+        utterance: "",
+        shouldEndInterview: true,
+        participantRequestedEnd: false,
+      },
+    );
     const client = {
       messages: { stream: vi.fn().mockReturnValue(emptyStream) },
     } as unknown as Anthropic;

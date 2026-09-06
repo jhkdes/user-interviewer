@@ -15,4 +15,5 @@ export interface StudyRepository {
   getByLinkToken(linkToken: string): Promise<Study | null>;
   list(): Promise<Study[]>;
   updateStatus(id: string, status: StudyStatus): Promise<Study>;
+  extendLink(id: string): Promise<Study>;
 }
