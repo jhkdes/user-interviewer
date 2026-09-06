@@ -20,6 +20,7 @@ function toStudy(row: StudyRow): Study {
     voiceProvider: row.voice_provider as VoiceProvider,
     createdAt: new Date(row.created_at),
     closedAt: row.closed_at ? new Date(row.closed_at) : null,
+    linkExtendedAt: row.link_extended_at ? new Date(row.link_extended_at) : null,
   };
 }
 
@@ -84,6 +85,19 @@ export class SupabaseStudyRepository implements StudyRepository {
       .maybeSingle();
 
     if (error) throw new Error(`Failed to update study status: ${error.message}`);
+    if (!data) throw new Error(`Study not found: ${id}`);
+    return toStudy(data as StudyRow);
+  }
+
+  async extendLink(id: string): Promise<Study> {
+    const { data, error } = await this.client
+      .from("studies")
+      .update({ link_extended_at: new Date().toISOString() })
+      .eq("id", id)
+      .select()
+      .maybeSingle();
+
+    if (error) throw new Error(`Failed to extend study link: ${error.message}`);
     if (!data) throw new Error(`Study not found: ${id}`);
     return toStudy(data as StudyRow);
   }

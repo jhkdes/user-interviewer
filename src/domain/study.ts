@@ -39,4 +39,6 @@ export interface Study {
   voiceProvider: VoiceProvider;
   createdAt: Date;
   closedAt: Date | null;
+  /** Set when a PM extends the interview link's expiry — resets the 7-day expiry window (see link-validity.ts's checkLinkValidity) to start counting from this timestamp instead of `createdAt`. `null` until the link is ever extended. */
+  linkExtendedAt: Date | null;
 }

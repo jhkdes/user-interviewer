@@ -130,5 +130,25 @@ export function runStudyRepositoryContractTests(
       const repo = await makeRepository();
       await expect(repo.updateStatus(NONEXISTENT_ID, "closed")).rejects.toThrow();
     });
+
+    it("extendLink sets linkExtendedAt and returns the updated record", async () => {
+      const repo = await makeRepository();
+      const created = await repo.create({
+        targetProfile: sampleTargetProfile,
+        linkToken: "to-extend",
+      });
+      expect(created.linkExtendedAt).toBeNull();
+
+      const extended = await repo.extendLink(created.id);
+      expect(extended.linkExtendedAt).toBeInstanceOf(Date);
+
+      const reloaded = await repo.getById(created.id);
+      expect(reloaded?.linkExtendedAt).toBeInstanceOf(Date);
+    });
+
+    it("extendLink rejects an unknown id", async () => {
+      const repo = await makeRepository();
+      await expect(repo.extendLink(NONEXISTENT_ID)).rejects.toThrow();
+    });
   });
 }

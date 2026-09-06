@@ -3,7 +3,9 @@ import { notFound } from "next/navigation";
 import { getInterviewRepository } from "@/repositories/get-interview-repository";
 import { getStudyRepository } from "@/repositories/get-study-repository";
 import { getStudyReportRepository } from "@/repositories/get-study-report-repository";
+import { checkLinkValidity } from "@/study-service";
 import { StudyLink } from "../../study-link";
+import { ExtendLinkButton } from "./extend-link-button";
 import { GenerateReportButton } from "./generate-report-button";
 
 const STATUS_STYLES: Record<string, string> = {
@@ -17,6 +19,7 @@ const STATUS_STYLES: Record<string, string> = {
 export default async function StudyDetailPage({ params }: { params: { studyId: string } }) {
   const study = await getStudyRepository().getById(params.studyId);
   if (!study) notFound();
+  const linkValidity = checkLinkValidity(study);
 
   const [interviews, report] = await Promise.all([
     getInterviewRepository().listByStudyId(study.id),
@@ -61,6 +64,16 @@ export default async function StudyDetailPage({ params }: { params: { studyId: s
 
       <div className="mt-4">
         <StudyLink linkToken={study.linkToken} />
+        {linkValidity === "expired" && (
+          <p className="mt-2 text-sm text-red-600 dark:text-red-400">
+            This link expired. Extend it to let participants use it again.
+          </p>
+        )}
+        {study.status !== "closed" && (
+          <div className="mt-2">
+            <ExtendLinkButton studyId={study.id} />
+          </div>
+        )}
       </div>
 
       <section className="mt-8">

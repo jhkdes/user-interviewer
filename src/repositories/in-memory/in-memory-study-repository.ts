@@ -16,6 +16,7 @@ export class InMemoryStudyRepository implements StudyRepository {
       status: "open",
       createdAt: new Date(),
       closedAt: null,
+      linkExtendedAt: null,
     };
     this.studies.set(study.id, study);
     return { ...study };
@@ -45,6 +46,14 @@ export class InMemoryStudyRepository implements StudyRepository {
       status,
       closedAt: status === "closed" ? new Date() : study.closedAt,
     };
+    this.studies.set(id, updated);
+    return { ...updated };
+  }
+
+  async extendLink(id: string): Promise<Study> {
+    const study = this.studies.get(id);
+    if (!study) throw new Error(`Study not found: ${id}`);
+    const updated: Study = { ...study, linkExtendedAt: new Date() };
     this.studies.set(id, updated);
     return { ...updated };
   }
