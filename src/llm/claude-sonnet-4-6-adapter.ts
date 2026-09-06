@@ -206,70 +206,96 @@ export class ClaudeSonnet46Adapter implements LLMProviderAdapter {
    * shouldEndInterview/participantRequestedEnd afterward via the
    * `report_turn_decision` tool call rather than structured JSON output
    * (which isn't streamable). Deliberately has no retry-on-degenerate-output
-   * safety net (unlike `generateInterviewerTurn`) — by the time a degenerate
-   * utterance could be detected, its text has already been streamed and
-   * spoken; there is nothing to retry.
+   * safety net for a turn that *did* produce some text (unlike
+   * `generateInterviewerTurn`) — by the time a degenerate utterance could be
+   * detected, its text has already been streamed and spoken; there is
+   * nothing to retry.
+   *
+   * The one exception: a turn that produces *zero* text-delta events at all
+   * (Claude calls `report_turn_decision` without saying anything first) is
+   * retried, because nothing has been forwarded/spoken yet — confirmed via a
+   * real ElevenLabs call that this specific case isn't merely a bad turn,
+   * it's fatal: ElevenLabs treats a response with no spoken content as
+   * `custom_llm_error: LLM Cascade Error: Brain returned no response` and
+   * hard-closes the whole call, not just that turn.
    */
   async *generateInterviewerTurnStreaming(
     input: GenerateInterviewerTurnInput,
   ): AsyncGenerator<InterviewerTurnStreamEvent, void, unknown> {
-    const streamStart = Date.now();
-    const stream = this.client.messages.stream({
-      model: MODEL,
-      max_tokens: 1024,
-      system: [
-        {
-          type: "text",
-          text: input.systemPrompt,
-          cache_control: { type: "ephemeral" },
-        },
-      ],
-      messages: buildInterviewMessages(input.conversationHistory),
-      thinking: { type: "disabled" },
-      tools: [REPORT_TURN_DECISION_TOOL],
-    });
+    for (let attempt = 1; attempt <= MAX_INTERVIEWER_TURN_ATTEMPTS; attempt++) {
+      const streamStart = Date.now();
+      const stream = this.client.messages.stream({
+        model: MODEL,
+        max_tokens: 1024,
+        system: [
+          {
+            type: "text",
+            text: input.systemPrompt,
+            cache_control: { type: "ephemeral" },
+          },
+        ],
+        messages: buildInterviewMessages(input.conversationHistory),
+        thinking: { type: "disabled" },
+        tools: [REPORT_TURN_DECISION_TOOL],
+      });
 
-    for await (const event of stream) {
-      if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
-        yield { type: "text-delta", text: event.delta.text };
+      let textDeltaCount = 0;
+      for await (const event of stream) {
+        if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
+          textDeltaCount++;
+          yield { type: "text-delta", text: event.delta.text };
+        }
       }
-    }
 
-    let finalMessage: Anthropic.Message;
-    try {
-      finalMessage = await stream.finalMessage();
-    } catch (cause) {
-      throw new Error("Failed to generate interviewer turn (streaming)", { cause });
-    }
-    if (isVoiceSessionDebugEnabled()) {
-      console.log(
-        `[timing] claude messages.stream ms=${Date.now() - streamStart} cacheReadTokens=${finalMessage.usage?.cache_read_input_tokens ?? 0} cacheCreationTokens=${finalMessage.usage?.cache_creation_input_tokens ?? 0} inputTokens=${finalMessage.usage?.input_tokens ?? 0} outputTokens=${finalMessage.usage?.output_tokens ?? 0}`,
+      let finalMessage: Anthropic.Message;
+      try {
+        finalMessage = await stream.finalMessage();
+      } catch (cause) {
+        throw new Error("Failed to generate interviewer turn (streaming)", { cause });
+      }
+      if (isVoiceSessionDebugEnabled()) {
+        console.log(
+          `[timing] claude messages.stream attempt=${attempt} ms=${Date.now() - streamStart} textDeltaCount=${textDeltaCount} cacheReadTokens=${finalMessage.usage?.cache_read_input_tokens ?? 0} cacheCreationTokens=${finalMessage.usage?.cache_creation_input_tokens ?? 0} inputTokens=${finalMessage.usage?.input_tokens ?? 0} outputTokens=${finalMessage.usage?.output_tokens ?? 0}`,
+        );
+      }
+
+      if (textDeltaCount === 0 && attempt < MAX_INTERVIEWER_TURN_ATTEMPTS) {
+        // Nothing was forwarded this attempt — safe to silently retry with a
+        // fresh call, invisible to the caller (no event yielded yet).
+        continue;
+      }
+
+      const utterance = finalMessage.content
+        .filter((block): block is Anthropic.TextBlock => block.type === "text")
+        .map((block) => block.text)
+        .join("");
+
+      if (textDeltaCount === 0) {
+        throw new Error(
+          `Failed to generate interviewer turn (streaming): model produced no spoken text after ${MAX_INTERVIEWER_TURN_ATTEMPTS} attempts`,
+        );
+      }
+
+      const toolUse = finalMessage.content.find(
+        (block): block is Anthropic.ToolUseBlock =>
+          block.type === "tool_use" && block.name === "report_turn_decision",
       );
+      // Safe default when Claude never calls the tool at all: never auto-end
+      // an interview the model didn't explicitly flag — a missed "end" signal
+      // just costs one extra turn, while a spurious forced end would hang up
+      // on a live participant mid-conversation.
+      const decision = toolUse?.input as
+        | { shouldEndInterview?: boolean; participantRequestedEnd?: boolean }
+        | undefined;
+
+      yield {
+        type: "done",
+        utterance,
+        shouldEndInterview: decision?.shouldEndInterview ?? false,
+        participantRequestedEnd: decision?.participantRequestedEnd ?? false,
+      };
+      return;
     }
-
-    const utterance = finalMessage.content
-      .filter((block): block is Anthropic.TextBlock => block.type === "text")
-      .map((block) => block.text)
-      .join("");
-
-    const toolUse = finalMessage.content.find(
-      (block): block is Anthropic.ToolUseBlock =>
-        block.type === "tool_use" && block.name === "report_turn_decision",
-    );
-    // Safe default when Claude never calls the tool at all: never auto-end
-    // an interview the model didn't explicitly flag — a missed "end" signal
-    // just costs one extra turn, while a spurious forced end would hang up
-    // on a live participant mid-conversation.
-    const decision = toolUse?.input as
-      | { shouldEndInterview?: boolean; participantRequestedEnd?: boolean }
-      | undefined;
-
-    yield {
-      type: "done",
-      utterance,
-      shouldEndInterview: decision?.shouldEndInterview ?? false,
-      participantRequestedEnd: decision?.participantRequestedEnd ?? false,
-    };
   }
 
   async generateSummary(input: GenerateSummaryInput): Promise<GenerateSummaryOutput> {
