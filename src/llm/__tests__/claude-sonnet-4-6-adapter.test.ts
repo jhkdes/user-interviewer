@@ -315,6 +315,93 @@ describe("ClaudeSonnet46Adapter.generateInterviewerTurnStreaming", () => {
       ),
     ).rejects.toThrow("Failed to generate interviewer turn (streaming)");
   });
+
+  it("silently retries a turn that produced zero text-delta events (e.g. the tool called with no preceding speech) and succeeds on the retry", async () => {
+    const silentFinalMessage = {
+      content: [
+        {
+          type: "tool_use",
+          name: "report_turn_decision",
+          input: { shouldEndInterview: false, participantRequestedEnd: false },
+        },
+      ],
+      usage: {},
+    } as unknown as Anthropic.Message;
+    const spokenFinalMessage = {
+      content: [
+        { type: "text", text: "Sorry, could you say that again?" },
+        {
+          type: "tool_use",
+          name: "report_turn_decision",
+          input: { shouldEndInterview: false, participantRequestedEnd: false },
+        },
+      ],
+      usage: {},
+    } as unknown as Anthropic.Message;
+
+    const silentStream = {
+      [Symbol.asyncIterator]: async function* () {},
+      finalMessage: vi.fn().mockResolvedValue(silentFinalMessage),
+    };
+    const spokenStream = {
+      [Symbol.asyncIterator]: async function* () {
+        yield { type: "content_block_delta", delta: { type: "text_delta", text: "Sorry, could you say that again?" } };
+      },
+      finalMessage: vi.fn().mockResolvedValue(spokenFinalMessage),
+    };
+    const streamFn = vi.fn().mockReturnValueOnce(silentStream).mockReturnValueOnce(spokenStream);
+    const client = { messages: { stream: streamFn } } as unknown as Anthropic;
+    const adapter = new ClaudeSonnet46Adapter(client);
+
+    const events = await drain(
+      adapter.generateInterviewerTurnStreaming({
+        systemPrompt: "prompt",
+        conversationHistory: [{ speaker: "participant", text: "Hello" }],
+      }),
+    );
+
+    // No trace of the silent attempt reaches the caller — only the retry's events.
+    expect(events).toEqual([
+      { type: "text-delta", text: "Sorry, could you say that again?" },
+      {
+        type: "done",
+        utterance: "Sorry, could you say that again?",
+        shouldEndInterview: false,
+        participantRequestedEnd: false,
+      },
+    ]);
+    expect(streamFn).toHaveBeenCalledTimes(2);
+  });
+
+  it("throws a clear error if every attempt produces zero text-delta events", async () => {
+    const silentFinalMessage = {
+      content: [
+        {
+          type: "tool_use",
+          name: "report_turn_decision",
+          input: { shouldEndInterview: true, participantRequestedEnd: false },
+        },
+      ],
+      usage: {},
+    } as unknown as Anthropic.Message;
+    const silentStream = {
+      [Symbol.asyncIterator]: async function* () {},
+      finalMessage: vi.fn().mockResolvedValue(silentFinalMessage),
+    };
+    const client = {
+      messages: { stream: vi.fn().mockReturnValue(silentStream) },
+    } as unknown as Anthropic;
+    const adapter = new ClaudeSonnet46Adapter(client);
+
+    await expect(
+      drain(
+        adapter.generateInterviewerTurnStreaming({
+          systemPrompt: "prompt",
+          conversationHistory: [{ speaker: "participant", text: "Hello" }],
+        }),
+      ),
+    ).rejects.toThrow(/produced no spoken text after 2 attempts/);
+  });
 });
 
 describe("ClaudeSonnet46Adapter.generateSummary", () => {
