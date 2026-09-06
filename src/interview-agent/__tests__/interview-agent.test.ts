@@ -210,6 +210,88 @@ describe("InterviewAgent.generateNextTurn", () => {
     );
   });
 
+  it("does not end the call on the decision turn when the LLM asks a real follow-up question but also leaves shouldEndInterview: true (confirmed via a real live call, 2026-09-06)", async () => {
+    const llm = new FakeLLMProvider();
+    llm.scriptInterviewerTurns([
+      {
+        utterance:
+          "Okay, quick last one — you mentioned you tinker with AI projects outside of work too. Is there anything from those side projects that's actually made its way back into how you use AI on the job?",
+        // The exact real-API failure mode: a genuine question the participant
+        // never got a chance to answer, paired with a flag that would have
+        // ended the call the instant this utterance finished streaming.
+        shouldEndInterview: true,
+      },
+    ]);
+    const agent = new InterviewAgent(llm);
+
+    const result = await agent.generateNextTurn({
+      context,
+      conversationHistory: [
+        { speaker: "interviewer", text: TIME_CHECK_UTTERANCE },
+        { speaker: "participant", text: "Two more minutes." },
+      ],
+      interviewStartedAt: START,
+      now: new Date(START.getTime() + SOFT_CAP_MS + 30_000),
+    });
+
+    expect(result.isInterviewOver).toBe(false);
+    expect(result.terminationReason).toBeNull();
+    expect(result.extensionDecision).toBe(true);
+  });
+
+  it("does not end the call on an ordinary turn when the LLM asks a real question (e.g. a pre-close catch-all) but also leaves shouldEndInterview: true (confirmed via a real live call, 2026-09-06)", async () => {
+    const llm = new FakeLLMProvider();
+    llm.scriptInterviewerTurns([
+      {
+        utterance:
+          "That's a helpful framing — AI as a calculator-like tool rather than a replacement for the judgment side of the role. Anything else about AI and your day-to-day we haven't touched on that feels worth mentioning?",
+        shouldEndInterview: true,
+      },
+    ]);
+    const agent = new InterviewAgent(llm);
+
+    const deepHistory: InterviewTurn[] = Array.from(
+      { length: MIN_PARTICIPANT_TURNS_BEFORE_LLM_CAN_END + 2 },
+      (_, i) => ({ speaker: "participant" as const, text: `Detail ${i + 1}` }),
+    );
+
+    const result = await agent.generateNextTurn({
+      context,
+      conversationHistory: deepHistory,
+      interviewStartedAt: START,
+      now: new Date(START.getTime() + 5 * 60_000), // well under any cap — not a reactive turn
+    });
+
+    expect(result.isInterviewOver).toBe(false);
+    expect(result.terminationReason).toBeNull();
+  });
+
+  it("still ends the call on an ordinary turn when the LLM closes with a plain statement and shouldEndInterview: true, with no trailing question", async () => {
+    const llm = new FakeLLMProvider();
+    llm.scriptInterviewerTurns([
+      {
+        utterance: "That's really helpful, thank you so much for your time.",
+        shouldEndInterview: true,
+      },
+    ]);
+    const agent = new InterviewAgent(llm);
+
+    const deepHistory: InterviewTurn[] = Array.from(
+      { length: MIN_PARTICIPANT_TURNS_BEFORE_LLM_CAN_END + 2 },
+      (_, i) => ({ speaker: "participant" as const, text: `Detail ${i + 1}` }),
+    );
+
+    const result = await agent.generateNextTurn({
+      context,
+      conversationHistory: deepHistory,
+      interviewStartedAt: START,
+      now: new Date(START.getTime() + 5 * 60_000),
+    });
+
+    expect(result.isInterviewOver).toBe(true);
+    expect(result.terminationReason).toBe("llm-self-assessed");
+  });
+
   it("still recognizes the check-in as already asked when the provider replays a slightly reworded version of it (confirmed via a real Vapi call, 2026-09-02)", async () => {
     const llm = new FakeLLMProvider();
     llm.scriptInterviewerTurns([
@@ -649,6 +731,38 @@ describe("InterviewAgent.generateNextTurn", () => {
 
       expect(result.isInterviewOver).toBe(true);
       expect(result.terminationReason).toBe("llm-self-assessed");
+    });
+
+    it("does not close on the turn reacting to SECOND_TIME_CHECK_UTTERANCE when the LLM asks its one allowed follow-up but also leaves shouldEndInterview: true", async () => {
+      const llm = new FakeLLMProvider();
+      llm.scriptInterviewerTurns([
+        {
+          utterance: "One quick one before we close — what's the one task you'd never hand to AI?",
+          shouldEndInterview: true,
+        },
+      ]);
+      const agent = new InterviewAgent(llm);
+
+      const deepHistory: InterviewTurn[] = [
+        { speaker: "interviewer", text: TIME_CHECK_UTTERANCE },
+        { speaker: "participant", text: "Sure, happy to keep going." },
+        { speaker: "interviewer", text: SECOND_TIME_CHECK_UTTERANCE },
+        ...Array.from({ length: MIN_PARTICIPANT_TURNS_BEFORE_LLM_CAN_END }, (_, i) => ({
+          speaker: "participant" as const,
+          text: `Detail ${i + 1}`,
+        })),
+      ];
+
+      const result = await agent.generateNextTurn({
+        context,
+        conversationHistory: deepHistory,
+        interviewStartedAt: START,
+        now: new Date(START.getTime() + EXTENDED_SOFT_CAP_MS + 30_000),
+        extensionGranted: true,
+      });
+
+      expect(result.isInterviewOver).toBe(false);
+      expect(result.terminationReason).toBeNull();
     });
 
     it("ends at the extended hard cap even if the LLM wants to continue", async () => {
