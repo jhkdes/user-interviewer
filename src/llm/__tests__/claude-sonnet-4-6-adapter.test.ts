@@ -15,18 +15,6 @@ function makeMockClient(response: Anthropic.Message) {
   } as unknown as Anthropic;
 }
 
-/** A minimal fake of Anthropic's `MessageStream`: async-iterable over `events`, `finalMessage()` resolves to `final`. */
-function makeMockStreamClient(events: unknown[], final: Anthropic.Message) {
-  const stream = {
-    [Symbol.asyncIterator]: async function* () {
-      for (const event of events) yield event;
-    },
-    finalMessage: vi.fn().mockResolvedValue(final),
-  };
-  const streamFn = vi.fn().mockReturnValue(stream);
-  return { client: { messages: { stream: streamFn } } as unknown as Anthropic, streamFn };
-}
-
 describe("ClaudeSonnet46Adapter.generateInterviewerTurn", () => {
   it("sends the system prompt with a cache_control breakpoint", async () => {
     const client = makeMockClient(textResponse({ utterance: "Hi", shouldEndInterview: false }));
@@ -228,25 +216,29 @@ describe("ClaudeSonnet46Adapter.generateInterviewerTurnStreaming", () => {
     return events;
   }
 
-  it("yields text-delta events in order, then a done event built from the report_turn_decision tool call", async () => {
+  /** Builds a fake `MessageStream`: async-iterable over `partialJsonChunks` as `input_json_delta` events, `finalMessage()` resolves to a tool_use block with `toolInput`. */
+  function makeToolCallStream(partialJsonChunks: string[], toolInput: Record<string, unknown>) {
     const finalMessage = {
-      content: [
-        { type: "text", text: "Tell me more." },
-        {
-          type: "tool_use",
-          name: "report_turn_decision",
-          input: { shouldEndInterview: false, participantRequestedEnd: false },
-        },
-      ],
+      content: [{ type: "tool_use", name: "speak_and_decide", input: toolInput }],
       usage: {},
     } as unknown as Anthropic.Message;
-    const { client, streamFn } = makeMockStreamClient(
-      [
-        { type: "content_block_delta", delta: { type: "text_delta", text: "Tell me" } },
-        { type: "content_block_delta", delta: { type: "text_delta", text: " more." } },
-      ],
-      finalMessage,
+    return {
+      [Symbol.asyncIterator]: async function* () {
+        for (const partial_json of partialJsonChunks) {
+          yield { type: "content_block_delta", delta: { type: "input_json_delta", partial_json } };
+        }
+      },
+      finalMessage: vi.fn().mockResolvedValue(finalMessage),
+    };
+  }
+
+  it("yields text-delta events decoded from the forced tool call's streamed JSON, then a done event from the fully-parsed input", async () => {
+    const stream = makeToolCallStream(
+      ['{"utterance": "Tell', ' me more.", "shouldEndInterview": false, "participantRequestedEnd": false}'],
+      { utterance: "Tell me more.", shouldEndInterview: false, participantRequestedEnd: false },
     );
+    const streamFn = vi.fn().mockReturnValue(stream);
+    const client = { messages: { stream: streamFn } } as unknown as Anthropic;
     const adapter = new ClaudeSonnet46Adapter(client);
 
     const events = await drain(
@@ -257,8 +249,8 @@ describe("ClaudeSonnet46Adapter.generateInterviewerTurnStreaming", () => {
     );
 
     expect(events).toEqual([
-      { type: "text-delta", text: "Tell me" },
-      { type: "text-delta", text: " more." },
+      { type: "text-delta", text: "Tell" },
+      { type: "text-delta", text: " me more." },
       {
         type: "done",
         utterance: "Tell me more.",
@@ -268,19 +260,14 @@ describe("ClaudeSonnet46Adapter.generateInterviewerTurnStreaming", () => {
     ]);
 
     const call = streamFn.mock.calls[0][0];
-    expect(call.tools).toEqual([expect.objectContaining({ name: "report_turn_decision" })]);
+    expect(call.tools).toEqual([expect.objectContaining({ name: "speak_and_decide" })]);
+    expect(call.tool_choice).toEqual({ type: "tool", name: "speak_and_decide" });
     expect(call.output_config).toBeUndefined();
   });
 
-  it("defaults both decision flags to false, without throwing, when the model never calls report_turn_decision", async () => {
-    const finalMessage = {
-      content: [{ type: "text", text: "Just some text, no tool call." }],
-      usage: {},
-    } as unknown as Anthropic.Message;
-    const { client } = makeMockStreamClient(
-      [{ type: "content_block_delta", delta: { type: "text_delta", text: "Just some text, no tool call." } }],
-      finalMessage,
-    );
+  it("defaults both decision flags to false when the parsed tool input omits them", async () => {
+    const stream = makeToolCallStream(['{"utterance": "Just text."}'], { utterance: "Just text." });
+    const client = { messages: { stream: vi.fn().mockReturnValue(stream) } } as unknown as Anthropic;
     const adapter = new ClaudeSonnet46Adapter(client);
 
     const events = await drain(
@@ -292,7 +279,7 @@ describe("ClaudeSonnet46Adapter.generateInterviewerTurnStreaming", () => {
 
     expect(events.at(-1)).toEqual({
       type: "done",
-      utterance: "Just some text, no tool call.",
+      utterance: "Just text.",
       shouldEndInterview: false,
       participantRequestedEnd: false,
     });
@@ -316,40 +303,18 @@ describe("ClaudeSonnet46Adapter.generateInterviewerTurnStreaming", () => {
     ).rejects.toThrow("Failed to generate interviewer turn (streaming)");
   });
 
-  it("silently retries a turn that produced zero text-delta events (e.g. the tool called with no preceding speech) and succeeds on the retry", async () => {
-    const silentFinalMessage = {
-      content: [
-        {
-          type: "tool_use",
-          name: "report_turn_decision",
-          input: { shouldEndInterview: false, participantRequestedEnd: false },
-        },
-      ],
-      usage: {},
-    } as unknown as Anthropic.Message;
-    const spokenFinalMessage = {
-      content: [
-        { type: "text", text: "Sorry, could you say that again?" },
-        {
-          type: "tool_use",
-          name: "report_turn_decision",
-          input: { shouldEndInterview: false, participantRequestedEnd: false },
-        },
-      ],
-      usage: {},
-    } as unknown as Anthropic.Message;
-
-    const silentStream = {
-      [Symbol.asyncIterator]: async function* () {},
-      finalMessage: vi.fn().mockResolvedValue(silentFinalMessage),
-    };
-    const spokenStream = {
-      [Symbol.asyncIterator]: async function* () {
-        yield { type: "content_block_delta", delta: { type: "text_delta", text: "Sorry, could you say that again?" } };
-      },
-      finalMessage: vi.fn().mockResolvedValue(spokenFinalMessage),
-    };
-    const streamFn = vi.fn().mockReturnValueOnce(silentStream).mockReturnValueOnce(spokenStream);
+  it("silently retries a turn whose utterance field decoded to nothing and succeeds on the retry", async () => {
+    const emptyStream = makeToolCallStream(['{"utterance": "", "shouldEndInterview": false, "participantRequestedEnd": false}'], {
+      utterance: "",
+      shouldEndInterview: false,
+      participantRequestedEnd: false,
+    });
+    const spokenStream = makeToolCallStream(['{"utterance": "Sorry, could you say that again?", "shouldEndInterview": false, "participantRequestedEnd": false}'], {
+      utterance: "Sorry, could you say that again?",
+      shouldEndInterview: false,
+      participantRequestedEnd: false,
+    });
+    const streamFn = vi.fn().mockReturnValueOnce(emptyStream).mockReturnValueOnce(spokenStream);
     const client = { messages: { stream: streamFn } } as unknown as Anthropic;
     const adapter = new ClaudeSonnet46Adapter(client);
 
@@ -360,7 +325,7 @@ describe("ClaudeSonnet46Adapter.generateInterviewerTurnStreaming", () => {
       }),
     );
 
-    // No trace of the silent attempt reaches the caller — only the retry's events.
+    // No trace of the empty attempt reaches the caller — only the retry's events.
     expect(events).toEqual([
       { type: "text-delta", text: "Sorry, could you say that again?" },
       {
@@ -373,23 +338,14 @@ describe("ClaudeSonnet46Adapter.generateInterviewerTurnStreaming", () => {
     expect(streamFn).toHaveBeenCalledTimes(2);
   });
 
-  it("throws a clear error if every attempt produces zero text-delta events", async () => {
-    const silentFinalMessage = {
-      content: [
-        {
-          type: "tool_use",
-          name: "report_turn_decision",
-          input: { shouldEndInterview: true, participantRequestedEnd: false },
-        },
-      ],
-      usage: {},
-    } as unknown as Anthropic.Message;
-    const silentStream = {
-      [Symbol.asyncIterator]: async function* () {},
-      finalMessage: vi.fn().mockResolvedValue(silentFinalMessage),
-    };
+  it("throws a clear error if every attempt's utterance field decodes to nothing", async () => {
+    const emptyStream = makeToolCallStream(['{"utterance": "", "shouldEndInterview": true, "participantRequestedEnd": false}'], {
+      utterance: "",
+      shouldEndInterview: true,
+      participantRequestedEnd: false,
+    });
     const client = {
-      messages: { stream: vi.fn().mockReturnValue(silentStream) },
+      messages: { stream: vi.fn().mockReturnValue(emptyStream) },
     } as unknown as Anthropic;
     const adapter = new ClaudeSonnet46Adapter(client);
 

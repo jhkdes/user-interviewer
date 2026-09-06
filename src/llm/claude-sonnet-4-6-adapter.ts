@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { isVoiceSessionDebugEnabled } from "@/lib/debug";
+import { IncrementalJsonStringExtractor } from "./incremental-json-string-extractor";
 import type {
   GenerateInterviewerTurnInput,
   GenerateInterviewerTurnOutput,
@@ -31,24 +32,34 @@ function isMeaningfulUtterance(utterance: string): boolean {
 }
 
 /**
- * Tool the streaming interviewer-turn call uses to report the decision flags
- * separately from the spoken utterance, since a single structured-JSON
- * response (the non-streaming call's approach, `interviewerTurnSchema`)
- * isn't streamable — Claude must finish generating the whole JSON object
- * before any of it can be spoken. This tool lets the utterance stream as
- * plain text while the flags arrive afterward, without blocking speech.
- * `tool_choice` is left at the default (`auto`) rather than forced — forcing
- * it risks suppressing the text block entirely.
+ * Tool the streaming interviewer-turn call is *forced* to call every turn —
+ * `utterance` lives inside its arguments alongside the decision flags,
+ * rather than as separate free text plus a second, optionally-called tool.
+ *
+ * An earlier design let Claude speak freely and call a second, decision-only
+ * tool afterward (auto tool_choice). Reproduced against the real API: Claude
+ * skipped speaking and went straight to the decision tool in ~5 of 6 calls —
+ * not a rare fluke, the majority behavior — which ElevenLabs treats as fatal
+ * (`custom_llm_error: LLM Cascade Error: Brain returned no response`) and
+ * hard-closes the whole call, not just that turn. Forcing tool_choice to
+ * this single tool, with `utterance` a required argument, makes skipping
+ * speech schema-impossible rather than merely prompt-discouraged (verified
+ * 4/4 against the real API). `IncrementalJsonStringExtractor` recovers real
+ * token streaming from this shape by decoding the `utterance` field's value
+ * out of the tool call's `input_json_delta` events as they arrive, rather
+ * than reading plain `text_delta` events directly.
  */
-const REPORT_TURN_DECISION_TOOL: Anthropic.Tool = {
-  name: "report_turn_decision",
-  description:
-    "Call this exactly once, immediately after you finish saying your utterance as plain " +
-    "text (not before, not instead of it), to report whether the interview should end. " +
-    "Do not write any text after calling this tool.",
+const INTERVIEWER_TURN_TOOL: Anthropic.Tool = {
+  name: "speak_and_decide",
+  description: "Report what you'll say out loud this turn and your turn decision.",
   input_schema: {
     type: "object",
     properties: {
+      utterance: {
+        type: "string",
+        description:
+          "What the interviewer says next, out loud, verbatim and read aloud to the participant. Always a real, complete sentence or two — never a placeholder, an ellipsis, or blank text.",
+      },
       shouldEndInterview: {
         type: "boolean",
         description:
@@ -60,7 +71,7 @@ const REPORT_TURN_DECISION_TOOL: Anthropic.Tool = {
           'True if the participant explicitly and unambiguously asked to end the interview right now, or said they have to leave/go (e.g. "I have to go," "can you end this?," "let\'s stop here," a clear goodbye) — regardless of how much depth has been reached so far. Distinct from shouldEndInterview: this overrides the normal minimum-depth requirement and ends the call immediately after this turn. False otherwise, including when they are just answering slowly, going quiet, or the conversation is naturally winding down without an explicit request to stop.',
       },
     },
-    required: ["shouldEndInterview", "participantRequestedEnd"],
+    required: ["utterance", "shouldEndInterview", "participantRequestedEnd"],
   },
 };
 
@@ -199,25 +210,25 @@ export class ClaudeSonnet46Adapter implements LLMProviderAdapter {
   }
 
   /**
-   * Streaming counterpart to `generateInterviewerTurn`: forwards utterance
-   * text live as `text-delta` events the instant Claude generates it (so
-   * TTS can start speaking immediately, rather than waiting for the whole
-   * response as the non-streaming call requires), and resolves
-   * shouldEndInterview/participantRequestedEnd afterward via the
-   * `report_turn_decision` tool call rather than structured JSON output
-   * (which isn't streamable). Deliberately has no retry-on-degenerate-output
-   * safety net for a turn that *did* produce some text (unlike
-   * `generateInterviewerTurn`) — by the time a degenerate utterance could be
-   * detected, its text has already been streamed and spoken; there is
-   * nothing to retry.
+   * Streaming counterpart to `generateInterviewerTurn`: Claude is *forced*
+   * (`tool_choice`) to call `speak_and_decide` every turn, with `utterance`
+   * a required argument alongside the decision flags — see
+   * `INTERVIEWER_TURN_TOOL`'s doc comment for why (an earlier design that
+   * let Claude speak freely and call a second, optional decision tool
+   * failed ~5 of 6 real calls). `IncrementalJsonStringExtractor` decodes the
+   * `utterance` argument's value out of the tool call's `input_json_delta`
+   * events as they stream in, forwarded live as `text-delta` events so TTS
+   * can start speaking before the whole tool call finishes generating.
    *
-   * The one exception: a turn that produces *zero* text-delta events at all
-   * (Claude calls `report_turn_decision` without saying anything first) is
-   * retried, because nothing has been forwarded/spoken yet — confirmed via a
-   * real ElevenLabs call that this specific case isn't merely a bad turn,
-   * it's fatal: ElevenLabs treats a response with no spoken content as
-   * `custom_llm_error: LLM Cascade Error: Brain returned no response` and
-   * hard-closes the whole call, not just that turn.
+   * Deliberately has no retry-on-degenerate-output safety net for a turn
+   * that *did* produce some text (unlike `generateInterviewerTurn`) — by the
+   * time a degenerate utterance could be detected, its text has already
+   * been streamed and spoken; there is nothing to retry. The one exception:
+   * a turn that produces zero decoded characters at all is retried, since
+   * nothing has been forwarded/spoken yet and is therefore safe to redo —
+   * confirmed via a real ElevenLabs call that a response with no spoken
+   * content isn't merely a bad turn, it's fatal (`custom_llm_error: LLM
+   * Cascade Error: Brain returned no response`, hard-closing the whole call).
    */
   async *generateInterviewerTurnStreaming(
     input: GenerateInterviewerTurnInput,
@@ -236,14 +247,19 @@ export class ClaudeSonnet46Adapter implements LLMProviderAdapter {
         ],
         messages: buildInterviewMessages(input.conversationHistory),
         thinking: { type: "disabled" },
-        tools: [REPORT_TURN_DECISION_TOOL],
+        tools: [INTERVIEWER_TURN_TOOL],
+        tool_choice: { type: "tool", name: INTERVIEWER_TURN_TOOL.name },
       });
 
-      let textDeltaCount = 0;
+      const extractor = new IncrementalJsonStringExtractor("utterance");
+      let emittedAnyText = false;
       for await (const event of stream) {
-        if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
-          textDeltaCount++;
-          yield { type: "text-delta", text: event.delta.text };
+        if (event.type === "content_block_delta" && event.delta.type === "input_json_delta") {
+          const text = extractor.feed(event.delta.partial_json);
+          if (text) {
+            emittedAnyText = true;
+            yield { type: "text-delta", text };
+          }
         }
       }
 
@@ -255,22 +271,16 @@ export class ClaudeSonnet46Adapter implements LLMProviderAdapter {
       }
       if (isVoiceSessionDebugEnabled()) {
         console.log(
-          `[timing] claude messages.stream attempt=${attempt} ms=${Date.now() - streamStart} textDeltaCount=${textDeltaCount} cacheReadTokens=${finalMessage.usage?.cache_read_input_tokens ?? 0} cacheCreationTokens=${finalMessage.usage?.cache_creation_input_tokens ?? 0} inputTokens=${finalMessage.usage?.input_tokens ?? 0} outputTokens=${finalMessage.usage?.output_tokens ?? 0}`,
+          `[timing] claude messages.stream attempt=${attempt} ms=${Date.now() - streamStart} emittedAnyText=${emittedAnyText} cacheReadTokens=${finalMessage.usage?.cache_read_input_tokens ?? 0} cacheCreationTokens=${finalMessage.usage?.cache_creation_input_tokens ?? 0} inputTokens=${finalMessage.usage?.input_tokens ?? 0} outputTokens=${finalMessage.usage?.output_tokens ?? 0}`,
         );
       }
 
-      if (textDeltaCount === 0 && attempt < MAX_INTERVIEWER_TURN_ATTEMPTS) {
+      if (!emittedAnyText && attempt < MAX_INTERVIEWER_TURN_ATTEMPTS) {
         // Nothing was forwarded this attempt — safe to silently retry with a
         // fresh call, invisible to the caller (no event yielded yet).
         continue;
       }
-
-      const utterance = finalMessage.content
-        .filter((block): block is Anthropic.TextBlock => block.type === "text")
-        .map((block) => block.text)
-        .join("");
-
-      if (textDeltaCount === 0) {
+      if (!emittedAnyText) {
         throw new Error(
           `Failed to generate interviewer turn (streaming): model produced no spoken text after ${MAX_INTERVIEWER_TURN_ATTEMPTS} attempts`,
         );
@@ -278,21 +288,20 @@ export class ClaudeSonnet46Adapter implements LLMProviderAdapter {
 
       const toolUse = finalMessage.content.find(
         (block): block is Anthropic.ToolUseBlock =>
-          block.type === "tool_use" && block.name === "report_turn_decision",
+          block.type === "tool_use" && block.name === INTERVIEWER_TURN_TOOL.name,
       );
-      // Safe default when Claude never calls the tool at all: never auto-end
-      // an interview the model didn't explicitly flag — a missed "end" signal
-      // just costs one extra turn, while a spurious forced end would hang up
-      // on a live participant mid-conversation.
-      const decision = toolUse?.input as
-        | { shouldEndInterview?: boolean; participantRequestedEnd?: boolean }
+      // The fully-parsed tool input (from finalMessage, not our own
+      // incremental extractor) is the source of truth for the final
+      // utterance/flags — the extractor is only used for the live preview.
+      const parsed = toolUse?.input as
+        | { utterance?: string; shouldEndInterview?: boolean; participantRequestedEnd?: boolean }
         | undefined;
 
       yield {
         type: "done",
-        utterance,
-        shouldEndInterview: decision?.shouldEndInterview ?? false,
-        participantRequestedEnd: decision?.participantRequestedEnd ?? false,
+        utterance: parsed?.utterance ?? "",
+        shouldEndInterview: parsed?.shouldEndInterview ?? false,
+        participantRequestedEnd: parsed?.participantRequestedEnd ?? false,
       };
       return;
     }
