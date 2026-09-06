@@ -4,7 +4,10 @@ import { FakeLLMProvider } from "@/llm";
 import { InMemoryInterviewRepository } from "@/repositories/in-memory/in-memory-interview-repository";
 import { InMemoryStudyRepository } from "@/repositories/in-memory/in-memory-study-repository";
 import { MissingInterviewIdError } from "../../errors";
-import { resolveElevenLabsStreamContext, streamElevenLabsCustomLlmResponse } from "../custom-llm-handler";
+import {
+  resolveElevenLabsStreamContext,
+  streamElevenLabsCustomLlmResponse,
+} from "../custom-llm-handler";
 import type { ElevenLabsCustomLlmChatCompletionRequest } from "../types";
 
 const targetProfile = {

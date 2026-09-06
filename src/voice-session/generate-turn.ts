@@ -121,7 +121,8 @@ export async function generateTurn(
   deps: GenerateTurnDeps,
   input: GenerateTurnInput,
 ): Promise<GenerateTurnOutput> {
-  const { interview, study } = input.preloaded ?? (await loadInterviewAndStudy(deps, input.interviewId));
+  const { interview, study } =
+    input.preloaded ?? (await loadInterviewAndStudy(deps, input.interviewId));
   const now = deps.now ?? new Date();
 
   const result = await deps.interviewAgent.generateNextTurn(
@@ -145,7 +146,8 @@ export async function* generateTurnStreaming(
   deps: GenerateTurnDeps,
   input: GenerateTurnInput,
 ): AsyncGenerator<GenerateTurnStreamEvent, void, unknown> {
-  const { interview, study } = input.preloaded ?? (await loadInterviewAndStudy(deps, input.interviewId));
+  const { interview, study } =
+    input.preloaded ?? (await loadInterviewAndStudy(deps, input.interviewId));
   const now = deps.now ?? new Date();
 
   let final: Awaited<ReturnType<InterviewAgent["generateNextTurn"]>> | undefined;

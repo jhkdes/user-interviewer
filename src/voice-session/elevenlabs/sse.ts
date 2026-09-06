@@ -8,7 +8,12 @@ import { randomUUID } from "node:crypto";
  * `elevenlabs/custom-llm-handler.ts`'s `streamElevenLabsCustomLlmResponse`).
  */
 
-function chunkEnvelope(id: string, created: number, model: string, choice: Record<string, unknown>) {
+function chunkEnvelope(
+  id: string,
+  created: number,
+  model: string,
+  choice: Record<string, unknown>,
+) {
   return { id, object: "chat.completion.chunk", created, model, choices: [choice] };
 }
 
@@ -51,7 +56,10 @@ export function buildEndCallToolCallChunk(id: string, created: number, model: st
           index: 0,
           id: `call_${randomUUID()}`,
           type: "function",
-          function: { name: "end_call", arguments: JSON.stringify({ reason: "interview_complete" }) },
+          function: {
+            name: "end_call",
+            arguments: JSON.stringify({ reason: "interview_complete" }),
+          },
         },
       ],
     },

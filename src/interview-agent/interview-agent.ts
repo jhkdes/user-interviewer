@@ -43,8 +43,7 @@ export interface InterviewAgentTurnInput {
 }
 
 export type InterviewAgentStreamEvent =
-  | { type: "text-delta"; text: string }
-  | { type: "done"; result: InterviewAgentTurnOutput };
+  { type: "text-delta"; text: string } | { type: "done"; result: InterviewAgentTurnOutput };
 
 export interface InterviewAgentTurnOutput {
   utterance: string;
@@ -217,7 +216,11 @@ export class InterviewAgent {
     now: Date,
     isDecisionTurn: boolean,
     isFinalWrapTurn: boolean,
-    llmOutput: { utterance: string; shouldEndInterview: boolean; participantRequestedEnd?: boolean },
+    llmOutput: {
+      utterance: string;
+      shouldEndInterview: boolean;
+      participantRequestedEnd?: boolean;
+    },
   ): InterviewAgentTurnOutput {
     const { utterance, shouldEndInterview, participantRequestedEnd } = llmOutput;
     let llmSuggestsEnd = shouldEndInterview;
@@ -287,7 +290,10 @@ export class InterviewAgent {
       isFinalWrapTurn,
     });
 
-    const llmOutput = await this.llm.generateInterviewerTurn({ systemPrompt, conversationHistory: history });
+    const llmOutput = await this.llm.generateInterviewerTurn({
+      systemPrompt,
+      conversationHistory: history,
+    });
 
     return this.finalizeTurn(
       input,

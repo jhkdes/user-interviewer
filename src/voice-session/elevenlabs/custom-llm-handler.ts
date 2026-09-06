@@ -1,8 +1,17 @@
 import { randomUUID } from "node:crypto";
 import type { Interview, Study } from "@/domain";
-import { generateTurnStreaming, loadInterviewAndStudy, type GenerateTurnDeps } from "../generate-turn";
+import {
+  generateTurnStreaming,
+  loadInterviewAndStudy,
+  type GenerateTurnDeps,
+} from "../generate-turn";
 import { MissingInterviewIdError } from "../errors";
-import { buildContentDeltaChunk, buildEndCallToolCallChunk, buildFinishChunk, DONE_CHUNK } from "./sse";
+import {
+  buildContentDeltaChunk,
+  buildEndCallToolCallChunk,
+  buildFinishChunk,
+  DONE_CHUNK,
+} from "./sse";
 import type { ElevenLabsCustomLlmChatCompletionRequest } from "./types";
 
 /**
