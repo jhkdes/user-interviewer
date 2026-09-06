@@ -4,6 +4,8 @@ import {
   InterviewAgent,
   SECOND_TIME_CHECK_UTTERANCE,
   TIME_CHECK_UTTERANCE,
+  type InterviewAgentStreamEvent,
+  type InterviewAgentTurnOutput,
 } from "../interview-agent";
 import {
   EXTENDED_HARD_CAP_MS,
@@ -406,6 +408,132 @@ describe("InterviewAgent.generateNextTurn", () => {
       (c) => c.conversationHistory.length,
     );
     expect(historyLengthsSeen).toEqual([0, 2, 4, 6, 8]);
+  });
+
+  describe("InterviewAgent.generateNextTurnStreaming", () => {
+    async function drain(gen: AsyncGenerator<InterviewAgentStreamEvent, void, unknown>) {
+      const textEvents: string[] = [];
+      let result: InterviewAgentTurnOutput | undefined;
+      for await (const event of gen) {
+        if (event.type === "text-delta") textEvents.push(event.text);
+        else result = event.result;
+      }
+      if (!result) throw new Error("drain: generator ended without a done event");
+      return { textEvents, result };
+    }
+
+    it("yields text-delta events in order, before the done event resolves", async () => {
+      const llm = new FakeLLMProvider();
+      llm.scriptInterviewerTurnStreams([
+        { textChunks: ["Tell me", " more."], shouldEndInterview: false },
+      ]);
+      const agent = new InterviewAgent(llm);
+
+      const { textEvents, result } = await drain(
+        agent.generateNextTurnStreaming({
+          context,
+          conversationHistory: [{ speaker: "participant", text: "Hello" }],
+          interviewStartedAt: START,
+          now: new Date(START.getTime() + 60_000),
+        }),
+      );
+
+      expect(textEvents).toEqual(["Tell me", " more."]);
+      expect(result.utterance).toBe("Tell me more.");
+      expect(result.isInterviewOver).toBe(false);
+    });
+
+    it("forwards a degenerate/empty utterance with no retry — no safety net on the streaming path", async () => {
+      const llm = new FakeLLMProvider();
+      llm.scriptInterviewerTurnStreams([{ textChunks: [""], shouldEndInterview: false }]);
+      const agent = new InterviewAgent(llm);
+
+      const { result } = await drain(
+        agent.generateNextTurnStreaming({
+          context,
+          conversationHistory: [{ speaker: "participant", text: "..." }],
+          interviewStartedAt: START,
+          now: new Date(START.getTime() + 60_000),
+        }),
+      );
+
+      expect(result.utterance).toBe("");
+      expect(llm.calls.generateInterviewerTurnStreaming).toHaveLength(1);
+    });
+
+    it("still injects the scripted time-check turns as a single immediate text-delta, without calling the LLM", async () => {
+      const llm = new FakeLLMProvider();
+      const agent = new InterviewAgent(llm);
+
+      const { textEvents, result } = await drain(
+        agent.generateNextTurnStreaming({
+          context,
+          conversationHistory: [{ speaker: "participant", text: "Still going" }],
+          interviewStartedAt: START,
+          now: new Date(START.getTime() + SOFT_CAP_MS),
+        }),
+      );
+
+      expect(textEvents).toEqual([TIME_CHECK_UTTERANCE]);
+      expect(result.timeCheckJustAsked).toBe(true);
+      expect(llm.calls.generateInterviewerTurnStreaming).toHaveLength(0);
+    });
+
+    it("produces the same isInterviewOver/extensionDecision as the non-streaming path on the decision turn", async () => {
+      const llm = new FakeLLMProvider();
+      llm.scriptInterviewerTurnStreams([
+        {
+          textChunks: ["No worries at all — thanks so much for sharing, Jordan."],
+          shouldEndInterview: false,
+        },
+      ]);
+      const agent = new InterviewAgent(llm);
+
+      const deepHistory: InterviewTurn[] = [
+        { speaker: "interviewer", text: TIME_CHECK_UTTERANCE },
+        ...Array.from({ length: MIN_PARTICIPANT_TURNS_BEFORE_LLM_CAN_END }, (_, i) => ({
+          speaker: "participant" as const,
+          text: `Detail ${i + 1}`,
+        })),
+      ];
+
+      const { result } = await drain(
+        agent.generateNextTurnStreaming({
+          context,
+          conversationHistory: deepHistory,
+          interviewStartedAt: START,
+          now: new Date(START.getTime() + SOFT_CAP_MS + 30_000),
+        }),
+      );
+
+      expect(result.isInterviewOver).toBe(true);
+      expect(result.terminationReason).toBe("llm-self-assessed");
+      expect(result.extensionDecision).toBe(false);
+    });
+
+    it("ends the interview immediately when participantRequestedEnd comes back true via the tool, even below the min-turn depth gate", async () => {
+      const llm = new FakeLLMProvider();
+      llm.scriptInterviewerTurnStreams([
+        {
+          textChunks: ["Of course — take care, and thanks so much for the time you did give me."],
+          shouldEndInterview: false,
+          participantRequestedEnd: true,
+        },
+      ]);
+      const agent = new InterviewAgent(llm);
+
+      const { result } = await drain(
+        agent.generateNextTurnStreaming({
+          context,
+          conversationHistory: [{ speaker: "participant", text: "I gotta run, can you end this?" }],
+          interviewStartedAt: START,
+          now: new Date(START.getTime() + 30_000),
+        }),
+      );
+
+      expect(result.isInterviewOver).toBe(true);
+      expect(result.terminationReason).toBe("participant-requested");
+    });
   });
 
   describe("extension past the base 15-minute cap", () => {

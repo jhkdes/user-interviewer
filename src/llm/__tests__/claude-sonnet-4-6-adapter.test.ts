@@ -209,6 +209,175 @@ describe("ClaudeSonnet46Adapter.generateInterviewerTurn", () => {
   });
 });
 
+describe("ClaudeSonnet46Adapter.generateInterviewerTurnStreaming", () => {
+  async function drain(gen: AsyncGenerator<unknown, void, unknown>) {
+    const events: unknown[] = [];
+    for await (const event of gen) events.push(event);
+    return events;
+  }
+
+  /** Builds a fake `MessageStream`: async-iterable over `partialJsonChunks` as `input_json_delta` events, `finalMessage()` resolves to a tool_use block with `toolInput`. */
+  function makeToolCallStream(partialJsonChunks: string[], toolInput: Record<string, unknown>) {
+    const finalMessage = {
+      content: [{ type: "tool_use", name: "speak_and_decide", input: toolInput }],
+      usage: {},
+    } as unknown as Anthropic.Message;
+    return {
+      [Symbol.asyncIterator]: async function* () {
+        for (const partial_json of partialJsonChunks) {
+          yield { type: "content_block_delta", delta: { type: "input_json_delta", partial_json } };
+        }
+      },
+      finalMessage: vi.fn().mockResolvedValue(finalMessage),
+    };
+  }
+
+  it("yields text-delta events decoded from the forced tool call's streamed JSON, then a done event from the fully-parsed input", async () => {
+    const stream = makeToolCallStream(
+      [
+        '{"utterance": "Tell',
+        ' me more.", "shouldEndInterview": false, "participantRequestedEnd": false}',
+      ],
+      { utterance: "Tell me more.", shouldEndInterview: false, participantRequestedEnd: false },
+    );
+    const streamFn = vi.fn().mockReturnValue(stream);
+    const client = { messages: { stream: streamFn } } as unknown as Anthropic;
+    const adapter = new ClaudeSonnet46Adapter(client);
+
+    const events = await drain(
+      adapter.generateInterviewerTurnStreaming({
+        systemPrompt: "prompt",
+        conversationHistory: [{ speaker: "participant", text: "Hello" }],
+      }),
+    );
+
+    expect(events).toEqual([
+      { type: "text-delta", text: "Tell" },
+      { type: "text-delta", text: " me more." },
+      {
+        type: "done",
+        utterance: "Tell me more.",
+        shouldEndInterview: false,
+        participantRequestedEnd: false,
+      },
+    ]);
+
+    const call = streamFn.mock.calls[0][0];
+    expect(call.tools).toEqual([expect.objectContaining({ name: "speak_and_decide" })]);
+    expect(call.tool_choice).toEqual({ type: "tool", name: "speak_and_decide" });
+    expect(call.output_config).toBeUndefined();
+  });
+
+  it("defaults both decision flags to false when the parsed tool input omits them", async () => {
+    const stream = makeToolCallStream(['{"utterance": "Just text."}'], { utterance: "Just text." });
+    const client = {
+      messages: { stream: vi.fn().mockReturnValue(stream) },
+    } as unknown as Anthropic;
+    const adapter = new ClaudeSonnet46Adapter(client);
+
+    const events = await drain(
+      adapter.generateInterviewerTurnStreaming({
+        systemPrompt: "prompt",
+        conversationHistory: [{ speaker: "participant", text: "Hello" }],
+      }),
+    );
+
+    expect(events.at(-1)).toEqual({
+      type: "done",
+      utterance: "Just text.",
+      shouldEndInterview: false,
+      participantRequestedEnd: false,
+    });
+  });
+
+  it("wraps errors from finalMessage() with a clear message", async () => {
+    const stream = {
+      [Symbol.asyncIterator]: async function* () {},
+      finalMessage: vi.fn().mockRejectedValue(new Error("stream broke")),
+    };
+    const client = {
+      messages: { stream: vi.fn().mockReturnValue(stream) },
+    } as unknown as Anthropic;
+    const adapter = new ClaudeSonnet46Adapter(client);
+
+    await expect(
+      drain(
+        adapter.generateInterviewerTurnStreaming({
+          systemPrompt: "prompt",
+          conversationHistory: [{ speaker: "participant", text: "Hello" }],
+        }),
+      ),
+    ).rejects.toThrow("Failed to generate interviewer turn (streaming)");
+  });
+
+  it("silently retries a turn whose utterance field decoded to nothing and succeeds on the retry", async () => {
+    const emptyStream = makeToolCallStream(
+      ['{"utterance": "", "shouldEndInterview": false, "participantRequestedEnd": false}'],
+      {
+        utterance: "",
+        shouldEndInterview: false,
+        participantRequestedEnd: false,
+      },
+    );
+    const spokenStream = makeToolCallStream(
+      [
+        '{"utterance": "Sorry, could you say that again?", "shouldEndInterview": false, "participantRequestedEnd": false}',
+      ],
+      {
+        utterance: "Sorry, could you say that again?",
+        shouldEndInterview: false,
+        participantRequestedEnd: false,
+      },
+    );
+    const streamFn = vi.fn().mockReturnValueOnce(emptyStream).mockReturnValueOnce(spokenStream);
+    const client = { messages: { stream: streamFn } } as unknown as Anthropic;
+    const adapter = new ClaudeSonnet46Adapter(client);
+
+    const events = await drain(
+      adapter.generateInterviewerTurnStreaming({
+        systemPrompt: "prompt",
+        conversationHistory: [{ speaker: "participant", text: "Hello" }],
+      }),
+    );
+
+    // No trace of the empty attempt reaches the caller — only the retry's events.
+    expect(events).toEqual([
+      { type: "text-delta", text: "Sorry, could you say that again?" },
+      {
+        type: "done",
+        utterance: "Sorry, could you say that again?",
+        shouldEndInterview: false,
+        participantRequestedEnd: false,
+      },
+    ]);
+    expect(streamFn).toHaveBeenCalledTimes(2);
+  });
+
+  it("throws a clear error if every attempt's utterance field decodes to nothing", async () => {
+    const emptyStream = makeToolCallStream(
+      ['{"utterance": "", "shouldEndInterview": true, "participantRequestedEnd": false}'],
+      {
+        utterance: "",
+        shouldEndInterview: true,
+        participantRequestedEnd: false,
+      },
+    );
+    const client = {
+      messages: { stream: vi.fn().mockReturnValue(emptyStream) },
+    } as unknown as Anthropic;
+    const adapter = new ClaudeSonnet46Adapter(client);
+
+    await expect(
+      drain(
+        adapter.generateInterviewerTurnStreaming({
+          systemPrompt: "prompt",
+          conversationHistory: [{ speaker: "participant", text: "Hello" }],
+        }),
+      ),
+    ).rejects.toThrow(/produced no spoken text after 2 attempts/);
+  });
+});
+
 describe("ClaudeSonnet46Adapter.generateSummary", () => {
   it("sends the transcript and requests the summary schema", async () => {
     const client = makeMockClient(

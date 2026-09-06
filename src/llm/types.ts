@@ -32,6 +32,21 @@ export interface GenerateInterviewerTurnOutput {
   participantRequestedEnd?: boolean;
 }
 
+/**
+ * Streaming counterpart to `GenerateInterviewerTurnOutput` — text arrives
+ * incrementally as `text-delta` events (forwarded live to the voice
+ * platform), and the decision flags only resolve once the underlying
+ * provider call is fully done, in a single terminal `done` event.
+ */
+export type InterviewerTurnStreamEvent =
+  | { type: "text-delta"; text: string }
+  | {
+      type: "done";
+      utterance: string;
+      shouldEndInterview: boolean;
+      participantRequestedEnd: boolean;
+    };
+
 export interface GenerateSummaryInput {
   transcript: InterviewTurn[];
 }
@@ -79,6 +94,10 @@ export interface LLMProviderAdapter {
   generateInterviewerTurn(
     input: GenerateInterviewerTurnInput,
   ): Promise<GenerateInterviewerTurnOutput>;
+  /** Streaming counterpart used by the ElevenLabs voice-session path — see `InterviewerTurnStreamEvent`. */
+  generateInterviewerTurnStreaming(
+    input: GenerateInterviewerTurnInput,
+  ): AsyncGenerator<InterviewerTurnStreamEvent, void, unknown>;
   generateSummary(input: GenerateSummaryInput): Promise<GenerateSummaryOutput>;
   generateStudyReport(input: GenerateStudyReportInput): Promise<GenerateStudyReportOutput>;
 }
