@@ -18,6 +18,7 @@ const baseStudy: Study = {
   voiceProvider: "vapi",
   createdAt: new Date("2026-08-01T00:00:00Z"),
   closedAt: null,
+  linkExtendedAt: null,
 };
 
 describe("checkLinkValidity", () => {
@@ -45,5 +46,23 @@ describe("checkLinkValidity", () => {
   it("is expired well past the 7-day window", () => {
     const now = new Date("2026-09-01T00:00:00Z");
     expect(checkLinkValidity(baseStudy, now)).toBe("expired");
+  });
+
+  it("is valid past the original 7-day window once the link was extended", () => {
+    const extendedStudy: Study = {
+      ...baseStudy,
+      linkExtendedAt: new Date("2026-08-08T00:00:00Z"),
+    };
+    const now = new Date("2026-08-10T00:00:00Z");
+    expect(checkLinkValidity(extendedStudy, now)).toBe("valid");
+  });
+
+  it("is expired 7 days after the extension, not the original creation", () => {
+    const extendedStudy: Study = {
+      ...baseStudy,
+      linkExtendedAt: new Date("2026-08-08T00:00:00Z"),
+    };
+    const now = new Date("2026-08-15T00:00:00Z");
+    expect(checkLinkValidity(extendedStudy, now)).toBe("expired");
   });
 });

@@ -14,6 +14,7 @@ export interface StudyRow {
   voice_provider: string;
   created_at: string;
   closed_at: string | null;
+  link_extended_at: string | null;
 }
 
 export interface InterviewRow {

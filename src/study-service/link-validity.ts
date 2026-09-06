@@ -7,13 +7,15 @@ export type LinkValidity = "valid" | "closed" | "expired";
 
 /**
  * A study link is invalid once the PM closes the study, or automatically
- * 7 days after creation, whichever comes first — per REQUIREMENTS.md's Link
+ * 7 days after creation (or after the PM last extended it, via
+ * `linkExtendedAt`), whichever comes first — per REQUIREMENTS.md's Link
  * Lifecycle section. `status` on Study only ever tracks the manual-close
  * case; expiry is derived here rather than stored, so it's always correct
  * relative to `now` without a background job to flip it.
  */
 export function checkLinkValidity(study: Study, now: Date = new Date()): LinkValidity {
   if (study.status === "closed") return "closed";
-  if (now.getTime() - study.createdAt.getTime() >= LINK_EXPIRY_MS) return "expired";
+  const windowStart = study.linkExtendedAt ?? study.createdAt;
+  if (now.getTime() - windowStart.getTime() >= LINK_EXPIRY_MS) return "expired";
   return "valid";
 }
