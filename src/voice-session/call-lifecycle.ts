@@ -89,12 +89,19 @@ export async function completeInterview(
   // Same non-fatal posture as the summary/email side effects above.
   if (deps.webhookClient) {
     try {
-      await notifyCompletionWebhook(
+      const result = await notifyCompletionWebhook(
         { interviewRepo: deps.interviewRepo, webhookClient: deps.webhookClient, now: deps.now },
         event.interviewId,
+      );
+      console.log(
+        result.sent
+          ? `Called completion webhook for interview ${event.interviewId}`
+          : `Skipped completion webhook for interview ${event.interviewId}: no tracking id`,
       );
     } catch (error) {
       console.error(`Failed to call completion webhook for interview ${event.interviewId}:`, error);
     }
+  } else {
+    console.log(`Skipped completion webhook for interview ${event.interviewId}: no client wired up`);
   }
 }
