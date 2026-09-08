@@ -37,6 +37,7 @@ export interface StartInterviewInput extends IntakeInput {
   consentGiven: boolean;
   deviceType?: string;
   screenerAnswers?: Record<string, string | string[]>;
+  trackingId?: string;
 }
 
 export interface StartInterviewDeps {
@@ -76,6 +77,7 @@ export async function startInterview(
     deviceType: input.deviceType,
     screenerAnswers: input.screenerAnswers,
     voiceProvider: study.voiceProvider,
+    trackingId: input.trackingId,
   });
 
   return deps.interviewRepo.update(interview.id, { consentGivenAt: now });

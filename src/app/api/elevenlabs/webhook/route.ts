@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { isVoiceSessionDebugEnabled } from "@/lib/debug";
 import { getEmailClient } from "@/lib/email";
 import { verifyWebhookSignature } from "@/lib/elevenlabs/client";
+import { getCompletionWebhookClient } from "@/lib/webhook";
 import { getLLMProvider } from "@/llm";
 import { getInterviewRepository } from "@/repositories/get-interview-repository";
 import { getSummaryRepository } from "@/repositories/get-summary-repository";
@@ -56,6 +57,7 @@ export async function POST(request: Request) {
         summaryRepo: getSummaryRepository(),
         llm: getLLMProvider(),
         emailClient: getEmailClient(),
+        webhookClient: getCompletionWebhookClient(),
       },
       body,
     );

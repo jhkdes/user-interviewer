@@ -41,6 +41,7 @@ export interface InterviewRow {
   time_check_asked_at: string | null;
   extension_granted: boolean | null;
   second_time_check_asked_at: string | null;
+  tracking_id: string | null;
 }
 
 export interface SummaryRow {

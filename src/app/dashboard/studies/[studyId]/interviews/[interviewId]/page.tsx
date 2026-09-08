@@ -46,6 +46,7 @@ export default async function InterviewDetailPage({
       <p className="text-sm text-neutral-500 dark:text-neutral-400">
         {interview.email}
         {interview.roleDescription && ` · ${interview.roleDescription}`}
+        {interview.trackingId && ` · tracking id: ${interview.trackingId}`}
       </p>
       <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
         Status: {interview.status}

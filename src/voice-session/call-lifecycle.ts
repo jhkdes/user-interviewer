@@ -1,6 +1,7 @@
 import type { EmailClient } from "@/lib/email";
+import type { CompletionWebhookClient } from "@/lib/webhook";
 import type { LLMProviderAdapter } from "@/llm";
-import { sendInterviewSummaryEmail } from "@/notification-service";
+import { notifyCompletionWebhook, sendInterviewSummaryEmail } from "@/notification-service";
 import type { InterviewRepository } from "@/repositories/interview-repository";
 import type { SummaryRepository } from "@/repositories/summary-repository";
 import { generateIndividualSummary } from "@/summary-service";
@@ -11,6 +12,8 @@ export interface CallLifecycleDeps {
   summaryRepo: SummaryRepository;
   llm: LLMProviderAdapter;
   emailClient: EmailClient;
+  /** Optional — omitted in most existing tests/call sites that don't care about the completion webhook. The webhook itself is skipped anyway for the (common) case of an interview with no `trackingId`, so this is a second, coarser skip: no client wired up at all means the feature isn't in play here. */
+  webhookClient?: CompletionWebhookClient;
   /** Defaults to `new Date()` — overridable so tests can assert on exact timestamps. */
   now?: Date;
 }
@@ -78,6 +81,20 @@ export async function completeInterview(
       await sendInterviewSummaryEmail(deps, event.interviewId, summary);
     } catch (error) {
       console.error(`Failed to send summary email for interview ${event.interviewId}:`, error);
+    }
+  }
+
+  // Tells a third-party tool (if one registered a webhook URL and this
+  // participant's link carried its tracking id) that the interview is done.
+  // Same non-fatal posture as the summary/email side effects above.
+  if (deps.webhookClient) {
+    try {
+      await notifyCompletionWebhook(
+        { interviewRepo: deps.interviewRepo, webhookClient: deps.webhookClient, now: deps.now },
+        event.interviewId,
+      );
+    } catch (error) {
+      console.error(`Failed to call completion webhook for interview ${event.interviewId}:`, error);
     }
   }
 }
