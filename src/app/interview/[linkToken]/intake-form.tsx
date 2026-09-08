@@ -29,10 +29,12 @@ const OTHER_OPTION = "Other";
  */
 export function IntakeForm({
   linkToken,
+  trackingId,
   deviceType,
   onStarted,
 }: {
   linkToken: string;
+  trackingId?: string;
   deviceType: "desktop" | "mobile";
   onStarted: (interview: Interview) => void;
 }) {
@@ -113,6 +115,7 @@ export function IntakeForm({
         consentGiven: true,
         deviceType,
         screenerAnswers: Object.keys(screenerAnswers).length > 0 ? screenerAnswers : undefined,
+        trackingId,
       }),
     });
     setSubmitting(false);

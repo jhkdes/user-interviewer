@@ -34,6 +34,7 @@ export class InMemoryInterviewRepository implements InterviewRepository {
       timeCheckAskedAt: null,
       extensionGranted: null,
       secondTimeCheckAskedAt: null,
+      trackingId: input.trackingId ?? null,
     };
     this.interviews.set(interview.id, interview);
     return { ...interview };

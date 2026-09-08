@@ -45,6 +45,20 @@ export function runInterviewRepositoryContractTests(
       expect(interview.timeCheckAskedAt).toBeNull();
       expect(interview.extensionGranted).toBeNull();
       expect(interview.secondTimeCheckAskedAt).toBeNull();
+      expect(interview.trackingId).toBeNull();
+    });
+
+    it("creates an interview with a tracking id when provided", async () => {
+      const repo = await makeRepository();
+      const interview = await repo.create({
+        studyId: getStudyId(),
+        firstName: "Alex",
+        email: "alex@example.com",
+        trackingId: "third-party-abc-123",
+      });
+
+      expect(interview.trackingId).toBe("third-party-abc-123");
+      expect((await repo.getById(interview.id))?.trackingId).toBe("third-party-abc-123");
     });
 
     it("creates an interview with screener answers when provided, round-tripping single and multi-select values", async () => {

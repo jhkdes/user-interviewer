@@ -12,6 +12,8 @@ export interface CreateInterviewInput {
   screenerAnswers?: Record<string, string | string[]>;
   /** Which voice platform will run this interview's call — passed by startInterview (copied from the study). Defaults to `"vapi"` if omitted, matching the DB column default. */
   voiceProvider?: VoiceProvider;
+  /** Third-party tracking id passed as the `tracking_id` URL query param on the interview link — omit to leave `null`. */
+  trackingId?: string;
 }
 
 /** Partial update — repositories only persist the fields provided. */

@@ -17,6 +17,7 @@ interface IntakeRequestBody {
   consentGiven?: boolean;
   deviceType?: string;
   screenerAnswers?: Record<string, string | string[]>;
+  trackingId?: string;
 }
 
 // Next.js requires the same dynamic-segment name across sibling routes at
@@ -40,6 +41,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
         consentGiven: body.consentGiven ?? false,
         deviceType: body.deviceType,
         screenerAnswers: body.screenerAnswers,
+        trackingId: body.trackingId,
       },
     );
     return NextResponse.json(interview, { status: 201 });

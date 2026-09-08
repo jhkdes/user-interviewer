@@ -8,3 +8,8 @@ export { isSubstantiveSummary } from "./is-substantive-summary";
 export { renderSummaryEmail } from "./render-summary-email";
 export type { SummaryEmailContent, RenderedEmail } from "./render-summary-email";
 export { InterviewNotFoundError } from "./errors";
+export { notifyCompletionWebhook } from "./notify-completion-webhook";
+export type {
+  NotifyCompletionWebhookDeps,
+  NotifyCompletionWebhookResult,
+} from "./notify-completion-webhook";

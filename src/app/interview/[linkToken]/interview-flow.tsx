@@ -12,7 +12,13 @@ import { MobileBlockedScreen } from "./mobile-blocked-screen";
 type Step = "loading" | "mobile-blocked" | "intro" | "intake" | "call" | "done";
 
 /** Orchestrates T11.1–T11.4 as one client-side flow (no page reloads between steps). */
-export function InterviewFlow({ linkToken }: { linkToken: string }) {
+export function InterviewFlow({
+  linkToken,
+  trackingId,
+}: {
+  linkToken: string;
+  trackingId?: string;
+}) {
   const [step, setStep] = useState<Step>("loading");
   const [interview, setInterview] = useState<Interview | null>(null);
 
@@ -35,6 +41,7 @@ export function InterviewFlow({ linkToken }: { linkToken: string }) {
       {step === "intake" && (
         <IntakeForm
           linkToken={linkToken}
+          trackingId={trackingId}
           deviceType="desktop"
           onStarted={(createdInterview) => {
             setInterview(createdInterview);

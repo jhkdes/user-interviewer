@@ -34,6 +34,7 @@ function toInterview(row: InterviewRow): Interview {
     secondTimeCheckAskedAt: row.second_time_check_asked_at
       ? new Date(row.second_time_check_asked_at)
       : null,
+    trackingId: row.tracking_id,
   };
 }
 
@@ -91,6 +92,7 @@ export class SupabaseInterviewRepository implements InterviewRepository {
         device_type: input.deviceType ?? null,
         screener_answers: input.screenerAnswers ?? null,
         voice_provider: input.voiceProvider ?? "vapi",
+        tracking_id: input.trackingId ?? null,
       })
       .select()
       .single();
