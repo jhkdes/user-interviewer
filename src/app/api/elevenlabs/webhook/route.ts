@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { isVoiceSessionDebugEnabled } from "@/lib/debug";
 import { getEmailClient } from "@/lib/email";
 import { verifyWebhookSignature } from "@/lib/elevenlabs/client";
+import { getCompletionWebhookClient } from "@/lib/webhook";
 import { getLLMProvider } from "@/llm";
 import { getInterviewRepository } from "@/repositories/get-interview-repository";
 import { getSummaryRepository } from "@/repositories/get-summary-repository";
@@ -35,6 +36,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Webhook not configured" }, { status: 500 });
   }
   if (!verifyWebhookSignature(rawBody, request.headers.get("elevenlabs-signature"), secret)) {
+    console.error("ElevenLabs webhook signature verification failed — request rejected");
     return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
   }
 
@@ -46,6 +48,7 @@ export async function POST(request: Request) {
     }
   })();
   if (!body?.type) {
+    console.error("ElevenLabs webhook request body missing a type — request rejected");
     return NextResponse.json({ error: "Request body must include a type" }, { status: 400 });
   }
 
@@ -56,6 +59,7 @@ export async function POST(request: Request) {
         summaryRepo: getSummaryRepository(),
         llm: getLLMProvider(),
         emailClient: getEmailClient(),
+        webhookClient: getCompletionWebhookClient(),
       },
       body,
     );

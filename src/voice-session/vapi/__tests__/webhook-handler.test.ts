@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { FakeEmailClient } from "@/lib/email";
+import { FakeCompletionWebhookClient } from "@/lib/webhook";
 import { FakeLLMProvider } from "@/llm";
 import { InMemoryInterviewRepository } from "@/repositories/in-memory/in-memory-interview-repository";
 import { InMemorySummaryRepository } from "@/repositories/in-memory/in-memory-summary-repository";
@@ -297,6 +298,91 @@ describe("handleVapiWebhookMessage", () => {
       expect(updated?.status).toBe("completed");
       expect(await summaryRepo.getByInterviewId(interview.id)).toBeNull();
     });
+  });
+
+  it("calls the completion webhook when the interview has a tracking id and a client is wired up", async () => {
+    const interviewRepo = new InMemoryInterviewRepository();
+    const summaryRepo = new InMemorySummaryRepository();
+    const llm = new FakeLLMProvider();
+    const emailClient = new FakeEmailClient();
+    const webhookClient = new FakeCompletionWebhookClient();
+    llm.scriptSummary(scriptedSummary);
+    const interview = await interviewRepo.create({
+      studyId: "study-1",
+      firstName: "Jordan",
+      email: "jordan@example.com",
+      trackingId: "third-party-abc-123",
+    });
+
+    const message: VapiEndOfCallReportMessage = {
+      type: "end-of-call-report",
+      endedReason: "hangup",
+      call: { id: "call-1", assistantOverrides: { metadata: { interviewId: interview.id } } },
+      artifact: { messages: [{ role: "assistant", message: "Hello." }] },
+    };
+
+    await handleVapiWebhookMessage(
+      { interviewRepo, summaryRepo, llm, emailClient, webhookClient },
+      message,
+    );
+
+    expect(webhookClient.sent).toEqual([
+      expect.objectContaining({
+        participantTrackingId: "third-party-abc-123",
+        interviewId: interview.id,
+        studyId: "study-1",
+        status: "completed",
+      }),
+    ]);
+  });
+
+  it("still marks the interview completed even if the completion webhook fails", async () => {
+    const interviewRepo = new InMemoryInterviewRepository();
+    const summaryRepo = new InMemorySummaryRepository();
+    const llm = new FakeLLMProvider();
+    const emailClient = new FakeEmailClient();
+    const webhookClient = new FakeCompletionWebhookClient();
+    webhookClient.scriptFailure(new Error("Completion webhook error (500): oops"));
+    llm.scriptSummary(scriptedSummary);
+    const interview = await interviewRepo.create({
+      studyId: "study-1",
+      firstName: "Jordan",
+      email: "jordan@example.com",
+      trackingId: "third-party-abc-123",
+    });
+
+    const message: VapiEndOfCallReportMessage = {
+      type: "end-of-call-report",
+      endedReason: "hangup",
+      call: { id: "call-1", assistantOverrides: { metadata: { interviewId: interview.id } } },
+      artifact: { messages: [{ role: "assistant", message: "Hello." }] },
+    };
+
+    await handleVapiWebhookMessage(
+      { interviewRepo, summaryRepo, llm, emailClient, webhookClient },
+      message,
+    );
+
+    expect((await interviewRepo.getById(interview.id))?.status).toBe("completed");
+  });
+
+  it("does not call the completion webhook when the interview has no tracking id", async () => {
+    const { interviewRepo, summaryRepo, llm, emailClient, interview } = await setup();
+    const webhookClient = new FakeCompletionWebhookClient();
+
+    const message: VapiEndOfCallReportMessage = {
+      type: "end-of-call-report",
+      endedReason: "hangup",
+      call: { id: "call-1", assistantOverrides: { metadata: { interviewId: interview.id } } },
+      artifact: { messages: [{ role: "assistant", message: "Hello." }] },
+    };
+
+    await handleVapiWebhookMessage(
+      { interviewRepo, summaryRepo, llm, emailClient, webhookClient },
+      message,
+    );
+
+    expect(webhookClient.sent).toHaveLength(0);
   });
 
   it("is a no-op for other event types", async () => {

@@ -48,6 +48,28 @@ describe("startInterview", () => {
     expect(interview.consentGivenAt).toEqual(now);
   });
 
+  it("persists the tracking id when the link carried one", async () => {
+    const { studyRepo, interviewRepo, study } = await setup();
+
+    const interview = await startInterview(
+      { studyRepo, interviewRepo },
+      { ...validIntake, linkToken: study.linkToken, trackingId: "third-party-abc-123" },
+    );
+
+    expect(interview.trackingId).toBe("third-party-abc-123");
+  });
+
+  it("leaves trackingId null when the link carried none", async () => {
+    const { studyRepo, interviewRepo, study } = await setup();
+
+    const interview = await startInterview(
+      { studyRepo, interviewRepo },
+      { ...validIntake, linkToken: study.linkToken },
+    );
+
+    expect(interview.trackingId).toBeNull();
+  });
+
   it("rejects an unknown link token", async () => {
     const { studyRepo, interviewRepo } = await setup();
 
