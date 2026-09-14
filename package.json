@@ -18,6 +18,7 @@
     "create:pm-account": "tsx --env-file=.env.local scripts/create-pm-account.ts",
     "try:notification": "tsx --env-file=.env.local scripts/try-notification.ts",
     "resend:summary-emails": "tsx --env-file=.env.local scripts/resend-summary-emails.ts",
+    "backfill:summary": "tsx --env-file=.env.local scripts/backfill-summary.ts",
     "update:study-custom-prompt": "tsx --env-file=.env.local scripts/update-study-custom-prompt.ts",
     "delete:call-recordings-bucket": "tsx --env-file=.env.local scripts/delete-call-recordings-bucket.ts"
   },

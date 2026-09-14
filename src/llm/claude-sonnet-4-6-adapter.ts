@@ -145,7 +145,16 @@ function parseStructuredResponse<T>(response: Anthropic.Message, context: string
   try {
     return JSON.parse(textBlock.text) as T;
   } catch (cause) {
-    throw new Error(`${context}: failed to parse structured response as JSON`, { cause });
+    // A JSON.parse failure here is very often a truncated response — max_tokens
+    // hit mid-object — rather than a genuinely malformed one; call that out
+    // explicitly so it's diagnosable from the error message alone.
+    const truncated =
+      response.stop_reason === "max_tokens"
+        ? " (response was truncated: stop_reason=max_tokens)"
+        : "";
+    throw new Error(`${context}: failed to parse structured response as JSON${truncated}`, {
+      cause,
+    });
   }
 }
 
@@ -312,8 +321,15 @@ export class ClaudeSonnet46Adapter implements LLMProviderAdapter {
     try {
       response = await this.client.messages.create({
         model: MODEL,
-        max_tokens: 2048,
+        max_tokens: 4096,
         system: SUMMARY_SYSTEM_PROMPT,
+        // Sonnet 5 runs adaptive thinking by default when this is omitted,
+        // which eats into max_tokens before the structured JSON output even
+        // starts — on a long, content-dense transcript that pushed the
+        // response past max_tokens mid-JSON (stop_reason "max_tokens"),
+        // producing a truncated, unparseable summary. Disabling it keeps the
+        // full budget for the actual output, same as generateInterviewerTurn.
+        thinking: { type: "disabled" },
         messages: [
           {
             role: "user",
@@ -335,8 +351,11 @@ export class ClaudeSonnet46Adapter implements LLMProviderAdapter {
     try {
       response = await this.client.messages.create({
         model: MODEL,
-        max_tokens: 4096,
+        max_tokens: 8192,
         system: STUDY_REPORT_SYSTEM_PROMPT,
+        // See generateSummary's comment — same truncation risk, worse here
+        // since this prompt bundles every interview in the study.
+        thinking: { type: "disabled" },
         messages: [
           {
             role: "user",
