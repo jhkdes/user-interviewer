@@ -5,20 +5,31 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { NewStudyForm } from "../new-study-form";
 
-const sampleProfile = {
-  industry: "Fintech",
-  yearsOfExperience: "5-10 years",
-  jobTitle: "Product Manager",
-  seniority: "Senior",
-  responsibility: "Owns the payments roadmap",
-};
+const sampleDraftQuestions = [
+  {
+    id: "q1",
+    label: "What's your current role?",
+    type: "single",
+    options: ["Controller", "Assistant Controller"],
+  },
+];
 
-async function fillForm(user: ReturnType<typeof userEvent.setup>) {
-  await user.type(screen.getByLabelText("Industry"), sampleProfile.industry);
-  await user.type(screen.getByLabelText("Years of experience"), sampleProfile.yearsOfExperience);
-  await user.type(screen.getByLabelText("Job title"), sampleProfile.jobTitle);
-  await user.type(screen.getByLabelText("Seniority"), sampleProfile.seniority);
-  await user.type(screen.getByLabelText("Overall responsibility"), sampleProfile.responsibility);
+async function fillDetails(user: ReturnType<typeof userEvent.setup>) {
+  await user.type(screen.getByLabelText("Title"), "How Controllers Keep Financial Clean");
+  await user.type(
+    screen.getByLabelText(/Description/),
+    "challenges in keeping financial statements clean and reconciled",
+  );
+}
+
+async function advanceToQuestionsStep(
+  user: ReturnType<typeof userEvent.setup>,
+  fetchSpy: ReturnType<typeof vi.fn>,
+) {
+  fetchSpy.mockResolvedValueOnce({ ok: true, json: async () => sampleDraftQuestions });
+  await fillDetails(user);
+  await user.click(screen.getByRole("button", { name: "Generate questions" }));
+  await waitFor(() => expect(screen.getByText("Pre-interview questions")).toBeInTheDocument());
 }
 
 afterEach(() => {
@@ -27,53 +38,78 @@ afterEach(() => {
 });
 
 describe("NewStudyForm", () => {
-  it("shows validation errors and never calls the API when fields are empty", async () => {
+  it("shows a validation error and never calls the API when title/description are empty", async () => {
     const fetchSpy = vi.fn();
     vi.stubGlobal("fetch", fetchSpy);
     const user = userEvent.setup();
 
     render(<NewStudyForm />);
-    await user.click(screen.getByRole("button", { name: "Create study" }));
+    await user.click(screen.getByRole("button", { name: "Generate questions" }));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("industry is required");
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "title and description are required",
+    );
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
-  it("submits the target profile and shows the generated link on success", async () => {
-    const fetchSpy = vi.fn().mockResolvedValue({
+  it("generates questions then creates the study, showing the generated link on success", async () => {
+    const fetchSpy = vi.fn();
+    vi.stubGlobal("fetch", fetchSpy);
+    const user = userEvent.setup();
+
+    render(<NewStudyForm />);
+    await advanceToQuestionsStep(user, fetchSpy);
+
+    fetchSpy.mockResolvedValueOnce({
       ok: true,
       json: async () => ({
         id: "study-1",
-        targetProfile: sampleProfile,
+        title: "How Controllers Keep Financial Clean",
+        description: "challenges in keeping financial statements clean and reconciled",
+        preInterviewQuestions: sampleDraftQuestions,
         linkToken: "abc123",
         status: "open",
         createdAt: new Date().toISOString(),
         closedAt: null,
       }),
     });
-    vi.stubGlobal("fetch", fetchSpy);
-    const user = userEvent.setup();
-
-    render(<NewStudyForm />);
-    await fillForm(user);
     await user.click(screen.getByRole("button", { name: "Create study" }));
 
     await waitFor(() => expect(screen.getByText("Study created")).toBeInTheDocument());
-    expect(fetchSpy).toHaveBeenCalledWith(
+    expect(fetchSpy).toHaveBeenNthCalledWith(
+      2,
       "/api/studies",
       expect.objectContaining({
         method: "POST",
-        body: JSON.stringify({ targetProfile: sampleProfile, voiceProvider: "vapi" }),
+        body: JSON.stringify({
+          title: "How Controllers Keep Financial Clean",
+          description: "challenges in keeping financial statements clean and reconciled",
+          preInterviewQuestions: sampleDraftQuestions,
+          voiceProvider: "vapi",
+        }),
       }),
     );
   });
 
   it("includes the research topic in the request body when filled in", async () => {
-    const fetchSpy = vi.fn().mockResolvedValue({
+    const fetchSpy = vi.fn();
+    vi.stubGlobal("fetch", fetchSpy);
+    const user = userEvent.setup();
+
+    render(<NewStudyForm />);
+    fetchSpy.mockResolvedValueOnce({ ok: true, json: async () => sampleDraftQuestions });
+    await fillDetails(user);
+    await user.type(
+      screen.getByLabelText(/Research topic/),
+      "How AI actually shows up in a PM's day",
+    );
+    await user.click(screen.getByRole("button", { name: "Generate questions" }));
+    await waitFor(() => expect(screen.getByText("Pre-interview questions")).toBeInTheDocument());
+
+    fetchSpy.mockResolvedValueOnce({
       ok: true,
       json: async () => ({
         id: "study-1",
-        targetProfile: sampleProfile,
         researchTopic: "How AI actually shows up in a PM's day",
         linkToken: "abc123",
         status: "open",
@@ -81,24 +117,18 @@ describe("NewStudyForm", () => {
         closedAt: null,
       }),
     });
-    vi.stubGlobal("fetch", fetchSpy);
-    const user = userEvent.setup();
-
-    render(<NewStudyForm />);
-    await fillForm(user);
-    await user.type(
-      screen.getByLabelText(/Research topic/),
-      "How AI actually shows up in a PM's day",
-    );
     await user.click(screen.getByRole("button", { name: "Create study" }));
 
     await waitFor(() => expect(screen.getByText("Study created")).toBeInTheDocument());
-    expect(fetchSpy).toHaveBeenCalledWith(
+    expect(fetchSpy).toHaveBeenNthCalledWith(
+      2,
       "/api/studies",
       expect.objectContaining({
         method: "POST",
         body: JSON.stringify({
-          targetProfile: sampleProfile,
+          title: "How Controllers Keep Financial Clean",
+          description: "challenges in keeping financial statements clean and reconciled",
+          preInterviewQuestions: sampleDraftQuestions,
           researchTopic: "How AI actually shows up in a PM's day",
           voiceProvider: "vapi",
         }),
@@ -107,11 +137,25 @@ describe("NewStudyForm", () => {
   });
 
   it("includes the custom prompt in the request body when filled in", async () => {
-    const fetchSpy = vi.fn().mockResolvedValue({
+    const fetchSpy = vi.fn();
+    vi.stubGlobal("fetch", fetchSpy);
+    const user = userEvent.setup();
+
+    render(<NewStudyForm />);
+    fetchSpy.mockResolvedValueOnce({ ok: true, json: async () => sampleDraftQuestions });
+    await fillDetails(user);
+    // fireEvent.change (not user.type) — userEvent.type parses `{`/`}` as
+    // special-key syntax, which mangles literal `{{placeholder}}` text.
+    fireEvent.change(screen.getByLabelText(/Custom interview prompt/), {
+      target: { value: "You are a research interviewer for {{participant_name}}..." },
+    });
+    await user.click(screen.getByRole("button", { name: "Generate questions" }));
+    await waitFor(() => expect(screen.getByText("Pre-interview questions")).toBeInTheDocument());
+
+    fetchSpy.mockResolvedValueOnce({
       ok: true,
       json: async () => ({
         id: "study-1",
-        targetProfile: sampleProfile,
         customPrompt: "You are a research interviewer for {{participant_name}}...",
         linkToken: "abc123",
         status: "open",
@@ -119,25 +163,18 @@ describe("NewStudyForm", () => {
         closedAt: null,
       }),
     });
-    vi.stubGlobal("fetch", fetchSpy);
-    const user = userEvent.setup();
-
-    render(<NewStudyForm />);
-    await fillForm(user);
-    // fireEvent.change (not user.type) — userEvent.type parses `{`/`}` as
-    // special-key syntax, which mangles literal `{{placeholder}}` text.
-    fireEvent.change(screen.getByLabelText(/Custom interview prompt/), {
-      target: { value: "You are a research interviewer for {{participant_name}}..." },
-    });
     await user.click(screen.getByRole("button", { name: "Create study" }));
 
     await waitFor(() => expect(screen.getByText("Study created")).toBeInTheDocument());
-    expect(fetchSpy).toHaveBeenCalledWith(
+    expect(fetchSpy).toHaveBeenNthCalledWith(
+      2,
       "/api/studies",
       expect.objectContaining({
         method: "POST",
         body: JSON.stringify({
-          targetProfile: sampleProfile,
+          title: "How Controllers Keep Financial Clean",
+          description: "challenges in keeping financial statements clean and reconciled",
+          preInterviewQuestions: sampleDraftQuestions,
           customPrompt: "You are a research interviewer for {{participant_name}}...",
           voiceProvider: "vapi",
         }),
@@ -146,20 +183,19 @@ describe("NewStudyForm", () => {
   });
 
   it("shows the server's field errors when the API rejects the request", async () => {
-    const fetchSpy = vi.fn().mockResolvedValue({
-      ok: false,
-      json: async () => ({ error: "Invalid target profile", fields: ["industry is required"] }),
-    });
+    const fetchSpy = vi.fn();
     vi.stubGlobal("fetch", fetchSpy);
     const user = userEvent.setup();
 
     render(<NewStudyForm />);
-    // Bypass client-side validation by filling every field, then the fake
-    // fetch still returns a 400 — proving the server-error path is handled
-    // independently of the client-side pre-validation.
-    await fillForm(user);
+    await advanceToQuestionsStep(user, fetchSpy);
+
+    fetchSpy.mockResolvedValueOnce({
+      ok: false,
+      json: async () => ({ error: "Invalid study input", fields: ["title is required"] }),
+    });
     await user.click(screen.getByRole("button", { name: "Create study" }));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("industry is required");
+    expect(await screen.findByRole("alert")).toHaveTextContent("title is required");
   });
 });

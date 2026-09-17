@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import type { TargetProfile, VoiceProvider } from "@/domain";
+import type { PreInterviewQuestion, VoiceProvider } from "@/domain";
 import { getStudyRepository } from "@/repositories/get-study-repository";
-import { createStudy, InvalidTargetProfileError } from "@/study-service";
+import { createStudy, InvalidStudyInputError } from "@/study-service";
 
 // See src/app/api/studies/[id]/route.ts for why this is required — GET
 // handlers are statically cached by default unless opted out.
@@ -9,26 +9,30 @@ export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
   const body = (await request.json().catch(() => null)) as {
-    targetProfile?: TargetProfile;
+    title?: string;
+    description?: string;
+    preInterviewQuestions?: PreInterviewQuestion[];
     researchTopic?: string;
     customPrompt?: string;
     voiceProvider?: VoiceProvider;
   } | null;
 
-  if (!body?.targetProfile) {
-    return NextResponse.json({ error: "targetProfile is required" }, { status: 400 });
+  if (!body?.title || !body.description) {
+    return NextResponse.json({ error: "title and description are required" }, { status: 400 });
   }
 
   try {
     const study = await createStudy(getStudyRepository(), {
-      targetProfile: body.targetProfile,
+      title: body.title,
+      description: body.description,
+      preInterviewQuestions: body.preInterviewQuestions ?? [],
       researchTopic: body.researchTopic,
       customPrompt: body.customPrompt,
       voiceProvider: body.voiceProvider,
     });
     return NextResponse.json(study, { status: 201 });
   } catch (error) {
-    if (error instanceof InvalidTargetProfileError) {
+    if (error instanceof InvalidStudyInputError) {
       return NextResponse.json({ error: error.message, fields: error.errors }, { status: 400 });
     }
     throw error;

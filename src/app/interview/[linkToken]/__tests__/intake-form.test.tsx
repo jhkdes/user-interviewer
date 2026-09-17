@@ -3,12 +3,35 @@ import "@testing-library/jest-dom/vitest";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type { PreInterviewQuestion } from "@/domain";
 import { IntakeForm } from "../intake-form";
 
 const sampleValues = {
   firstName: "Jordan",
   email: "jordan@example.com",
 };
+
+const sampleQuestions: PreInterviewQuestion[] = [
+  {
+    id: "level",
+    label: "What's your current level?",
+    type: "single",
+    options: ["Product Manager (IC)", "Senior Product Manager"],
+  },
+  {
+    id: "industry",
+    label: "What industry is your company in?",
+    type: "single",
+    options: ["B2B SaaS", "Fintech"],
+    allowOther: true,
+  },
+  {
+    id: "aiToolsUsed",
+    label: "Which AI tools do you actually use for work?",
+    type: "multi",
+    options: ["ChatGPT", "Claude"],
+  },
+];
 
 async function fillForm(user: ReturnType<typeof userEvent.setup>) {
   await user.type(screen.getByLabelText("First name"), sampleValues.firstName);
@@ -26,7 +49,9 @@ describe("IntakeForm", () => {
     vi.stubGlobal("fetch", fetchSpy);
     const user = userEvent.setup();
 
-    render(<IntakeForm linkToken="token-1" deviceType="desktop" onStarted={vi.fn()} />);
+    render(
+      <IntakeForm linkToken="token-1" deviceType="desktop" questions={[]} onStarted={vi.fn()} />,
+    );
     await user.click(screen.getByRole("button", { name: "Start interview" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("firstName is required");
@@ -38,7 +63,9 @@ describe("IntakeForm", () => {
     vi.stubGlobal("fetch", fetchSpy);
     const user = userEvent.setup();
 
-    render(<IntakeForm linkToken="token-1" deviceType="desktop" onStarted={vi.fn()} />);
+    render(
+      <IntakeForm linkToken="token-1" deviceType="desktop" questions={[]} onStarted={vi.fn()} />,
+    );
     await user.type(screen.getByLabelText("First name"), sampleValues.firstName);
     await user.type(screen.getByLabelText("Email"), "not-an-email");
     await user.click(screen.getByRole("button", { name: "Start interview" }));
@@ -72,7 +99,9 @@ describe("IntakeForm", () => {
     const onStarted = vi.fn();
     const user = userEvent.setup();
 
-    render(<IntakeForm linkToken="my-token" deviceType="desktop" onStarted={onStarted} />);
+    render(
+      <IntakeForm linkToken="my-token" deviceType="desktop" questions={[]} onStarted={onStarted} />,
+    );
     await fillForm(user);
     await user.click(screen.getByRole("button", { name: "Start interview" }));
 
@@ -94,7 +123,9 @@ describe("IntakeForm", () => {
     vi.stubGlobal("fetch", fetchSpy);
     const user = userEvent.setup();
 
-    render(<IntakeForm linkToken="token-1" deviceType="desktop" onStarted={vi.fn()} />);
+    render(
+      <IntakeForm linkToken="token-1" deviceType="desktop" questions={[]} onStarted={vi.fn()} />,
+    );
     await fillForm(user);
     await user.click(screen.getByRole("button", { name: "Start interview" }));
 
@@ -106,7 +137,14 @@ describe("IntakeForm", () => {
     vi.stubGlobal("fetch", fetchSpy);
     const user = userEvent.setup();
 
-    render(<IntakeForm linkToken="my-token" deviceType="desktop" onStarted={vi.fn()} />);
+    render(
+      <IntakeForm
+        linkToken="my-token"
+        deviceType="desktop"
+        questions={sampleQuestions}
+        onStarted={vi.fn()}
+      />,
+    );
     await fillForm(user);
     await user.click(screen.getByRole("button", { name: "Start interview" }));
 
@@ -120,7 +158,14 @@ describe("IntakeForm", () => {
     vi.stubGlobal("fetch", fetchSpy);
     const user = userEvent.setup();
 
-    render(<IntakeForm linkToken="my-token" deviceType="desktop" onStarted={vi.fn()} />);
+    render(
+      <IntakeForm
+        linkToken="my-token"
+        deviceType="desktop"
+        questions={sampleQuestions}
+        onStarted={vi.fn()}
+      />,
+    );
     await fillForm(user);
     await user.selectOptions(
       screen.getByLabelText("What's your current level?"),

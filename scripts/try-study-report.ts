@@ -17,12 +17,10 @@ export {};
 
 const BASE_URL = process.env.BASE_URL ?? "http://localhost:3000";
 
-const sampleProfile = {
-  industry: "SaaS",
-  yearsOfExperience: "5-10 years",
-  jobTitle: "Engineering Manager",
-  seniority: "Manager",
-  responsibility: "Owns team delivery",
+const sampleStudy = {
+  title: "How Engineering Managers Ship",
+  description: "how engineering managers keep delivery on track",
+  preInterviewQuestions: [],
 };
 
 const participants = [
@@ -121,7 +119,7 @@ async function main() {
   console.log(`Testing Study Report API against ${BASE_URL}\n`);
 
   console.log("Create study");
-  const created = await postJson("/api/studies", { targetProfile: sampleProfile });
+  const created = await postJson("/api/studies", sampleStudy);
   check("returns 201", created.status === 201, created);
   const study = created.body as { id: string; linkToken: string };
 
@@ -184,7 +182,7 @@ async function main() {
   check("returns 404", missing.status === 404, missing.body);
 
   console.log("\n422 for a study with no completed interviews");
-  const empty = await postJson("/api/studies", { targetProfile: sampleProfile });
+  const empty = await postJson("/api/studies", sampleStudy);
   const emptyStudy = empty.body as { id: string };
   const noEligible = await postJson(`/api/studies/${emptyStudy.id}/report`, {});
   check("returns 422", noEligible.status === 422, noEligible.body);

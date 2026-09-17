@@ -13,13 +13,9 @@ describe.skipIf(!hasSupabaseTestEnv)("SupabaseInterviewRepository (integration)"
   beforeAll(async () => {
     client = createServerSupabaseClient();
     const study = await new SupabaseStudyRepository(client).create({
-      targetProfile: {
-        industry: "Fintech",
-        yearsOfExperience: "5-10 years",
-        jobTitle: "Product Manager",
-        seniority: "Senior",
-        responsibility: "Owns the payments roadmap",
-      },
+      title: "How AI Actually Shows Up in a PM's Day",
+      description: "how product managers really use AI at work",
+      preInterviewQuestions: [],
       linkToken: `interview-repo-fixture-${Date.now()}`,
     });
     studyId = study.id;

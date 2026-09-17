@@ -39,6 +39,44 @@ export const summarySchema = {
   additionalProperties: false,
 } as const;
 
+export const draftPreInterviewQuestionsSchema = {
+  type: "object",
+  properties: {
+    questions: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          label: {
+            type: "string",
+            description: "The screener question text, as shown to the participant.",
+          },
+          type: {
+            type: "string",
+            enum: ["single", "multi"],
+            description:
+              "single: participant picks exactly one option. multi: participant may pick several.",
+          },
+          options: {
+            type: "array",
+            items: { type: "string" },
+            description: "Realistic, mutually distinct answer options for this question.",
+          },
+          allowOther: {
+            type: "boolean",
+            description:
+              "True if the participant should also be offered an 'Other (please specify)' free-text fallback.",
+          },
+        },
+        required: ["label", "type", "options", "allowOther"],
+        additionalProperties: false,
+      },
+    },
+  },
+  required: ["questions"],
+  additionalProperties: false,
+} as const;
+
 export const studyReportSchema = {
   type: "object",
   properties: {

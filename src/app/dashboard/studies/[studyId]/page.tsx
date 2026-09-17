@@ -38,29 +38,27 @@ export default async function StudyDetailPage({ params }: { params: { studyId: s
         ← All studies
       </Link>
 
-      <h1 className="mt-2 text-xl font-semibold">{study.targetProfile.jobTitle}</h1>
+      <h1 className="mt-2 text-xl font-semibold">{study.title || "(untitled study)"}</h1>
       <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-sm text-neutral-600 dark:text-neutral-400">
-        <div>
-          <dt className="inline font-medium">Industry: </dt>
-          <dd className="inline">{study.targetProfile.industry}</dd>
-        </div>
-        <div>
-          <dt className="inline font-medium">Seniority: </dt>
-          <dd className="inline">{study.targetProfile.seniority}</dd>
-        </div>
-        <div>
-          <dt className="inline font-medium">Experience: </dt>
-          <dd className="inline">{study.targetProfile.yearsOfExperience}</dd>
+        <div className="col-span-2">
+          <dt className="inline font-medium">Description: </dt>
+          <dd className="inline">{study.description || "No description yet"}</dd>
         </div>
         <div>
           <dt className="inline font-medium">Status: </dt>
           <dd className="inline">{study.status}</dd>
         </div>
-        <div className="col-span-2">
-          <dt className="inline font-medium">Responsibility: </dt>
-          <dd className="inline">{study.targetProfile.responsibility}</dd>
+        <div>
+          <dt className="inline font-medium">Pre-interview questions: </dt>
+          <dd className="inline">{study.preInterviewQuestions.length}</dd>
         </div>
       </dl>
+      <Link
+        href={`/dashboard/studies/${study.id}/edit-questions`}
+        className="mt-2 inline-block text-sm underline hover:no-underline"
+      >
+        Edit questions →
+      </Link>
 
       <div className="mt-4">
         <StudyLink linkToken={study.linkToken} />

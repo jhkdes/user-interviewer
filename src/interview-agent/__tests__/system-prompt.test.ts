@@ -5,13 +5,8 @@ import { HARD_CAP_MINUTES } from "../termination";
 const context = {
   participantFirstName: "Jordan",
   participantRoleDescription: null,
-  targetProfile: {
-    industry: "Fintech",
-    yearsOfExperience: "5-10 years",
-    jobTitle: "Product Manager",
-    seniority: "Senior",
-    responsibility: "Owns the payments roadmap",
-  },
+  studyTitle: "How AI Actually Shows Up in a PM's Day",
+  studyDescription: "how product managers really use AI at work",
   researchTopic: null,
   customPrompt: null,
   screenerAnswers: null,
@@ -53,13 +48,10 @@ describe("buildInterviewSystemPrompt", () => {
     expect(prompt).toMatch(/the .*-minute figure should always be stated/i);
   });
 
-  it("includes the study's target profile fields", () => {
+  it("includes the study's title and description", () => {
     const prompt = buildInterviewSystemPrompt(context);
-    expect(prompt).toContain("Fintech");
-    expect(prompt).toContain("5-10 years");
-    expect(prompt).toContain("Product Manager");
-    expect(prompt).toContain("Senior");
-    expect(prompt).toContain("Owns the payments roadmap");
+    expect(prompt).toContain("How AI Actually Shows Up in a PM's Day");
+    expect(prompt).toContain("how product managers really use AI at work");
   });
 
   it("instructs Mom Test-style behavior: no pitching, no leading questions", () => {
@@ -184,37 +176,6 @@ describe("buildInterviewSystemPrompt", () => {
       expect(prompt).toMatch(/What we already know about this participant/i);
       expect(prompt).toContain("- level: Senior Product Manager");
     });
-
-    it.each(["Yes, regularly", "Yes, occasionally"])(
-      "instructs distinguishing work vs. side-project AI usage, work first, when sideAiProject is %s",
-      (sideAiProject) => {
-        const prompt = buildInterviewSystemPrompt({
-          ...context,
-          screenerAnswers: { ...screenerAnswers, sideAiProject },
-        });
-
-        expect(prompt).toMatch(/keep work AI usage and side-project AI usage clearly distinct/i);
-        expect(prompt).toMatch(/steer toward their \*\*work\*\* AI usage first/i);
-      },
-    );
-
-    it.each(["No, but I'd like to", "No, not interested"])(
-      "does not add side-project guidance when sideAiProject is %s",
-      (sideAiProject) => {
-        const prompt = buildInterviewSystemPrompt({
-          ...context,
-          screenerAnswers: { ...screenerAnswers, sideAiProject },
-        });
-
-        expect(prompt).not.toMatch(/side-project AI usage/i);
-      },
-    );
-
-    it("does not add side-project guidance when sideAiProject wasn't answered", () => {
-      const prompt = buildInterviewSystemPrompt({ ...context, screenerAnswers });
-
-      expect(prompt).not.toMatch(/side-project AI usage/i);
-    });
   });
 
   describe("time check", () => {
@@ -286,15 +247,22 @@ describe("buildInterviewSystemPrompt", () => {
 
   describe("with a custom prompt", () => {
     const customPrompt =
-      "You are talking with {{participant_name}}, who described their role as: {{participant_role}}. Focus on how AI shows up in their day.";
+      "You are talking with {{participant_name}}. Focus on how AI shows up in their day.";
 
-    it("interpolates {{participant_name}} and {{participant_role}}", () => {
+    it("interpolates {{participant_name}}", () => {
       const prompt = buildInterviewSystemPrompt({ ...context, customPrompt });
 
       expect(prompt).toContain("You are talking with Jordan");
-      expect(prompt).toContain("described their role as: Product Manager");
       expect(prompt).not.toContain("{{participant_name}}");
-      expect(prompt).not.toContain("{{participant_role}}");
+    });
+
+    it("leaves any other placeholder-looking text untouched (no participant_role support)", () => {
+      const prompt = buildInterviewSystemPrompt({
+        ...context,
+        customPrompt: "You are talking with {{participant_name}}, role: {{participant_role}}.",
+      });
+
+      expect(prompt).toContain("{{participant_role}}");
     });
 
     it("appends the response contract but not the generated template", () => {

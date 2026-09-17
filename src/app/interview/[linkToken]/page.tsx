@@ -29,5 +29,13 @@ export default async function InterviewPage({
   const trackingIdParam = searchParams.tracking_id;
   const trackingId = typeof trackingIdParam === "string" ? trackingIdParam : undefined;
 
-  return <InterviewFlow linkToken={params.linkToken} trackingId={trackingId} />;
+  return (
+    <InterviewFlow
+      linkToken={params.linkToken}
+      trackingId={trackingId}
+      title={study.title}
+      description={study.description}
+      questions={study.preInterviewQuestions}
+    />
+  );
 }

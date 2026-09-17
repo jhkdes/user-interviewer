@@ -14,7 +14,15 @@ const STEPS = [
  * gate) — the screener form (T11.2) that follows only ever gets reached after
  * this, so its submission always sends `consentGiven: true`.
  */
-export function IntroScreen({ onAgree }: { onAgree: () => void }) {
+export function IntroScreen({
+  title,
+  description,
+  onAgree,
+}: {
+  title: string;
+  description: string;
+  onAgree: () => void;
+}) {
   return (
     <div className="text-left">
       <p className="flex items-center gap-2 text-xs font-bold tracking-widest text-neutral-500 uppercase dark:text-neutral-400">
@@ -22,13 +30,10 @@ export function IntroScreen({ onAgree }: { onAgree: () => void }) {
         discoverFirst.co &middot; research study
       </p>
 
-      <h1 className="mt-4 text-2xl font-semibold text-balance">
-        How AI Actually Shows Up in a PM&rsquo;s Day
-      </h1>
+      <h1 className="mt-4 text-2xl font-semibold text-balance">{title || "Research study"}</h1>
 
       <p className="mt-3 text-sm text-neutral-600 dark:text-neutral-400">
-        A 15-minute AI-run interview about how product managers really use AI at work — the good,
-        the bad, and what they don&rsquo;t say out loud.
+        A 15-minute AI-run interview about {description || "your day-to-day work"}.
       </p>
 
       <div className="mt-5 flex flex-wrap gap-2">

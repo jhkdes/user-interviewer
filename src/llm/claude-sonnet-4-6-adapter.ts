@@ -2,6 +2,8 @@ import Anthropic from "@anthropic-ai/sdk";
 import { isVoiceSessionDebugEnabled } from "@/lib/debug";
 import { IncrementalJsonStringExtractor } from "./incremental-json-string-extractor";
 import type {
+  GenerateDraftPreInterviewQuestionsInput,
+  GenerateDraftPreInterviewQuestionsOutput,
   GenerateInterviewerTurnInput,
   GenerateInterviewerTurnOutput,
   GenerateStudyReportInput,
@@ -13,7 +15,12 @@ import type {
   LLMProviderAdapter,
   StudyReportInterviewInput,
 } from "./types";
-import { interviewerTurnSchema, studyReportSchema, summarySchema } from "./schemas";
+import {
+  draftPreInterviewQuestionsSchema,
+  interviewerTurnSchema,
+  studyReportSchema,
+  summarySchema,
+} from "./schemas";
 
 const MODEL = "claude-sonnet-5";
 
@@ -87,6 +94,11 @@ const STUDY_REPORT_SYSTEM_PROMPT = `You produce a cross-participant study report
 Identify themes/pain points that recur across multiple participants (not one-off mentions).
 For each theme, report: the theme itself, how many distinct participants raised it (participantCount), and a few representative verbatim quotes drawn from their transcripts.
 Only surface themes that are actually grounded in what participants said.`;
+
+const DRAFT_QUESTIONS_SYSTEM_PROMPT = `You draft a pre-interview screener questionnaire for a user-research study, given its title and description.
+Propose 5-8 questions that would help a researcher understand who's answering and segment results afterward — e.g. role/seniority, years of experience, company/team size, tools or processes currently used, and anything else clearly relevant to this specific study's topic.
+Every question must be single-select or multi-select with concrete, mutually distinct options (never open-ended/free text) — set allowOther to true when a fixed option list plausibly won't cover everyone.
+Ground every question in the given title/description — do not invent questions unrelated to what this study is actually about.`;
 
 /** Formats a transcript as plain "Interviewer: ..." / "Participant: ..." lines for inclusion in a prompt. */
 function formatTranscript(transcript: InterviewTurn[]): string {
@@ -372,6 +384,34 @@ export class ClaudeSonnet46Adapter implements LLMProviderAdapter {
     return parseStructuredResponse<GenerateStudyReportOutput>(
       response,
       "Failed to generate study report",
+    );
+  }
+
+  async draftPreInterviewQuestions(
+    input: GenerateDraftPreInterviewQuestionsInput,
+  ): Promise<GenerateDraftPreInterviewQuestionsOutput> {
+    let response: Anthropic.Message;
+    try {
+      response = await this.client.messages.create({
+        model: MODEL,
+        max_tokens: 2048,
+        system: DRAFT_QUESTIONS_SYSTEM_PROMPT,
+        messages: [
+          {
+            role: "user",
+            content: `Study title: ${input.title}\nStudy description: ${input.description}`,
+          },
+        ],
+        output_config: {
+          format: { type: "json_schema", schema: draftPreInterviewQuestionsSchema },
+        },
+      });
+    } catch (cause) {
+      throw new Error("Failed to draft pre-interview questions", { cause });
+    }
+    return parseStructuredResponse<GenerateDraftPreInterviewQuestionsOutput>(
+      response,
+      "Failed to draft pre-interview questions",
     );
   }
 }

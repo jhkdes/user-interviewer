@@ -84,6 +84,22 @@ export interface GenerateStudyReportOutput {
   themes: StudyReportTheme[];
 }
 
+export interface GenerateDraftPreInterviewQuestionsInput {
+  title: string;
+  description: string;
+}
+
+export interface DraftedPreInterviewQuestion {
+  label: string;
+  type: "single" | "multi";
+  options: string[];
+  allowOther: boolean;
+}
+
+export interface GenerateDraftPreInterviewQuestionsOutput {
+  questions: DraftedPreInterviewQuestion[];
+}
+
 /**
  * The one interface every interviewing-intelligence call site (Interview
  * Agent, Summary Service, Study Report Service) depends on. Concrete
@@ -100,4 +116,7 @@ export interface LLMProviderAdapter {
   ): AsyncGenerator<InterviewerTurnStreamEvent, void, unknown>;
   generateSummary(input: GenerateSummaryInput): Promise<GenerateSummaryOutput>;
   generateStudyReport(input: GenerateStudyReportInput): Promise<GenerateStudyReportOutput>;
+  draftPreInterviewQuestions(
+    input: GenerateDraftPreInterviewQuestionsInput,
+  ): Promise<GenerateDraftPreInterviewQuestionsOutput>;
 }

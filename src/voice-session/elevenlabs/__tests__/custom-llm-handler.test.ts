@@ -10,14 +10,6 @@ import {
 } from "../custom-llm-handler";
 import type { ElevenLabsCustomLlmChatCompletionRequest } from "../types";
 
-const targetProfile = {
-  industry: "Fintech",
-  yearsOfExperience: "5-10 years",
-  jobTitle: "Product Manager",
-  seniority: "Senior",
-  responsibility: "Owns the payments roadmap",
-};
-
 async function setup() {
   const studyRepo = new InMemoryStudyRepository();
   const interviewRepo = new InMemoryInterviewRepository();
@@ -25,7 +17,9 @@ async function setup() {
   const interviewAgent = new InterviewAgent(llm);
 
   const study = await studyRepo.create({
-    targetProfile,
+    title: "How AI Actually Shows Up in a PM's Day",
+    description: "how product managers really use AI at work",
+    preInterviewQuestions: [],
     linkToken: "token",
     voiceProvider: "elevenlabs",
   });

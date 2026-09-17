@@ -13,12 +13,10 @@ export {};
 
 const BASE_URL = process.env.BASE_URL ?? "http://localhost:3000";
 
-const sampleProfile = {
-  industry: "Fintech",
-  yearsOfExperience: "5-10 years",
-  jobTitle: "Product Manager",
-  seniority: "Senior",
-  responsibility: "Owns the payments roadmap",
+const sampleStudy = {
+  title: "How AI Actually Shows Up in a PM's Day",
+  description: "how product managers really use AI at work",
+  preInterviewQuestions: [],
 };
 
 let passed = 0;
@@ -53,7 +51,7 @@ async function main() {
   console.log(`Testing Study API against ${BASE_URL}\n`);
 
   console.log("Create study");
-  const created = await postJson("/api/studies", { targetProfile: sampleProfile });
+  const created = await postJson("/api/studies", sampleStudy);
   check("returns 201", created.status === 201, created);
   const study = created.body as { id: string; status: string; linkToken: string };
   check("status is open", study.status === "open", study.status);
@@ -72,21 +70,16 @@ async function main() {
   check("returns 200", fetched.status === 200);
   check("returns the same study", (fetched.body as { id: string }).id === study.id);
 
-  console.log("\nReject invalid target profile");
-  const invalid = await postJson("/api/studies", {
-    targetProfile: {
-      industry: "",
-      yearsOfExperience: "",
-      jobTitle: "",
-      seniority: "",
-      responsibility: "",
-    },
-  });
+  console.log("\nReject invalid study input");
+  // Whitespace-only, not empty — passes the API route's presence check but
+  // still fails createStudy's deeper validateStudyInput, so `fields` (not
+  // just a generic `error`) comes back.
+  const invalid = await postJson("/api/studies", { title: " ", description: " " });
   check("returns 400", invalid.status === 400, invalid.body);
   check(
-    "lists all five missing fields",
+    "lists both invalid fields",
     Array.isArray((invalid.body as { fields?: string[] }).fields) &&
-      (invalid.body as { fields: string[] }).fields.length === 5,
+      (invalid.body as { fields: string[] }).fields.length === 2,
     invalid.body,
   );
 

@@ -26,13 +26,8 @@ const RESEARCH_TOPIC =
 const context: InterviewPromptContext = {
   participantFirstName: "Jordan",
   participantRoleDescription: null,
-  targetProfile: {
-    industry: "SaaS",
-    yearsOfExperience: "5-10 years",
-    jobTitle: "Product Manager",
-    seniority: "Senior",
-    responsibility: "Owns the core platform roadmap",
-  },
+  studyTitle: "How AI Actually Shows Up in a PM's Day",
+  studyDescription: "how product managers really use AI at work",
   researchTopic: RESEARCH_TOPIC,
   customPrompt: null,
   screenerAnswers: null,

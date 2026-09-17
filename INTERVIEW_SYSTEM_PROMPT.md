@@ -21,17 +21,24 @@ Every call to `buildInterviewSystemPrompt` is a pure function of the
 interview's current context — it's rebuilt fresh each turn (so the
 time-check flags below stay current), not held as persistent state.
 
-**1. Generated template (default).** Built from the study's `targetProfile`
-(industry, years of experience, job title, seniority, responsibility) and
-optional `researchTopic`. This is the Mom-Test-style prompt described below.
+**1. Generated template (default).** Built from the study's `title` and
+`description` (a short name and a noun phrase completing "a 15-minute
+interview about ___" — the same framing shown to the participant on the
+intro screen) and optional `researchTopic`. This is the Mom-Test-style
+prompt described below. The study's own AI-drafted, PM-edited
+`preInterviewQuestions` (see the "New Study" wizard) replace what used to be
+one hardcoded global screener — each study now defines its own, and answers
+are what actually tells the interviewer who it's talking to (see "Who
+you're talking to" below).
 
 **2. Custom prompt override (`Study.customPrompt`).** A PM can paste a full
 raw prompt instead. When set, it entirely replaces the generated template —
 `researchTopic` is ignored — with two things still layered on top
 mechanically, regardless of what the custom text says:
 
-- `{{participant_name}}` / `{{participant_role}}` placeholders get
-  interpolated into the custom text.
+- The `{{participant_name}}` placeholder gets interpolated into the custom
+  text (any other `{{...}}`-looking text is left untouched — there's no
+  canonical "role" field anymore now that screener questions are per-study).
 - The **response contract** (see below) is still appended, and time-check
   guidance is still prepended when relevant, so the call stays correctly
   wired into the hard-cap/end-call machinery no matter what a PM writes.
@@ -77,12 +84,16 @@ sufficient depth, ahead of any unrelated friction point.
 
 ## Pre-call screener context
 
-If the participant answered any optional pre-call screener questions
-(`participant-intake/screener-questions.ts`), those answers are appended as
-their own section on **every** prompt — generated or custom — so the
-interviewer never re-asks something already known. One specific screener
-answer (a side AI project outside work) triggers an extra instruction to
-explore work AI usage first and keep the two topics distinct.
+Each study defines its own pre-call screener (`Study.preInterviewQuestions`
+— AI-drafted from the study's title/description, then PM-edited; see the
+"New Study" wizard and the per-study "Edit questions" page). If the
+participant answered any of those optional questions, the answers are
+appended as their own section on **every** prompt — generated or custom —
+so the interviewer never re-asks something already known. This is also the
+primary source of "who" the interviewer is actually talking to — the
+generated template's "Who you're talking to" section deliberately doesn't
+assume anything about the participant beyond the study's title/description;
+concrete traits come from what this specific participant answered here.
 
 ## Every response: the shared contract
 

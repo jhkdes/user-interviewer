@@ -18,13 +18,8 @@ import {
 const context = {
   participantFirstName: "Jordan",
   participantRoleDescription: "Engineering manager",
-  targetProfile: {
-    industry: "Fintech",
-    yearsOfExperience: "5-10 years",
-    jobTitle: "Product Manager",
-    seniority: "Senior",
-    responsibility: "Owns the payments roadmap",
-  },
+  studyTitle: "How AI Actually Shows Up in a PM's Day",
+  studyDescription: "how product managers really use AI at work",
   researchTopic: null,
   customPrompt: null,
   screenerAnswers: null,
@@ -47,7 +42,7 @@ describe("InterviewAgent.generateNextTurn", () => {
 
     const call = llm.calls.generateInterviewerTurn[0];
     expect(call.systemPrompt).toContain("Jordan");
-    expect(call.systemPrompt).toContain("Fintech");
+    expect(call.systemPrompt).toContain("how product managers really use AI at work");
     expect(call.conversationHistory).toEqual([]);
   });
 
