@@ -31,9 +31,9 @@ export default async function DashboardPage() {
                 className="flex items-center justify-between py-4 hover:bg-neutral-50 dark:hover:bg-neutral-900"
               >
                 <div>
-                  <p className="font-medium">{study.targetProfile.jobTitle}</p>
+                  <p className="font-medium">{study.title || "(untitled study)"}</p>
                   <p className="text-sm text-neutral-500 dark:text-neutral-400">
-                    {study.targetProfile.industry} · {study.targetProfile.seniority}
+                    {study.description || "No description yet"}
                   </p>
                 </div>
                 <div className="flex items-center gap-3 text-sm">

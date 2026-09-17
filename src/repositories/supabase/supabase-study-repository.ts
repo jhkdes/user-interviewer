@@ -1,18 +1,18 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Study, StudyStatus, VoiceProvider } from "@/domain";
-import type { CreateStudyInput, StudyRepository } from "../study-repository";
+import type { PreInterviewQuestion, Study, StudyStatus, VoiceProvider } from "@/domain";
+import type {
+  CreateStudyInput,
+  StudyRepository,
+  UpdateStudyDetailsInput,
+} from "../study-repository";
 import type { StudyRow } from "./rows";
 
 function toStudy(row: StudyRow): Study {
   return {
     id: row.id,
-    targetProfile: {
-      industry: row.industry,
-      yearsOfExperience: row.years_of_experience,
-      jobTitle: row.job_title,
-      seniority: row.seniority,
-      responsibility: row.responsibility,
-    },
+    title: row.title,
+    description: row.description,
+    preInterviewQuestions: (row.pre_interview_questions as PreInterviewQuestion[] | null) ?? [],
     researchTopic: row.research_topic,
     customPrompt: row.custom_prompt,
     linkToken: row.link_token,
@@ -31,11 +31,9 @@ export class SupabaseStudyRepository implements StudyRepository {
     const { data, error } = await this.client
       .from("studies")
       .insert({
-        industry: input.targetProfile.industry,
-        years_of_experience: input.targetProfile.yearsOfExperience,
-        job_title: input.targetProfile.jobTitle,
-        seniority: input.targetProfile.seniority,
-        responsibility: input.targetProfile.responsibility,
+        title: input.title,
+        description: input.description,
+        pre_interview_questions: input.preInterviewQuestions,
         research_topic: input.researchTopic ?? null,
         custom_prompt: input.customPrompt ?? null,
         link_token: input.linkToken,
@@ -98,6 +96,28 @@ export class SupabaseStudyRepository implements StudyRepository {
       .maybeSingle();
 
     if (error) throw new Error(`Failed to extend study link: ${error.message}`);
+    if (!data) throw new Error(`Study not found: ${id}`);
+    return toStudy(data as StudyRow);
+  }
+
+  async updateDetails(id: string, patch: UpdateStudyDetailsInput): Promise<Study> {
+    const row: Record<string, unknown> = {};
+    if (patch.title !== undefined) row.title = patch.title;
+    if (patch.description !== undefined) row.description = patch.description;
+    if (patch.preInterviewQuestions !== undefined) {
+      row.pre_interview_questions = patch.preInterviewQuestions;
+    }
+    if (patch.researchTopic !== undefined) row.research_topic = patch.researchTopic;
+    if (patch.customPrompt !== undefined) row.custom_prompt = patch.customPrompt;
+
+    const { data, error } = await this.client
+      .from("studies")
+      .update(row)
+      .eq("id", id)
+      .select()
+      .maybeSingle();
+
+    if (error) throw new Error(`Failed to update study details: ${error.message}`);
     if (!data) throw new Error(`Study not found: ${id}`);
     return toStudy(data as StudyRow);
   }

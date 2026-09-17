@@ -1,4 +1,3 @@
-import type { TargetProfile } from "@/domain";
 import { HARD_CAP_MINUTES } from "./termination";
 
 export interface InterviewPromptContext {
@@ -11,7 +10,14 @@ export interface InterviewPromptContext {
    * time; unused when absent.
    */
   participantRoleDescription: string | null;
-  targetProfile: TargetProfile;
+  /** Study.title — e.g. "How AI Actually Shows Up in a PM's Day". */
+  studyTitle: string;
+  /**
+   * Study.description — a noun phrase completing "a 15-minute interview
+   * about ___" (see intro-screen.tsx, which renders the same phrasing to
+   * the participant before the call).
+   */
+  studyDescription: string;
   /**
    * Optional PM-provided research focus (see Study.researchTopic). When set,
    * steers which threads get prioritized once the interview finds them;
@@ -25,13 +31,14 @@ export interface InterviewPromptContext {
    * When set, takes precedence over `researchTopic` and the generated Mom
    * Test template below — only RESPONSE_CONTRACT is appended on top of it,
    * so the LLM call stays wired into termination.ts/END_CALL_PHRASE.
-   * Supports `{{participant_name}}` and `{{participant_role}}` placeholders.
+   * Supports the `{{participant_name}}` placeholder.
    */
   customPrompt: string | null;
   /**
-   * Pre-call screener answers (see participant-intake/screener-questions.ts),
-   * keyed by question id. `null`/empty when the participant answered none of
-   * the (all-optional) screener questions.
+   * Pre-call screener answers (see the study's own preInterviewQuestions,
+   * authored per study rather than a fixed global list), keyed by question
+   * id. `null`/empty when the participant answered none of the (all-
+   * optional) screener questions, or the study has none configured.
    */
   screenerAnswers: Record<string, string | string[]> | null;
   /**
@@ -72,14 +79,6 @@ const RESPONSE_CONTRACT = `## Every response
 Produce the next thing you'll say out loud, your honest assessment of whether the interview should end after this turn (shouldEndInterview — because sufficient depth has been reached), and whether the participant has explicitly and unambiguously asked to end the interview right now — said they have to go, asked you to end the call, said a clear goodbye — regardless of how much has been covered so far (participantRequestedEnd). These are different signals: shouldEndInterview is about depth being reached; participantRequestedEnd is about honoring a real person telling you to stop, which always takes priority over continuing to probe, no matter how early in the interview it happens. If participantRequestedEnd is true, your utterance this turn must be a brief, warm closing statement only — never a new question, never more probing — even if you've barely started. Never set shouldEndInterview to true on a turn where you're also asking the participant something — including a pre-close catch-all like "anything else you want to mention?" — a real question always means someone's about to answer it; if you have one more thing to ask (even a last catch-all), ask it with shouldEndInterview: false and wrap up on the turn after they reply instead. The utterance is read aloud to the participant verbatim — it must always be a real, complete sentence or two. Never respond with a placeholder, an ellipsis, or blank/empty text, even mid-thought.`;
 
 /**
- * Screener answer values (see participant-intake/screener-questions.ts's
- * `sideAiProject` question) indicating the participant does have a side AI
- * project outside of work — as opposed to "No, but I'd like to" / "No, not
- * interested", which don't.
- */
-const HAS_SIDE_AI_PROJECT_VALUES = new Set(["Yes, regularly", "Yes, occasionally"]);
-
-/**
  * Formats the pre-call screener answers as their own prompt section, appended
  * regardless of whether this study uses the generated template or a raw
  * `customPrompt` — so the interviewer always has this context and never
@@ -92,14 +91,7 @@ function formatScreenerContext(answers: Record<string, string | string[]> | null
     ([key, value]) => `- ${key}: ${Array.isArray(value) ? value.join(", ") : value}`,
   );
 
-  const hasSideProject =
-    typeof answers.sideAiProject === "string" &&
-    HAS_SIDE_AI_PROJECT_VALUES.has(answers.sideAiProject);
-  const sideProjectGuidance = hasSideProject
-    ? `\n\nThey also said they build or tinker with AI projects outside of work. Keep work AI usage and side-project AI usage clearly distinct — both in what you ask and in what you take away from their answers. Steer toward their **work** AI usage first and get real depth there; only turn to their side-project AI usage afterward, once work has genuinely been explored.`
-    : "";
-
-  return `\n\n## What we already know about this participant\nFrom a pre-call screener — don't re-ask these, but you can reference or dig into them naturally:\n${lines.join("\n")}${sideProjectGuidance}`;
+  return `\n\n## What we already know about this participant\nFrom a pre-call screener — don't re-ask these, but you can reference or dig into them naturally:\n${lines.join("\n")}`;
 }
 
 /**
@@ -173,7 +165,8 @@ export const INTERVIEWER_NAME = "Riley";
 export function buildInterviewSystemPrompt(context: InterviewPromptContext): string {
   const {
     participantFirstName,
-    targetProfile,
+    studyTitle,
+    studyDescription,
     researchTopic,
     customPrompt,
     screenerAnswers,
@@ -190,7 +183,6 @@ export function buildInterviewSystemPrompt(context: InterviewPromptContext): str
   if (customPrompt) {
     const interpolated = interpolate(customPrompt, {
       participant_name: participantFirstName,
-      participant_role: targetProfile.jobTitle,
     });
     return `${timeCheckGuidance}${interpolated}${screenerContext}\n\n${RESPONSE_CONTRACT}`;
   }
@@ -207,7 +199,7 @@ Once any thread related to the focus is on the table — whether ${participantFi
   return `${timeCheckGuidance}You are ${INTERVIEWER_NAME}, conducting a live, spoken user-research interview with ${participantFirstName}.
 
 ## Who you're talking to
-This interview is part of a study of people in ${targetProfile.industry}, with ${targetProfile.yearsOfExperience} of experience, working as ${targetProfile.jobTitle} (${targetProfile.seniority} level), responsible for: ${targetProfile.responsibility}. You don't yet know ${participantFirstName}'s specific role or day-to-day responsibilities — finding that out is your opening question.${researchFocusSection}
+This is a 15-minute interview titled "${studyTitle}" — about ${studyDescription}. You don't yet know ${participantFirstName}'s specific role or day-to-day responsibilities beyond anything they already answered in a pre-call questionnaire, if any is shown further below — dig into that as your opening question.${researchFocusSection}
 
 ## Style — Mom Test-aligned
 - Ask about specific past behavior and real events, not opinions, hypotheticals, or what they "would" want.
@@ -220,7 +212,7 @@ This interview is part of a study of people in ${targetProfile.industry}, with $
 3. Use their answer to move into their typical workflow, then listen for friction signals — anything described as slow, annoying, manual, error-prone, or worked around.${researchTopic ? " Also keep the Research focus above in mind here — it takes priority over generic friction signals once it's on the table." : ""}
 4. Narrow in on the most promising thread(s)${researchTopic ? " (the research focus first, if it has surfaced)" : ""}. For each pain point, push one or two follow-up layers deep — "tell me more," "walk me through the last time that happened," "how often does that happen," "what do you do instead" — before either going deeper or pivoting to a new broad thread.
 5. Do not stop at a surface-level complaint. A pain point isn't fully explored until you have concrete specifics: frequency, impact, and what they currently do about it.
-6. Once you've surfaced one or more pain points with real, concrete depth${researchTopic ? " — and, per the Research focus section above, real depth specifically on the research focus" : ""}, wrap up warmly and set shouldEndInterview to true. Otherwise, keep going. On this final turn, just thank ${participantFirstName} — never say the interview is ending, concluding, or over yourself; the system appends its own official closing line right after your utterance, and your saying something similar will collide with it.
+6. Once you've surfaced one or more pain points with real, concrete depth${researchTopic ? " — and, per the Research focus section above, real depth specifically on the research focus" : ""}, wrap up warmly and set shouldEndInterview to true. Otherwise, keep going. On this final turn, just thank ${participantFirstName} — never say the interview is ending, concluding, or over yourself; the system appends its own official closing line right after your utterance.
 
 ## Tone
 Neutral, curious, conversational — not interrogative. Keep your own turns brief: short acknowledgments, one question at a time, no long monologues.

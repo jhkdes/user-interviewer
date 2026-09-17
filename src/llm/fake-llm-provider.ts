@@ -1,4 +1,6 @@
 import type {
+  GenerateDraftPreInterviewQuestionsInput,
+  GenerateDraftPreInterviewQuestionsOutput,
   GenerateInterviewerTurnInput,
   GenerateInterviewerTurnOutput,
   GenerateStudyReportInput,
@@ -28,17 +30,20 @@ export class FakeLLMProvider implements LLMProviderAdapter {
     generateInterviewerTurnStreaming: GenerateInterviewerTurnInput[];
     generateSummary: GenerateSummaryInput[];
     generateStudyReport: GenerateStudyReportInput[];
+    draftPreInterviewQuestions: GenerateDraftPreInterviewQuestionsInput[];
   } = {
     generateInterviewerTurn: [],
     generateInterviewerTurnStreaming: [],
     generateSummary: [],
     generateStudyReport: [],
+    draftPreInterviewQuestions: [],
   };
 
   private interviewerTurnQueue: GenerateInterviewerTurnOutput[] = [];
   private interviewerTurnStreamQueue: ScriptedInterviewerTurnStream[] = [];
   private summaryResult: GenerateSummaryOutput | null = null;
   private studyReportResult: GenerateStudyReportOutput | null = null;
+  private draftPreInterviewQuestionsResult: GenerateDraftPreInterviewQuestionsOutput | null = null;
 
   /** Queues the responses returned by successive `generateInterviewerTurn` calls, in order. */
   scriptInterviewerTurns(turns: GenerateInterviewerTurnOutput[]): void {
@@ -56,6 +61,10 @@ export class FakeLLMProvider implements LLMProviderAdapter {
 
   scriptStudyReport(result: GenerateStudyReportOutput): void {
     this.studyReportResult = result;
+  }
+
+  scriptDraftPreInterviewQuestions(result: GenerateDraftPreInterviewQuestionsOutput): void {
+    this.draftPreInterviewQuestionsResult = result;
   }
 
   async generateInterviewerTurn(
@@ -110,5 +119,17 @@ export class FakeLLMProvider implements LLMProviderAdapter {
       throw new Error("FakeLLMProvider: no scripted study report — call scriptStudyReport() first");
     }
     return this.studyReportResult;
+  }
+
+  async draftPreInterviewQuestions(
+    input: GenerateDraftPreInterviewQuestionsInput,
+  ): Promise<GenerateDraftPreInterviewQuestionsOutput> {
+    this.calls.draftPreInterviewQuestions.push(structuredClone(input));
+    if (!this.draftPreInterviewQuestionsResult) {
+      throw new Error(
+        "FakeLLMProvider: no scripted draft pre-interview questions — call scriptDraftPreInterviewQuestions() first",
+      );
+    }
+    return this.draftPreInterviewQuestionsResult;
   }
 }

@@ -74,7 +74,8 @@ function buildAgentInput(
     context: {
       participantFirstName: interview.firstName,
       participantRoleDescription: interview.roleDescription,
-      targetProfile: study.targetProfile,
+      studyTitle: study.title,
+      studyDescription: study.description,
       researchTopic: study.researchTopic,
       customPrompt: study.customPrompt,
       screenerAnswers: interview.screenerAnswers,

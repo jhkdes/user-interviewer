@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { Interview } from "@/domain";
+import type { Interview, PreInterviewQuestion } from "@/domain";
 import { isMobileDevice } from "@/lib/device";
 import { CompletionScreen } from "./completion-screen";
 import { IntakeForm } from "./intake-form";
@@ -15,9 +15,15 @@ type Step = "loading" | "mobile-blocked" | "intro" | "intake" | "call" | "done";
 export function InterviewFlow({
   linkToken,
   trackingId,
+  title,
+  description,
+  questions,
 }: {
   linkToken: string;
   trackingId?: string;
+  title: string;
+  description: string;
+  questions: PreInterviewQuestion[];
 }) {
   const [step, setStep] = useState<Step>("loading");
   const [interview, setInterview] = useState<Interview | null>(null);
@@ -37,12 +43,15 @@ export function InterviewFlow({
   return (
     <main className="mx-auto flex min-h-screen max-w-md flex-col items-center justify-center px-6">
       {step === "mobile-blocked" && <MobileBlockedScreen />}
-      {step === "intro" && <IntroScreen onAgree={() => setStep("intake")} />}
+      {step === "intro" && (
+        <IntroScreen title={title} description={description} onAgree={() => setStep("intake")} />
+      )}
       {step === "intake" && (
         <IntakeForm
           linkToken={linkToken}
           trackingId={trackingId}
           deviceType="desktop"
+          questions={questions}
           onStarted={(createdInterview) => {
             setInterview(createdInterview);
             setStep("call");

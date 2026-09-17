@@ -7,21 +7,18 @@ import { END_CALL_PHRASE, handleVapiCustomLlmRequest } from "../custom-llm-handl
 import { MissingInterviewIdError } from "../../errors";
 import type { VapiCustomLlmChatCompletionRequest } from "../types";
 
-const targetProfile = {
-  industry: "Fintech",
-  yearsOfExperience: "5-10 years",
-  jobTitle: "Product Manager",
-  seniority: "Senior",
-  responsibility: "Owns the payments roadmap",
-};
-
 async function setup() {
   const studyRepo = new InMemoryStudyRepository();
   const interviewRepo = new InMemoryInterviewRepository();
   const llm = new FakeLLMProvider();
   const interviewAgent = new InterviewAgent(llm);
 
-  const study = await studyRepo.create({ targetProfile, linkToken: "token" });
+  const study = await studyRepo.create({
+    title: "How AI Actually Shows Up in a PM's Day",
+    description: "how product managers really use AI at work",
+    preInterviewQuestions: [],
+    linkToken: "token",
+  });
   const interview = await interviewRepo.create({
     studyId: study.id,
     firstName: "Jordan",

@@ -9,14 +9,6 @@ import {
   startInterview,
 } from "../start-interview";
 
-const targetProfile = {
-  industry: "Fintech",
-  yearsOfExperience: "5-10 years",
-  jobTitle: "Product Manager",
-  seniority: "Senior",
-  responsibility: "Owns the payments roadmap",
-};
-
 const validIntake = {
   firstName: "Jordan",
   email: "jordan@example.com",
@@ -26,7 +18,12 @@ const validIntake = {
 async function setup() {
   const studyRepo = new InMemoryStudyRepository();
   const interviewRepo = new InMemoryInterviewRepository();
-  const study = await studyRepo.create({ targetProfile, linkToken: "the-link-token" });
+  const study = await studyRepo.create({
+    title: "How AI Actually Shows Up in a PM's Day",
+    description: "how product managers really use AI at work",
+    preInterviewQuestions: [],
+    linkToken: "the-link-token",
+  });
   return { studyRepo, interviewRepo, study };
 }
 
