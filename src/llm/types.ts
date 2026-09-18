@@ -65,6 +65,16 @@ export interface GenerateSummaryOutput {
   roleDescription: string | null;
 }
 
+export interface GenerateFeedbackSummaryInput {
+  transcript: InterviewTurn[];
+}
+
+export interface GenerateFeedbackSummaryOutput {
+  liked: string[];
+  disliked: string[];
+  suggestions: string[];
+}
+
 export interface StudyReportInterviewInput {
   interviewId: string;
   transcript: InterviewTurn[];
@@ -115,6 +125,9 @@ export interface LLMProviderAdapter {
     input: GenerateInterviewerTurnInput,
   ): AsyncGenerator<InterviewerTurnStreamEvent, void, unknown>;
   generateSummary(input: GenerateSummaryInput): Promise<GenerateSummaryOutput>;
+  generateFeedbackSummary(
+    input: GenerateFeedbackSummaryInput,
+  ): Promise<GenerateFeedbackSummaryOutput>;
   generateStudyReport(input: GenerateStudyReportInput): Promise<GenerateStudyReportOutput>;
   draftPreInterviewQuestions(
     input: GenerateDraftPreInterviewQuestionsInput,

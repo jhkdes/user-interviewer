@@ -1,11 +1,13 @@
 import type { Summary } from "@/domain";
 import type { LLMProviderAdapter } from "@/llm";
 import type { InterviewRepository } from "@/repositories/interview-repository";
+import type { StudyRepository } from "@/repositories/study-repository";
 import type { SummaryRepository } from "@/repositories/summary-repository";
-import { InterviewNotFoundError, MissingTranscriptError } from "./errors";
+import { InterviewNotFoundError, MissingTranscriptError, StudyNotFoundError } from "./errors";
 
 export interface GenerateIndividualSummaryDeps {
   interviewRepo: InterviewRepository;
+  studyRepo: StudyRepository;
   summaryRepo: SummaryRepository;
   llm: LLMProviderAdapter;
 }
@@ -31,15 +33,33 @@ export async function generateIndividualSummary(
     throw new MissingTranscriptError(interviewId);
   }
 
+  const study = await deps.studyRepo.getById(interview.studyId);
+  if (!study) throw new StudyNotFoundError(interview.studyId);
+
+  const transcript = interview.transcript.map((entry) => ({
+    speaker: entry.speaker,
+    text: entry.text,
+  }));
+
+  if (study.type === "feedback") {
+    const { liked, disliked, suggestions } = await deps.llm.generateFeedbackSummary({ transcript });
+
+    return deps.summaryRepo.create({
+      interviewId,
+      type: "feedback",
+      liked,
+      disliked,
+      suggestions,
+    });
+  }
+
   const { painPoints, notableQuotes, takeaways, roleDescription } = await deps.llm.generateSummary({
-    transcript: interview.transcript.map((entry) => ({
-      speaker: entry.speaker,
-      text: entry.text,
-    })),
+    transcript,
   });
 
   const summary = await deps.summaryRepo.create({
     interviewId,
+    type: "discovery",
     painPoints,
     notableQuotes,
     takeaways,

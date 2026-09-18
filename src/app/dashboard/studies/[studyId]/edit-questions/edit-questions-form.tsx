@@ -2,21 +2,26 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import type { PreInterviewQuestion } from "@/domain";
+import type { PreInterviewQuestion, StudyType } from "@/domain";
+import { FeedbackQuestionListEditor } from "../../feedback-question-list-editor";
 import { QuestionEditor } from "../../question-editor";
 
 export function EditQuestionsForm({
   studyId,
+  type,
   title: initialTitle,
   description: initialDescription,
   initialQuestions,
+  initialFeedbackQuestions,
   researchTopic: initialResearchTopic,
   customPrompt: initialCustomPrompt,
 }: {
   studyId: string;
+  type: StudyType;
   title: string;
   description: string;
   initialQuestions: PreInterviewQuestion[];
+  initialFeedbackQuestions: string[];
   researchTopic: string | null;
   customPrompt: string | null;
 }) {
@@ -24,6 +29,7 @@ export function EditQuestionsForm({
   const [title, setTitle] = useState(initialTitle);
   const [description, setDescription] = useState(initialDescription);
   const [questions, setQuestions] = useState<PreInterviewQuestion[]>(initialQuestions);
+  const [feedbackQuestions, setFeedbackQuestions] = useState<string[]>(initialFeedbackQuestions);
   const [researchTopic, setResearchTopic] = useState(initialResearchTopic ?? "");
   const [customPrompt, setCustomPrompt] = useState(initialCustomPrompt ?? "");
   const [errors, setErrors] = useState<string[]>([]);
@@ -62,8 +68,12 @@ export function EditQuestionsForm({
       body: JSON.stringify({
         title: title.trim(),
         description: description.trim(),
-        preInterviewQuestions: questions,
-        researchTopic: researchTopic.trim() ? researchTopic.trim() : null,
+        ...(type === "feedback"
+          ? { feedbackQuestions: feedbackQuestions.map((q) => q.trim()).filter(Boolean) }
+          : { preInterviewQuestions: questions }),
+        ...(type === "discovery"
+          ? { researchTopic: researchTopic.trim() ? researchTopic.trim() : null }
+          : {}),
         customPrompt: customPrompt.trim() ? customPrompt.trim() : null,
       }),
     });
@@ -97,7 +107,9 @@ export function EditQuestionsForm({
       <label className="block text-sm">
         Description
         <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
-          Completes: &ldquo;A 15-minute AI-run interview about ...&rdquo;
+          {type === "feedback"
+            ? 'Completes: "A quick check-in about ..."'
+            : 'Completes: "A 15-minute AI-run interview about ..."'}
         </p>
         <textarea
           value={description}
@@ -107,21 +119,23 @@ export function EditQuestionsForm({
         />
       </label>
 
-      <label className="block text-sm">
-        Research topic <span className="text-neutral-400">(optional)</span>
-        <textarea
-          placeholder="e.g. dig into where reconciliation breaks down, what tools they've tried, and where they're anxious about compliance"
-          value={researchTopic}
-          onChange={(e) => setResearchTopic(e.target.value)}
-          rows={3}
-          className="mt-1 block w-full rounded border border-neutral-300 px-3 py-1.5 dark:border-neutral-700 dark:bg-neutral-900"
-        />
-      </label>
+      {type === "discovery" && (
+        <label className="block text-sm">
+          Research topic <span className="text-neutral-400">(optional)</span>
+          <textarea
+            placeholder="e.g. dig into where reconciliation breaks down, what tools they've tried, and where they're anxious about compliance"
+            value={researchTopic}
+            onChange={(e) => setResearchTopic(e.target.value)}
+            rows={3}
+            className="mt-1 block w-full rounded border border-neutral-300 px-3 py-1.5 dark:border-neutral-700 dark:bg-neutral-900"
+          />
+        </label>
+      )}
 
       <label className="block text-sm">
         Custom interview prompt <span className="text-neutral-400">(advanced, optional)</span>
         <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
-          Full control over interviewing strategy. If set, this replaces the research topic above
+          Full control over interviewing strategy. If set, this replaces the generated prompt
           entirely for this study. Supports <code>{"{{participant_name}}"}</code> placeholders.
         </p>
         <textarea
@@ -133,7 +147,11 @@ export function EditQuestionsForm({
         />
       </label>
 
-      <QuestionEditor questions={questions} onChange={setQuestions} />
+      {type === "feedback" ? (
+        <FeedbackQuestionListEditor questions={feedbackQuestions} onChange={setFeedbackQuestions} />
+      ) : (
+        <QuestionEditor questions={questions} onChange={setQuestions} />
+      )}
 
       {errors.length > 0 && (
         <ul role="alert" className="list-inside list-disc text-sm text-red-600 dark:text-red-400">
@@ -144,14 +162,16 @@ export function EditQuestionsForm({
       )}
 
       <div className="flex gap-2">
-        <button
-          type="button"
-          onClick={handleRegenerate}
-          disabled={generating}
-          className="rounded border border-neutral-300 px-4 py-1.5 text-sm hover:bg-neutral-50 dark:border-neutral-700 dark:hover:bg-neutral-900"
-        >
-          {generating ? "Generating…" : "Regenerate from title/description"}
-        </button>
+        {type === "discovery" && (
+          <button
+            type="button"
+            onClick={handleRegenerate}
+            disabled={generating}
+            className="rounded border border-neutral-300 px-4 py-1.5 text-sm hover:bg-neutral-50 dark:border-neutral-700 dark:hover:bg-neutral-900"
+          >
+            {generating ? "Generating…" : "Regenerate from title/description"}
+          </button>
+        )}
         <button
           type="button"
           onClick={handleSave}

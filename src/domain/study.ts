@@ -3,6 +3,14 @@ export type StudyStatus = "open" | "closed";
 export type VoiceProvider = "vapi" | "elevenlabs";
 
 /**
+ * Set once at creation and never editable afterward — the prompt/timing
+ * shape differs too much between types to safely switch later. See
+ * GLOSSARY.md's "Study Type"/"Discovery"/"Feedback" entries and
+ * FEEDBACK_STUDY_TYPE.md for the full design.
+ */
+export type StudyType = "discovery" | "feedback";
+
+/**
  * A single pre-interview screener question, authored per study — either
  * AI-drafted from the study's title/description and then edited by the PM,
  * or edited from scratch. Always single/multi-select with options (never
@@ -19,6 +27,7 @@ export interface PreInterviewQuestion {
 
 export interface Study {
   id: string;
+  type: StudyType;
   /** Short name for the study, e.g. "How AI Actually Shows Up in a PM's Day" — shown as the interview link's intro-screen heading and the study report's title. */
   title: string;
   /**
@@ -35,6 +44,14 @@ export interface Study {
    * just at creation. Empty for a study that hasn't set any up yet.
    */
   preInterviewQuestions: PreInterviewQuestion[];
+  /**
+   * Only meaningful when type === "feedback". Ordered list of plain-text
+   * feedback questions/topics — a priority list the interviewer works
+   * through adaptively (splitting, reordering, skipping based on time
+   * remaining), not a rigid script. Empty for discovery-type studies. See
+   * FEEDBACK_STUDY_TYPE.md decision 5 and feedback-system-prompt.ts.
+   */
+  feedbackQuestions: string[];
   /**
    * Optional free-text research focus set by the PM at study creation (e.g.
    * "dig into where participants use AI tools, where they've abandoned it,

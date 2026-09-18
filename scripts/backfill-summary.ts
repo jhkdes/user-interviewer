@@ -11,6 +11,7 @@
  */
 import { getLLMProvider } from "../src/llm";
 import { getInterviewRepository } from "../src/repositories/get-interview-repository";
+import { getStudyRepository } from "../src/repositories/get-study-repository";
 import { getSummaryRepository } from "../src/repositories/get-summary-repository";
 import { generateIndividualSummary } from "../src/summary-service";
 
@@ -22,6 +23,7 @@ async function main() {
   }
 
   const interviewRepo = getInterviewRepository();
+  const studyRepo = getStudyRepository();
   const summaryRepo = getSummaryRepository();
   const llm = getLLMProvider();
 
@@ -33,7 +35,10 @@ async function main() {
     process.exit(1);
   }
 
-  const summary = await generateIndividualSummary({ interviewRepo, summaryRepo, llm }, interviewId);
+  const summary = await generateIndividualSummary(
+    { interviewRepo, studyRepo, summaryRepo, llm },
+    interviewId,
+  );
   console.log(`Created summary ${summary.id} for interview ${interviewId}`);
   console.log(JSON.stringify(summary, null, 2));
 }

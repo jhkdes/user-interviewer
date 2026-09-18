@@ -10,12 +10,16 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     title?: string;
     description?: string;
     preInterviewQuestions?: PreInterviewQuestion[];
+    feedbackQuestions?: string[];
     researchTopic?: string | null;
     customPrompt?: string | null;
   } | null;
 
-  if (!body?.preInterviewQuestions) {
-    return NextResponse.json({ error: "preInterviewQuestions is required" }, { status: 400 });
+  if (!body?.preInterviewQuestions && !body?.feedbackQuestions) {
+    return NextResponse.json(
+      { error: "preInterviewQuestions or feedbackQuestions is required" },
+      { status: 400 },
+    );
   }
 
   try {
@@ -23,6 +27,7 @@ export async function PATCH(request: Request, { params }: { params: { id: string
       title: body.title,
       description: body.description,
       preInterviewQuestions: body.preInterviewQuestions,
+      feedbackQuestions: body.feedbackQuestions,
       researchTopic: body.researchTopic,
       customPrompt: body.customPrompt,
     });

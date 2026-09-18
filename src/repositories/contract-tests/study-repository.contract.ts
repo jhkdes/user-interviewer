@@ -46,6 +46,39 @@ export function runStudyRepositoryContractTests(
       expect(study.voiceProvider).toBe("vapi");
     });
 
+    it("defaults type to 'discovery' with empty feedbackQuestions when omitted", async () => {
+      const repo = await makeRepository();
+      const study = await repo.create({
+        title: sampleTitle,
+        description: sampleDescription,
+        preInterviewQuestions: sampleQuestions,
+        linkToken: "token-default-type",
+      });
+
+      expect(study.type).toBe("discovery");
+      expect(study.feedbackQuestions).toEqual([]);
+    });
+
+    it("creates a feedback-type study with feedbackQuestions and empty preInterviewQuestions", async () => {
+      const repo = await makeRepository();
+      const study = await repo.create({
+        title: "Post-webinar feedback",
+        description: "quick check-in after today's session",
+        type: "feedback",
+        preInterviewQuestions: [],
+        feedbackQuestions: ["What did you think of the content?"],
+        linkToken: "token-feedback-type",
+      });
+
+      expect(study.type).toBe("feedback");
+      expect(study.feedbackQuestions).toEqual(["What did you think of the content?"]);
+      expect(study.preInterviewQuestions).toEqual([]);
+
+      const reloaded = await repo.getById(study.id);
+      expect(reloaded?.type).toBe("feedback");
+      expect(reloaded?.feedbackQuestions).toEqual(["What did you think of the content?"]);
+    });
+
     it("creates a study with an empty preInterviewQuestions list", async () => {
       const repo = await makeRepository();
       const study = await repo.create({
@@ -282,6 +315,48 @@ export function runStudyRepositoryContractTests(
 
       expect(updated.researchTopic).toBeNull();
       expect(updated.customPrompt).toBeNull();
+    });
+
+    it("updateDetails can update feedbackQuestions without touching preInterviewQuestions", async () => {
+      const repo = await makeRepository();
+      const created = await repo.create({
+        title: "Post-webinar feedback",
+        description: "quick check-in after today's session",
+        type: "feedback",
+        preInterviewQuestions: [],
+        feedbackQuestions: ["Original question"],
+        linkToken: "to-update-feedback-questions",
+      });
+
+      const updated = await repo.updateDetails(created.id, {
+        feedbackQuestions: ["What worked well?", "What could be improved?"],
+      });
+
+      expect(updated.feedbackQuestions).toEqual(["What worked well?", "What could be improved?"]);
+      expect(updated.preInterviewQuestions).toEqual([]);
+      expect(updated.type).toBe("feedback");
+
+      const reloaded = await repo.getById(created.id);
+      expect(reloaded?.feedbackQuestions).toEqual(["What worked well?", "What could be improved?"]);
+    });
+
+    it("delete removes the study", async () => {
+      const repo = await makeRepository();
+      const created = await repo.create({
+        title: sampleTitle,
+        description: sampleDescription,
+        preInterviewQuestions: sampleQuestions,
+        linkToken: "to-delete",
+      });
+
+      await repo.delete(created.id);
+
+      expect(await repo.getById(created.id)).toBeNull();
+    });
+
+    it("delete rejects an unknown id", async () => {
+      const repo = await makeRepository();
+      await expect(repo.delete(NONEXISTENT_ID)).rejects.toThrow();
     });
   });
 }

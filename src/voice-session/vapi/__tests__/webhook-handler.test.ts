@@ -3,6 +3,7 @@ import { FakeEmailClient } from "@/lib/email";
 import { FakeCompletionWebhookClient } from "@/lib/webhook";
 import { FakeLLMProvider } from "@/llm";
 import { InMemoryInterviewRepository } from "@/repositories/in-memory/in-memory-interview-repository";
+import { InMemoryStudyRepository } from "@/repositories/in-memory/in-memory-study-repository";
 import { InMemorySummaryRepository } from "@/repositories/in-memory/in-memory-summary-repository";
 import { MissingInterviewIdError } from "../../errors";
 import type { VapiEndOfCallReportMessage, VapiStatusUpdateMessage } from "../types";
@@ -17,25 +18,32 @@ const scriptedSummary = { ...summaryFields, roleDescription: null };
 
 async function setup() {
   const interviewRepo = new InMemoryInterviewRepository();
+  const studyRepo = new InMemoryStudyRepository();
   const summaryRepo = new InMemorySummaryRepository();
   const llm = new FakeLLMProvider();
   const emailClient = new FakeEmailClient();
   llm.scriptSummary(scriptedSummary);
 
+  const study = await studyRepo.create({
+    title: "How AI Actually Shows Up in a PM's Day",
+    description: "how product managers really use AI at work",
+    preInterviewQuestions: [],
+    linkToken: "token",
+  });
   const interview = await interviewRepo.create({
-    studyId: "study-1",
+    studyId: study.id,
     firstName: "Jordan",
     email: "jordan@example.com",
     roleDescription: "Engineering manager",
   });
 
-  return { interviewRepo, summaryRepo, llm, emailClient, interview };
+  return { interviewRepo, studyRepo, summaryRepo, llm, emailClient, study, interview };
 }
 
 describe("handleVapiWebhookMessage", () => {
   describe("status-update", () => {
     it("transitions pending -> in-progress and records startedAt on the first in-progress event", async () => {
-      const { interviewRepo, summaryRepo, llm, emailClient, interview } = await setup();
+      const { interviewRepo, studyRepo, summaryRepo, llm, emailClient, interview } = await setup();
       const now = new Date("2026-08-19T12:00:00.000Z");
 
       const message: VapiStatusUpdateMessage = {
@@ -44,7 +52,7 @@ describe("handleVapiWebhookMessage", () => {
         call: { id: "call-1", assistantOverrides: { metadata: { interviewId: interview.id } } },
       };
       await handleVapiWebhookMessage(
-        { interviewRepo, summaryRepo, llm, emailClient, now },
+        { interviewRepo, studyRepo, summaryRepo, llm, emailClient, now },
         message,
       );
 
@@ -54,7 +62,7 @@ describe("handleVapiWebhookMessage", () => {
     });
 
     it("does not clobber startedAt on a repeated in-progress event", async () => {
-      const { interviewRepo, summaryRepo, llm, emailClient, interview } = await setup();
+      const { interviewRepo, studyRepo, summaryRepo, llm, emailClient, interview } = await setup();
       const firstStart = new Date("2026-08-19T12:00:00.000Z");
       const laterEvent = new Date("2026-08-19T12:05:00.000Z");
       const message: VapiStatusUpdateMessage = {
@@ -64,11 +72,11 @@ describe("handleVapiWebhookMessage", () => {
       };
 
       await handleVapiWebhookMessage(
-        { interviewRepo, summaryRepo, llm, emailClient, now: firstStart },
+        { interviewRepo, studyRepo, summaryRepo, llm, emailClient, now: firstStart },
         message,
       );
       await handleVapiWebhookMessage(
-        { interviewRepo, summaryRepo, llm, emailClient, now: laterEvent },
+        { interviewRepo, studyRepo, summaryRepo, llm, emailClient, now: laterEvent },
         message,
       );
 
@@ -77,10 +85,10 @@ describe("handleVapiWebhookMessage", () => {
     });
 
     it("ignores non-'in-progress' statuses", async () => {
-      const { interviewRepo, summaryRepo, llm, emailClient, interview } = await setup();
+      const { interviewRepo, studyRepo, summaryRepo, llm, emailClient, interview } = await setup();
 
       await handleVapiWebhookMessage(
-        { interviewRepo, summaryRepo, llm, emailClient },
+        { interviewRepo, studyRepo, summaryRepo, llm, emailClient },
         {
           type: "status-update",
           status: "ringing",
@@ -94,11 +102,11 @@ describe("handleVapiWebhookMessage", () => {
     });
 
     it("throws MissingInterviewIdError when call.assistantOverrides.metadata.interviewId is absent", async () => {
-      const { interviewRepo, summaryRepo, llm, emailClient } = await setup();
+      const { interviewRepo, studyRepo, summaryRepo, llm, emailClient } = await setup();
 
       await expect(
         handleVapiWebhookMessage(
-          { interviewRepo, summaryRepo, llm, emailClient },
+          { interviewRepo, studyRepo, summaryRepo, llm, emailClient },
           { type: "status-update", status: "in-progress", call: { id: "call-1" } },
         ),
       ).rejects.toThrow(MissingInterviewIdError);
@@ -107,7 +115,7 @@ describe("handleVapiWebhookMessage", () => {
 
   describe("end-of-call-report", () => {
     it("transitions to completed and persists transcript/recording from the artifact shape", async () => {
-      const { interviewRepo, summaryRepo, llm, emailClient, interview } = await setup();
+      const { interviewRepo, studyRepo, summaryRepo, llm, emailClient, interview } = await setup();
       const now = new Date("2026-08-19T12:20:00.000Z");
 
       const message: VapiEndOfCallReportMessage = {
@@ -125,7 +133,7 @@ describe("handleVapiWebhookMessage", () => {
       };
 
       await handleVapiWebhookMessage(
-        { interviewRepo, summaryRepo, llm, emailClient, now },
+        { interviewRepo, studyRepo, summaryRepo, llm, emailClient, now },
         message,
       );
 
@@ -142,7 +150,7 @@ describe("handleVapiWebhookMessage", () => {
     });
 
     it("falls back to top-level transcript/messages/recordingUrl fields when artifact is absent", async () => {
-      const { interviewRepo, summaryRepo, llm, emailClient, interview } = await setup();
+      const { interviewRepo, studyRepo, summaryRepo, llm, emailClient, interview } = await setup();
 
       const message: VapiEndOfCallReportMessage = {
         type: "end-of-call-report",
@@ -152,7 +160,10 @@ describe("handleVapiWebhookMessage", () => {
         messages: [{ role: "assistant", message: "Hello." }],
       };
 
-      await handleVapiWebhookMessage({ interviewRepo, summaryRepo, llm, emailClient }, message);
+      await handleVapiWebhookMessage(
+        { interviewRepo, studyRepo, summaryRepo, llm, emailClient },
+        message,
+      );
 
       const updated = await interviewRepo.getById(interview.id);
       expect(updated?.recordingUrl).toBe("https://recordings.example.com/legacy.wav");
@@ -162,18 +173,18 @@ describe("handleVapiWebhookMessage", () => {
     });
 
     it("throws MissingInterviewIdError when call.assistantOverrides.metadata.interviewId is absent", async () => {
-      const { interviewRepo, summaryRepo, llm, emailClient } = await setup();
+      const { interviewRepo, studyRepo, summaryRepo, llm, emailClient } = await setup();
 
       await expect(
         handleVapiWebhookMessage(
-          { interviewRepo, summaryRepo, llm, emailClient },
+          { interviewRepo, studyRepo, summaryRepo, llm, emailClient },
           { type: "end-of-call-report", endedReason: "hangup", call: { id: "call-1" } },
         ),
       ).rejects.toThrow(MissingInterviewIdError);
     });
 
     it("triggers individual summary generation (T7.3) once the transcript is persisted", async () => {
-      const { interviewRepo, summaryRepo, llm, emailClient, interview } = await setup();
+      const { interviewRepo, studyRepo, summaryRepo, llm, emailClient, interview } = await setup();
 
       const message: VapiEndOfCallReportMessage = {
         type: "end-of-call-report",
@@ -187,7 +198,10 @@ describe("handleVapiWebhookMessage", () => {
         },
       };
 
-      await handleVapiWebhookMessage({ interviewRepo, summaryRepo, llm, emailClient }, message);
+      await handleVapiWebhookMessage(
+        { interviewRepo, studyRepo, summaryRepo, llm, emailClient },
+        message,
+      );
 
       const summary = await summaryRepo.getByInterviewId(interview.id);
       expect(summary).toMatchObject(summaryFields);
@@ -199,7 +213,7 @@ describe("handleVapiWebhookMessage", () => {
     });
 
     it("sends the participant a summary email once the summary is generated (#6)", async () => {
-      const { interviewRepo, summaryRepo, llm, emailClient, interview } = await setup();
+      const { interviewRepo, studyRepo, summaryRepo, llm, emailClient, interview } = await setup();
 
       const message: VapiEndOfCallReportMessage = {
         type: "end-of-call-report",
@@ -213,7 +227,10 @@ describe("handleVapiWebhookMessage", () => {
         },
       };
 
-      await handleVapiWebhookMessage({ interviewRepo, summaryRepo, llm, emailClient }, message);
+      await handleVapiWebhookMessage(
+        { interviewRepo, studyRepo, summaryRepo, llm, emailClient },
+        message,
+      );
 
       expect(emailClient.sent).toHaveLength(1);
       expect(emailClient.sent[0].to).toBe("jordan@example.com");
@@ -222,6 +239,7 @@ describe("handleVapiWebhookMessage", () => {
 
     it("does not send a summary email when the summary has nothing substantive (#6)", async () => {
       const interviewRepo = new InMemoryInterviewRepository();
+      const studyRepo = new InMemoryStudyRepository();
       const summaryRepo = new InMemorySummaryRepository();
       const llm = new FakeLLMProvider();
       const emailClient = new FakeEmailClient();
@@ -231,8 +249,14 @@ describe("handleVapiWebhookMessage", () => {
         takeaways: [],
         roleDescription: null,
       });
+      const study = await studyRepo.create({
+        title: "Study",
+        description: "desc",
+        preInterviewQuestions: [],
+        linkToken: "token-substantive",
+      });
       const interview = await interviewRepo.create({
-        studyId: "study-1",
+        studyId: study.id,
         firstName: "Jordan",
         email: "jordan@example.com",
       });
@@ -244,13 +268,16 @@ describe("handleVapiWebhookMessage", () => {
         artifact: { messages: [{ role: "assistant", message: "Hello?" }] },
       };
 
-      await handleVapiWebhookMessage({ interviewRepo, summaryRepo, llm, emailClient }, message);
+      await handleVapiWebhookMessage(
+        { interviewRepo, studyRepo, summaryRepo, llm, emailClient },
+        message,
+      );
 
       expect(emailClient.sent).toHaveLength(0);
     });
 
     it("still marks the interview completed even if the summary email fails to send (#6)", async () => {
-      const { interviewRepo, summaryRepo, llm, emailClient, interview } = await setup();
+      const { interviewRepo, studyRepo, summaryRepo, llm, emailClient, interview } = await setup();
       emailClient.scriptFailure(new Error("Resend API error (500): oops"));
 
       const message: VapiEndOfCallReportMessage = {
@@ -265,7 +292,10 @@ describe("handleVapiWebhookMessage", () => {
         },
       };
 
-      await handleVapiWebhookMessage({ interviewRepo, summaryRepo, llm, emailClient }, message);
+      await handleVapiWebhookMessage(
+        { interviewRepo, studyRepo, summaryRepo, llm, emailClient },
+        message,
+      );
 
       const updated = await interviewRepo.getById(interview.id);
       expect(updated?.status).toBe("completed");
@@ -275,11 +305,18 @@ describe("handleVapiWebhookMessage", () => {
 
     it("still marks the interview completed even if summary generation fails", async () => {
       const interviewRepo = new InMemoryInterviewRepository();
+      const studyRepo = new InMemoryStudyRepository();
       const summaryRepo = new InMemorySummaryRepository();
       const llm = new FakeLLMProvider(); // no scripted summary -> generateSummary throws
       const emailClient = new FakeEmailClient();
+      const study = await studyRepo.create({
+        title: "Study",
+        description: "desc",
+        preInterviewQuestions: [],
+        linkToken: "token-summary-fails",
+      });
       const interview = await interviewRepo.create({
-        studyId: "study-1",
+        studyId: study.id,
         firstName: "Jordan",
         email: "jordan@example.com",
         roleDescription: "Engineering manager",
@@ -292,7 +329,10 @@ describe("handleVapiWebhookMessage", () => {
         artifact: { messages: [{ role: "assistant", message: "Hello." }] },
       };
 
-      await handleVapiWebhookMessage({ interviewRepo, summaryRepo, llm, emailClient }, message);
+      await handleVapiWebhookMessage(
+        { interviewRepo, studyRepo, summaryRepo, llm, emailClient },
+        message,
+      );
 
       const updated = await interviewRepo.getById(interview.id);
       expect(updated?.status).toBe("completed");
@@ -302,13 +342,20 @@ describe("handleVapiWebhookMessage", () => {
 
   it("calls the completion webhook when the interview has a tracking id and a client is wired up", async () => {
     const interviewRepo = new InMemoryInterviewRepository();
+    const studyRepo = new InMemoryStudyRepository();
     const summaryRepo = new InMemorySummaryRepository();
     const llm = new FakeLLMProvider();
     const emailClient = new FakeEmailClient();
     const webhookClient = new FakeCompletionWebhookClient();
     llm.scriptSummary(scriptedSummary);
+    const study = await studyRepo.create({
+      title: "Study",
+      description: "desc",
+      preInterviewQuestions: [],
+      linkToken: "token-webhook-1",
+    });
     const interview = await interviewRepo.create({
-      studyId: "study-1",
+      studyId: study.id,
       firstName: "Jordan",
       email: "jordan@example.com",
       trackingId: "third-party-abc-123",
@@ -322,7 +369,7 @@ describe("handleVapiWebhookMessage", () => {
     };
 
     await handleVapiWebhookMessage(
-      { interviewRepo, summaryRepo, llm, emailClient, webhookClient },
+      { interviewRepo, studyRepo, summaryRepo, llm, emailClient, webhookClient },
       message,
     );
 
@@ -330,7 +377,7 @@ describe("handleVapiWebhookMessage", () => {
       expect.objectContaining({
         participantTrackingId: "third-party-abc-123",
         interviewId: interview.id,
-        studyId: "study-1",
+        studyId: study.id,
         status: "completed",
       }),
     ]);
@@ -338,14 +385,21 @@ describe("handleVapiWebhookMessage", () => {
 
   it("still marks the interview completed even if the completion webhook fails", async () => {
     const interviewRepo = new InMemoryInterviewRepository();
+    const studyRepo = new InMemoryStudyRepository();
     const summaryRepo = new InMemorySummaryRepository();
     const llm = new FakeLLMProvider();
     const emailClient = new FakeEmailClient();
     const webhookClient = new FakeCompletionWebhookClient();
     webhookClient.scriptFailure(new Error("Completion webhook error (500): oops"));
     llm.scriptSummary(scriptedSummary);
+    const study = await studyRepo.create({
+      title: "Study",
+      description: "desc",
+      preInterviewQuestions: [],
+      linkToken: "token-webhook-2",
+    });
     const interview = await interviewRepo.create({
-      studyId: "study-1",
+      studyId: study.id,
       firstName: "Jordan",
       email: "jordan@example.com",
       trackingId: "third-party-abc-123",
@@ -359,7 +413,7 @@ describe("handleVapiWebhookMessage", () => {
     };
 
     await handleVapiWebhookMessage(
-      { interviewRepo, summaryRepo, llm, emailClient, webhookClient },
+      { interviewRepo, studyRepo, summaryRepo, llm, emailClient, webhookClient },
       message,
     );
 
@@ -367,7 +421,7 @@ describe("handleVapiWebhookMessage", () => {
   });
 
   it("does not call the completion webhook when the interview has no tracking id", async () => {
-    const { interviewRepo, summaryRepo, llm, emailClient, interview } = await setup();
+    const { interviewRepo, studyRepo, summaryRepo, llm, emailClient, interview } = await setup();
     const webhookClient = new FakeCompletionWebhookClient();
 
     const message: VapiEndOfCallReportMessage = {
@@ -378,7 +432,7 @@ describe("handleVapiWebhookMessage", () => {
     };
 
     await handleVapiWebhookMessage(
-      { interviewRepo, summaryRepo, llm, emailClient, webhookClient },
+      { interviewRepo, studyRepo, summaryRepo, llm, emailClient, webhookClient },
       message,
     );
 
@@ -386,10 +440,10 @@ describe("handleVapiWebhookMessage", () => {
   });
 
   it("is a no-op for other event types", async () => {
-    const { interviewRepo, summaryRepo, llm, emailClient, interview } = await setup();
+    const { interviewRepo, studyRepo, summaryRepo, llm, emailClient, interview } = await setup();
 
     await handleVapiWebhookMessage(
-      { interviewRepo, summaryRepo, llm, emailClient },
+      { interviewRepo, studyRepo, summaryRepo, llm, emailClient },
       {
         type: "conversation-update",
         call: { id: "call-1", assistantOverrides: { metadata: { interviewId: interview.id } } },

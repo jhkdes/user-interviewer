@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Summary } from "@/domain";
+import type { Summary, SummaryType } from "@/domain";
 import type { CreateSummaryInput, SummaryRepository } from "../summary-repository";
 import type { SummaryRow } from "./rows";
 
@@ -7,9 +7,13 @@ function toSummary(row: SummaryRow): Summary {
   return {
     id: row.id,
     interviewId: row.interview_id,
-    painPoints: row.pain_points as string[],
-    notableQuotes: row.notable_quotes as string[],
-    takeaways: row.takeaways as string[],
+    type: row.type as SummaryType,
+    painPoints: (row.pain_points as string[] | null) ?? [],
+    notableQuotes: (row.notable_quotes as string[] | null) ?? [],
+    takeaways: (row.takeaways as string[] | null) ?? [],
+    liked: (row.liked as string[] | null) ?? [],
+    disliked: (row.disliked as string[] | null) ?? [],
+    suggestions: (row.suggestions as string[] | null) ?? [],
     createdAt: new Date(row.created_at),
   };
 }
@@ -22,9 +26,13 @@ export class SupabaseSummaryRepository implements SummaryRepository {
       .from("summaries")
       .insert({
         interview_id: input.interviewId,
-        pain_points: input.painPoints,
-        notable_quotes: input.notableQuotes,
-        takeaways: input.takeaways,
+        type: input.type ?? "discovery",
+        pain_points: input.painPoints ?? [],
+        notable_quotes: input.notableQuotes ?? [],
+        takeaways: input.takeaways ?? [],
+        liked: input.liked ?? [],
+        disliked: input.disliked ?? [],
+        suggestions: input.suggestions ?? [],
       })
       .select()
       .single();

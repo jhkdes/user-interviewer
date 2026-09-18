@@ -22,3 +22,11 @@ export {
   type InterviewAgentTurnInput,
   type InterviewAgentTurnOutput,
 } from "./interview-agent";
+export {
+  FeedbackAgent,
+  OPEN_FLOOR_UTTERANCE,
+  type FeedbackAgentStreamEvent,
+  type FeedbackAgentTurnInput,
+  type FeedbackAgentTurnOutput,
+} from "./feedback-agent";
+export { buildFeedbackSystemPrompt, type FeedbackPromptContext } from "./feedback-system-prompt";

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Vapi from "@vapi-ai/web";
+import type { StudyType } from "@/domain";
 import { CallShell, reportBackgrounded, requestWakeLock, type CallStatus } from "./call-shell";
 
 /**
@@ -15,9 +16,11 @@ import { CallShell, reportBackgrounded, requestWakeLock, type CallStatus } from 
  */
 export function VapiLiveCall({
   interviewId,
+  type,
   onEnded,
 }: {
   interviewId: string;
+  type: StudyType;
   onEnded: () => void;
 }) {
   const [status, setStatus] = useState<CallStatus>("connecting");
@@ -150,5 +153,12 @@ export function VapiLiveCall({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- start the call exactly once per mount
   }, []);
 
-  return <CallShell status={status} errorMessage={errorMessage} elapsedSeconds={elapsedSeconds} />;
+  return (
+    <CallShell
+      status={status}
+      errorMessage={errorMessage}
+      elapsedSeconds={elapsedSeconds}
+      type={type}
+    />
+  );
 }

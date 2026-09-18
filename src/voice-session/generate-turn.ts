@@ -1,5 +1,6 @@
 import type { Interview, Study } from "@/domain";
-import type { InterviewAgent } from "@/interview-agent";
+import type { FeedbackAgent } from "@/interview-agent/feedback-agent";
+import type { InterviewAgent } from "@/interview-agent/interview-agent";
 import type { InterviewTurn } from "@/llm";
 import type { InterviewRepository } from "@/repositories/interview-repository";
 import type { StudyRepository } from "@/repositories/study-repository";
@@ -15,14 +16,15 @@ function toConversationHistory(messages: OpenAIChatMessage[]): InterviewTurn[] {
       history.push({ speaker: "participant", text: message.content ?? "" });
     }
     // system/tool/function_call/function_result entries aren't part of the
-    // spoken conversation InterviewAgent reasons over — it builds its own
-    // system prompt from the Interview/Study records instead (see below).
+    // spoken conversation the agent reasons over — it builds its own system
+    // prompt from the Interview/Study records instead (see below).
   }
   return history;
 }
 
 export interface GenerateTurnDeps {
   interviewAgent: InterviewAgent;
+  feedbackAgent: FeedbackAgent;
   interviewRepo: InterviewRepository;
   studyRepo: StudyRepository;
   /** Defaults to `new Date()` — overridable so tests can simulate elapsed time deterministically. */
@@ -64,7 +66,7 @@ export async function loadInterviewAndStudy(
   return { interview, study };
 }
 
-function buildAgentInput(
+function buildDiscoveryAgentInput(
   interview: Interview,
   study: Study,
   messages: OpenAIChatMessage[],
@@ -87,15 +89,38 @@ function buildAgentInput(
   };
 }
 
+function buildFeedbackAgentInput(
+  interview: Interview,
+  study: Study,
+  messages: OpenAIChatMessage[],
+  now: Date,
+) {
+  return {
+    context: {
+      participantFirstName: interview.firstName,
+      studyTitle: study.title,
+      studyDescription: study.description,
+      feedbackQuestions: study.feedbackQuestions,
+      customPrompt: study.customPrompt,
+    },
+    conversationHistory: toConversationHistory(messages),
+    interviewStartedAt: interview.startedAt ?? interview.createdAt,
+    now,
+  };
+}
+
+interface TurnSideEffects {
+  timeCheckJustAsked?: boolean;
+  secondTimeCheckJustAsked?: boolean;
+  extensionDecision?: boolean;
+  openFloorJustAsked?: boolean;
+}
+
 async function persistTurnSideEffects(
   deps: GenerateTurnDeps,
   interviewId: string,
   now: Date,
-  result: {
-    timeCheckJustAsked: boolean;
-    secondTimeCheckJustAsked: boolean;
-    extensionDecision?: boolean;
-  },
+  result: TurnSideEffects,
 ): Promise<void> {
   if (result.timeCheckJustAsked) {
     await deps.interviewRepo.update(interviewId, { timeCheckAskedAt: now });
@@ -106,14 +131,18 @@ async function persistTurnSideEffects(
   if (result.extensionDecision !== undefined) {
     await deps.interviewRepo.update(interviewId, { extensionGranted: result.extensionDecision });
   }
+  if (result.openFloorJustAsked) {
+    await deps.interviewRepo.update(interviewId, { openFloorAskedAt: now });
+  }
 }
 
 /**
  * Provider-agnostic core of the custom-LLM integration: resolves the
  * Interview + Study behind `interviewId`, replays the conversation so far
- * into InterviewAgent (M3) — which owns the system prompt and, on every
- * turn, the hard time cap (15 min, or 25 min once the participant has
- * agreed to extend — see interview-agent's termination check) — and returns
+ * into whichever agent matches `study.type` — InterviewAgent for discovery
+ * (owns the system prompt and, on every turn, the hard time cap: 15 min, or
+ * 25 min once the participant has agreed to extend) or FeedbackAgent for
+ * feedback (a single 7-minute hard cap, no extension) — and returns
  * `isInterviewOver` for the caller to encode however its provider's wire
  * format requires (Vapi: an appended exact-phrase; ElevenLabs: an
  * `end_call` tool call — see each provider's `custom-llm-handler.ts`).
@@ -126,9 +155,14 @@ export async function generateTurn(
     input.preloaded ?? (await loadInterviewAndStudy(deps, input.interviewId));
   const now = deps.now ?? new Date();
 
-  const result = await deps.interviewAgent.generateNextTurn(
-    buildAgentInput(interview, study, input.messages, now),
-  );
+  const result =
+    study.type === "feedback"
+      ? await deps.feedbackAgent.generateNextTurn(
+          buildFeedbackAgentInput(interview, study, input.messages, now),
+        )
+      : await deps.interviewAgent.generateNextTurn(
+          buildDiscoveryAgentInput(interview, study, input.messages, now),
+        );
 
   await persistTurnSideEffects(deps, input.interviewId, now, result);
 
@@ -151,16 +185,30 @@ export async function* generateTurnStreaming(
     input.preloaded ?? (await loadInterviewAndStudy(deps, input.interviewId));
   const now = deps.now ?? new Date();
 
-  let final: Awaited<ReturnType<InterviewAgent["generateNextTurn"]>> | undefined;
-  for await (const event of deps.interviewAgent.generateNextTurnStreaming(
-    buildAgentInput(interview, study, input.messages, now),
-  )) {
-    if (event.type === "text-delta") {
-      yield { type: "text-delta", text: event.text };
-    } else {
-      final = event.result;
+  let final: (TurnSideEffects & { utterance: string; isInterviewOver: boolean }) | undefined;
+
+  if (study.type === "feedback") {
+    for await (const event of deps.feedbackAgent.generateNextTurnStreaming(
+      buildFeedbackAgentInput(interview, study, input.messages, now),
+    )) {
+      if (event.type === "text-delta") {
+        yield { type: "text-delta", text: event.text };
+      } else {
+        final = event.result;
+      }
+    }
+  } else {
+    for await (const event of deps.interviewAgent.generateNextTurnStreaming(
+      buildDiscoveryAgentInput(interview, study, input.messages, now),
+    )) {
+      if (event.type === "text-delta") {
+        yield { type: "text-delta", text: event.text };
+      } else {
+        final = event.result;
+      }
     }
   }
+
   if (!final) {
     throw new Error("generateTurnStreaming: interview agent stream ended without a final result");
   }

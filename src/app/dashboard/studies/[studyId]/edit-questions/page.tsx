@@ -17,7 +17,9 @@ export default async function EditQuestionsPage({ params }: { params: { studyId:
         ← Back to study
       </Link>
 
-      <h1 className="mt-2 text-xl font-semibold">Edit pre-interview questions</h1>
+      <h1 className="mt-2 text-xl font-semibold">
+        Edit {study.type === "feedback" ? "feedback" : "pre-interview"} questions
+      </h1>
       <p className="mt-2 text-sm text-neutral-500 dark:text-neutral-400">
         {study.title || "(untitled study)"}
       </p>
@@ -25,9 +27,11 @@ export default async function EditQuestionsPage({ params }: { params: { studyId:
       <div className="mt-6">
         <EditQuestionsForm
           studyId={study.id}
+          type={study.type}
           title={study.title}
           description={study.description}
           initialQuestions={study.preInterviewQuestions}
+          initialFeedbackQuestions={study.feedbackQuestions}
           researchTopic={study.researchTopic}
           customPrompt={study.customPrompt}
         />

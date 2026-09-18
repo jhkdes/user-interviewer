@@ -1,3 +1,6 @@
+import type { StudyType } from "@/domain";
+import { FEEDBACK_TARGET_MINUTES, HARD_CAP_MINUTES } from "@/interview-agent/termination";
+
 export type CallStatus = "connecting" | "starting" | "in-progress" | "ended" | "error";
 
 const STATUS_COPY: Record<CallStatus, string> = {
@@ -61,11 +64,15 @@ export function CallShell({
   status,
   errorMessage,
   elapsedSeconds,
+  type,
 }: {
   status: CallStatus;
   errorMessage: string | null;
   elapsedSeconds: number;
+  type: StudyType;
 }) {
+  const targetMinutes = type === "feedback" ? FEEDBACK_TARGET_MINUTES : HARD_CAP_MINUTES;
+
   return (
     <div className="text-center">
       <h1 className="text-xl font-semibold">{STATUS_COPY[status]}</h1>
@@ -76,8 +83,8 @@ export function CallShell({
             {formatElapsed(elapsedSeconds)} elapsed
           </p>
           <p className="mt-6 text-sm text-neutral-500 dark:text-neutral-400">
-            Interview takes about 15 mins. If you need to wrap up early, just let the AI interviewer
-            know.
+            {type === "feedback" ? "This" : "Interview"} takes about {targetMinutes} mins. If you
+            need to wrap up early, just let the AI interviewer know.
           </p>
         </>
       )}

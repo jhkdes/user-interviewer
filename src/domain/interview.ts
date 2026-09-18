@@ -58,6 +58,8 @@ export interface Interview {
   extensionGranted: boolean | null;
   /** When InterviewAgent deterministically injected the final "we're almost out of time" check-in — only asked for interviews where `extensionGranted` is true, once approaching the extended 25-minute cap (see termination.ts's EXTENDED_SOFT_CAP_MS). `null` until that turn happens. */
   secondTimeCheckAskedAt: Date | null;
+  /** Feedback-type interviews only. When FeedbackAgent deterministically injected the guaranteed open-floor closing question (OPEN_FLOOR_UTTERANCE in feedback-agent.ts) — scripted rather than left to the LLM to remember, same rationale as `timeCheckAskedAt`. `null` until that turn happens; once set, the very next interviewer turn is forced to close regardless of what the model returns. */
+  openFloorAskedAt: Date | null;
   /** Opaque id a third-party tool passes as the `tracking_id` URL query param on the interview link, to correlate this interview with its own participant record. `null` when the link was opened without that param. Used to call the completion webhook (see notify-completion-webhook.ts) once the interview completes — skipped silently when `null`. */
   trackingId: string | null;
 }
