@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { getInterviewRepository } from "@/repositories/get-interview-repository";
 import { getStudyRepository } from "@/repositories/get-study-repository";
 import { getStudyReportRepository } from "@/repositories/get-study-report-repository";
-import { checkLinkValidity } from "@/study-service";
+import { getLinkExpiryInfo } from "@/study-service";
 import { StudyLink } from "../../study-link";
 import { ExtendLinkButton } from "./extend-link-button";
 import { GenerateReportButton } from "./generate-report-button";
@@ -19,7 +19,7 @@ const STATUS_STYLES: Record<string, string> = {
 export default async function StudyDetailPage({ params }: { params: { studyId: string } }) {
   const study = await getStudyRepository().getById(params.studyId);
   if (!study) notFound();
-  const linkValidity = checkLinkValidity(study);
+  const linkExpiry = getLinkExpiryInfo(study);
 
   const [interviews, report] = await Promise.all([
     getInterviewRepository().listByStudyId(study.id),
@@ -62,9 +62,21 @@ export default async function StudyDetailPage({ params }: { params: { studyId: s
 
       <div className="mt-4">
         <StudyLink linkToken={study.linkToken} />
-        {linkValidity === "expired" && (
-          <p className="mt-2 text-sm text-red-600 dark:text-red-400">
-            This link expired. Extend it to let participants use it again.
+        {linkExpiry.expiresAt && (
+          <p
+            className={
+              linkExpiry.validity === "expired"
+                ? "mt-2 text-sm text-red-600 dark:text-red-400"
+                : linkExpiry.isExpiringSoon
+                  ? "mt-2 text-sm text-amber-600 dark:text-amber-400"
+                  : "mt-2 text-sm text-neutral-500 dark:text-neutral-400"
+            }
+          >
+            {linkExpiry.validity === "expired"
+              ? `This link expired on ${linkExpiry.expiresAt.toLocaleDateString()}. Extend it to let participants use it again.`
+              : linkExpiry.isExpiringSoon
+                ? `Link expires in ${linkExpiry.daysRemaining} day${linkExpiry.daysRemaining === 1 ? "" : "s"}, on ${linkExpiry.expiresAt.toLocaleDateString()} — extend it soon to keep it active.`
+                : `Link expires ${linkExpiry.expiresAt.toLocaleDateString()} (in ${linkExpiry.daysRemaining} days).`}
           </p>
         )}
         {study.status !== "closed" && (
