@@ -1,6 +1,6 @@
 "use client";
 
-import type { VoiceProvider } from "@/domain";
+import type { StudyType, VoiceProvider } from "@/domain";
 import { ElevenLabsLiveCall } from "./elevenlabs-live-call";
 import { VapiLiveCall } from "./vapi-live-call";
 
@@ -16,16 +16,23 @@ export function LiveCall({
   interviewId,
   firstName,
   voiceProvider,
+  type,
   onEnded,
 }: {
   interviewId: string;
   firstName: string;
   voiceProvider: VoiceProvider;
+  type: StudyType;
   onEnded: () => void;
 }) {
   return voiceProvider === "elevenlabs" ? (
-    <ElevenLabsLiveCall interviewId={interviewId} firstName={firstName} onEnded={onEnded} />
+    <ElevenLabsLiveCall
+      interviewId={interviewId}
+      firstName={firstName}
+      type={type}
+      onEnded={onEnded}
+    />
   ) : (
-    <VapiLiveCall interviewId={interviewId} onEnded={onEnded} />
+    <VapiLiveCall interviewId={interviewId} type={type} onEnded={onEnded} />
   );
 }

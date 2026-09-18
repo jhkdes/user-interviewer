@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Conversation } from "@elevenlabs/client";
+import type { StudyType } from "@/domain";
 import { CallShell, reportBackgrounded, requestWakeLock, type CallStatus } from "./call-shell";
 
 /**
@@ -21,10 +22,12 @@ import { CallShell, reportBackgrounded, requestWakeLock, type CallStatus } from 
 export function ElevenLabsLiveCall({
   interviewId,
   firstName,
+  type,
   onEnded,
 }: {
   interviewId: string;
   firstName: string;
+  type: StudyType;
   onEnded: () => void;
 }) {
   const [status, setStatus] = useState<CallStatus>("connecting");
@@ -171,5 +174,12 @@ export function ElevenLabsLiveCall({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- start the call exactly once per mount
   }, []);
 
-  return <CallShell status={status} errorMessage={errorMessage} elapsedSeconds={elapsedSeconds} />;
+  return (
+    <CallShell
+      status={status}
+      errorMessage={errorMessage}
+      elapsedSeconds={elapsedSeconds}
+      type={type}
+    />
+  );
 }

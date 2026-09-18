@@ -73,6 +73,7 @@ export function InterviewFlow({
           interviewId={interview.id}
           firstName={interview.firstName}
           voiceProvider={interview.voiceProvider}
+          type={type}
           onEnded={() => setStep("done")}
         />
       )}
