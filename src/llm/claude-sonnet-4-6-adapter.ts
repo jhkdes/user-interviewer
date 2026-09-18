@@ -4,6 +4,8 @@ import { IncrementalJsonStringExtractor } from "./incremental-json-string-extrac
 import type {
   GenerateDraftPreInterviewQuestionsInput,
   GenerateDraftPreInterviewQuestionsOutput,
+  GenerateFeedbackSummaryInput,
+  GenerateFeedbackSummaryOutput,
   GenerateInterviewerTurnInput,
   GenerateInterviewerTurnOutput,
   GenerateStudyReportInput,
@@ -17,6 +19,7 @@ import type {
 } from "./types";
 import {
   draftPreInterviewQuestionsSchema,
+  feedbackSummarySchema,
   interviewerTurnSchema,
   studyReportSchema,
   summarySchema,
@@ -88,6 +91,13 @@ Extract:
 - notableQuotes: short verbatim quotes from the participant that best illustrate those pain points.
 - takeaways: general takeaways a product manager reviewing this interview should know.
 - roleDescription: a short job title for the participant (e.g. "Product Manager", "Engineering Manager"), distilled from their answer to the interviewer's opening question — not a verbatim quote and not their day-to-day responsibilities. Null if they never clearly stated a role — do not invent or infer one from context.
+Base everything strictly on what the participant actually said — do not infer or invent details.`;
+
+const FEEDBACK_SUMMARY_SYSTEM_PROMPT = `You produce a structured summary of a single post-webinar feedback call transcript.
+Extract:
+- liked: specific things the participant said they liked or found valuable.
+- disliked: specific things the participant said didn't work or fell short.
+- suggestions: concrete suggestions the participant made to improve future sessions.
 Base everything strictly on what the participant actually said — do not infer or invent details.`;
 
 const STUDY_REPORT_SYSTEM_PROMPT = `You produce a cross-participant study report from several individual interview summaries and transcripts within the same research study.
@@ -356,6 +366,35 @@ export class ClaudeSonnet46Adapter implements LLMProviderAdapter {
       throw new Error("Failed to generate summary", { cause });
     }
     return parseStructuredResponse<GenerateSummaryOutput>(response, "Failed to generate summary");
+  }
+
+  async generateFeedbackSummary(
+    input: GenerateFeedbackSummaryInput,
+  ): Promise<GenerateFeedbackSummaryOutput> {
+    let response: Anthropic.Message;
+    try {
+      response = await this.client.messages.create({
+        model: MODEL,
+        max_tokens: 4096,
+        system: FEEDBACK_SUMMARY_SYSTEM_PROMPT,
+        thinking: { type: "disabled" },
+        messages: [
+          {
+            role: "user",
+            content: `Feedback call transcript:\n\n${formatTranscript(input.transcript)}`,
+          },
+        ],
+        output_config: {
+          format: { type: "json_schema", schema: feedbackSummarySchema },
+        },
+      });
+    } catch (cause) {
+      throw new Error("Failed to generate feedback summary", { cause });
+    }
+    return parseStructuredResponse<GenerateFeedbackSummaryOutput>(
+      response,
+      "Failed to generate feedback summary",
+    );
   }
 
   async generateStudyReport(input: GenerateStudyReportInput): Promise<GenerateStudyReportOutput> {

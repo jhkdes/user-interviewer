@@ -1,6 +1,8 @@
 import type {
   GenerateDraftPreInterviewQuestionsInput,
   GenerateDraftPreInterviewQuestionsOutput,
+  GenerateFeedbackSummaryInput,
+  GenerateFeedbackSummaryOutput,
   GenerateInterviewerTurnInput,
   GenerateInterviewerTurnOutput,
   GenerateStudyReportInput,
@@ -29,12 +31,14 @@ export class FakeLLMProvider implements LLMProviderAdapter {
     generateInterviewerTurn: GenerateInterviewerTurnInput[];
     generateInterviewerTurnStreaming: GenerateInterviewerTurnInput[];
     generateSummary: GenerateSummaryInput[];
+    generateFeedbackSummary: GenerateFeedbackSummaryInput[];
     generateStudyReport: GenerateStudyReportInput[];
     draftPreInterviewQuestions: GenerateDraftPreInterviewQuestionsInput[];
   } = {
     generateInterviewerTurn: [],
     generateInterviewerTurnStreaming: [],
     generateSummary: [],
+    generateFeedbackSummary: [],
     generateStudyReport: [],
     draftPreInterviewQuestions: [],
   };
@@ -42,6 +46,7 @@ export class FakeLLMProvider implements LLMProviderAdapter {
   private interviewerTurnQueue: GenerateInterviewerTurnOutput[] = [];
   private interviewerTurnStreamQueue: ScriptedInterviewerTurnStream[] = [];
   private summaryResult: GenerateSummaryOutput | null = null;
+  private feedbackSummaryResult: GenerateFeedbackSummaryOutput | null = null;
   private studyReportResult: GenerateStudyReportOutput | null = null;
   private draftPreInterviewQuestionsResult: GenerateDraftPreInterviewQuestionsOutput | null = null;
 
@@ -57,6 +62,10 @@ export class FakeLLMProvider implements LLMProviderAdapter {
 
   scriptSummary(result: GenerateSummaryOutput): void {
     this.summaryResult = result;
+  }
+
+  scriptFeedbackSummary(result: GenerateFeedbackSummaryOutput): void {
+    this.feedbackSummaryResult = result;
   }
 
   scriptStudyReport(result: GenerateStudyReportOutput): void {
@@ -111,6 +120,18 @@ export class FakeLLMProvider implements LLMProviderAdapter {
       throw new Error("FakeLLMProvider: no scripted summary — call scriptSummary() first");
     }
     return this.summaryResult;
+  }
+
+  async generateFeedbackSummary(
+    input: GenerateFeedbackSummaryInput,
+  ): Promise<GenerateFeedbackSummaryOutput> {
+    this.calls.generateFeedbackSummary.push(structuredClone(input));
+    if (!this.feedbackSummaryResult) {
+      throw new Error(
+        "FakeLLMProvider: no scripted feedback summary — call scriptFeedbackSummary() first",
+      );
+    }
+    return this.feedbackSummaryResult;
   }
 
   async generateStudyReport(input: GenerateStudyReportInput): Promise<GenerateStudyReportOutput> {

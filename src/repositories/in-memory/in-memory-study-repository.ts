@@ -12,9 +12,11 @@ export class InMemoryStudyRepository implements StudyRepository {
   async create(input: CreateStudyInput): Promise<Study> {
     const study: Study = {
       id: randomUUID(),
+      type: input.type ?? "discovery",
       title: input.title,
       description: input.description,
       preInterviewQuestions: input.preInterviewQuestions,
+      feedbackQuestions: input.feedbackQuestions ?? [],
       researchTopic: input.researchTopic ?? null,
       customPrompt: input.customPrompt ?? null,
       linkToken: input.linkToken,
@@ -70,5 +72,9 @@ export class InMemoryStudyRepository implements StudyRepository {
     const updated: Study = { ...study, ...patch };
     this.studies.set(id, updated);
     return { ...updated };
+  }
+
+  async delete(id: string): Promise<void> {
+    if (!this.studies.delete(id)) throw new Error(`Study not found: ${id}`);
   }
 }

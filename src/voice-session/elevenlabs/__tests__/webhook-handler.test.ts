@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { FakeEmailClient } from "@/lib/email";
 import { FakeLLMProvider } from "@/llm";
 import { InMemoryInterviewRepository } from "@/repositories/in-memory/in-memory-interview-repository";
+import { InMemoryStudyRepository } from "@/repositories/in-memory/in-memory-study-repository";
 import { InMemorySummaryRepository } from "@/repositories/in-memory/in-memory-summary-repository";
 import { MissingInterviewIdError } from "../../errors";
 import type {
@@ -19,26 +20,33 @@ const scriptedSummary = { ...summaryFields, roleDescription: null };
 
 async function setup() {
   const interviewRepo = new InMemoryInterviewRepository();
+  const studyRepo = new InMemoryStudyRepository();
   const summaryRepo = new InMemorySummaryRepository();
   const llm = new FakeLLMProvider();
   const emailClient = new FakeEmailClient();
   llm.scriptSummary(scriptedSummary);
 
+  const study = await studyRepo.create({
+    title: "How AI Actually Shows Up in a PM's Day",
+    description: "how product managers really use AI at work",
+    preInterviewQuestions: [],
+    linkToken: "token",
+  });
   const interview = await interviewRepo.create({
-    studyId: "study-1",
+    studyId: study.id,
     firstName: "Jordan",
     email: "jordan@example.com",
     roleDescription: "Engineering manager",
     voiceProvider: "elevenlabs",
   });
 
-  return { interviewRepo, summaryRepo, llm, emailClient, interview };
+  return { interviewRepo, studyRepo, summaryRepo, llm, emailClient, study, interview };
 }
 
 describe("handleElevenLabsWebhookMessage", () => {
   describe("post_call_transcription", () => {
     it("transitions pending -> completed, persisting transcript and the conversation id", async () => {
-      const { interviewRepo, summaryRepo, llm, emailClient, interview } = await setup();
+      const { interviewRepo, studyRepo, summaryRepo, llm, emailClient, interview } = await setup();
       const now = new Date("2026-08-19T12:20:00.000Z");
 
       const message: ElevenLabsPostCallTranscriptionPayload = {
@@ -57,7 +65,7 @@ describe("handleElevenLabsWebhookMessage", () => {
       };
 
       await handleElevenLabsWebhookMessage(
-        { interviewRepo, summaryRepo, llm, emailClient, now },
+        { interviewRepo, studyRepo, summaryRepo, llm, emailClient, now },
         message,
       );
 
@@ -74,18 +82,18 @@ describe("handleElevenLabsWebhookMessage", () => {
     });
 
     it("throws MissingInterviewIdError when dynamic_variables.interviewId is absent", async () => {
-      const { interviewRepo, summaryRepo, llm, emailClient } = await setup();
+      const { interviewRepo, studyRepo, summaryRepo, llm, emailClient } = await setup();
 
       await expect(
         handleElevenLabsWebhookMessage(
-          { interviewRepo, summaryRepo, llm, emailClient },
+          { interviewRepo, studyRepo, summaryRepo, llm, emailClient },
           { type: "post_call_transcription", data: { conversation_id: "conv-1" } },
         ),
       ).rejects.toThrow(MissingInterviewIdError);
     });
 
     it("triggers individual summary generation and sends the summary email", async () => {
-      const { interviewRepo, summaryRepo, llm, emailClient, interview } = await setup();
+      const { interviewRepo, studyRepo, summaryRepo, llm, emailClient, interview } = await setup();
 
       const message: ElevenLabsPostCallTranscriptionPayload = {
         type: "post_call_transcription",
@@ -102,7 +110,7 @@ describe("handleElevenLabsWebhookMessage", () => {
       };
 
       await handleElevenLabsWebhookMessage(
-        { interviewRepo, summaryRepo, llm, emailClient },
+        { interviewRepo, studyRepo, summaryRepo, llm, emailClient },
         message,
       );
 
@@ -115,7 +123,7 @@ describe("handleElevenLabsWebhookMessage", () => {
 
   describe("post_call_audio", () => {
     it("is ignored as a no-op — recordings are fetched on demand instead (see fetchConversationAudio)", async () => {
-      const { interviewRepo, summaryRepo, llm, emailClient } = await setup();
+      const { interviewRepo, studyRepo, summaryRepo, llm, emailClient } = await setup();
 
       const message: ElevenLabsPostCallAudioPayload = {
         type: "post_call_audio",
@@ -126,16 +134,19 @@ describe("handleElevenLabsWebhookMessage", () => {
       };
 
       await expect(
-        handleElevenLabsWebhookMessage({ interviewRepo, summaryRepo, llm, emailClient }, message),
+        handleElevenLabsWebhookMessage(
+          { interviewRepo, studyRepo, summaryRepo, llm, emailClient },
+          message,
+        ),
       ).resolves.not.toThrow();
     });
   });
 
   it("is a no-op for other event types", async () => {
-    const { interviewRepo, summaryRepo, llm, emailClient, interview } = await setup();
+    const { interviewRepo, studyRepo, summaryRepo, llm, emailClient, interview } = await setup();
 
     await handleElevenLabsWebhookMessage(
-      { interviewRepo, summaryRepo, llm, emailClient },
+      { interviewRepo, studyRepo, summaryRepo, llm, emailClient },
       { type: "conversation_started" },
     );
 

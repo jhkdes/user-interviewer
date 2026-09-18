@@ -9,9 +9,13 @@ export class InMemorySummaryRepository implements SummaryRepository {
     const summary: Summary = {
       id: randomUUID(),
       interviewId: input.interviewId,
-      painPoints: input.painPoints,
-      notableQuotes: input.notableQuotes,
-      takeaways: input.takeaways,
+      type: input.type ?? "discovery",
+      painPoints: input.painPoints ?? [],
+      notableQuotes: input.notableQuotes ?? [],
+      takeaways: input.takeaways ?? [],
+      liked: input.liked ?? [],
+      disliked: input.disliked ?? [],
+      suggestions: input.suggestions ?? [],
       createdAt: new Date(),
     };
     this.summariesByInterviewId.set(input.interviewId, summary);

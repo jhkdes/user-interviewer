@@ -3,6 +3,7 @@ import { getEmailClient } from "@/lib/email";
 import { getCompletionWebhookClient } from "@/lib/webhook";
 import { getLLMProvider } from "@/llm";
 import { getInterviewRepository } from "@/repositories/get-interview-repository";
+import { getStudyRepository } from "@/repositories/get-study-repository";
 import { getSummaryRepository } from "@/repositories/get-summary-repository";
 import { handleVapiWebhookMessage, type VapiWebhookPayload } from "@/voice-session";
 
@@ -18,6 +19,7 @@ export async function POST(request: Request) {
     await handleVapiWebhookMessage(
       {
         interviewRepo: getInterviewRepository(),
+        studyRepo: getStudyRepository(),
         summaryRepo: getSummaryRepository(),
         llm: getLLMProvider(),
         emailClient: getEmailClient(),

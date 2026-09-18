@@ -33,6 +33,7 @@ export default async function InterviewPage({
     <InterviewFlow
       linkToken={params.linkToken}
       trackingId={trackingId}
+      type={study.type}
       title={study.title}
       description={study.description}
       questions={study.preInterviewQuestions}

@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { Interview, PreInterviewQuestion } from "@/domain";
+import type { Interview, PreInterviewQuestion, StudyType } from "@/domain";
 import { isMobileDevice } from "@/lib/device";
 import { CompletionScreen } from "./completion-screen";
+import { FeedbackIntroScreen } from "./feedback-intro-screen";
 import { IntakeForm } from "./intake-form";
 import { IntroScreen } from "./intro-screen";
 import { LiveCall } from "./live-call";
@@ -15,12 +16,14 @@ type Step = "loading" | "mobile-blocked" | "intro" | "intake" | "call" | "done";
 export function InterviewFlow({
   linkToken,
   trackingId,
+  type,
   title,
   description,
   questions,
 }: {
   linkToken: string;
   trackingId?: string;
+  type: StudyType;
   title: string;
   description: string;
   questions: PreInterviewQuestion[];
@@ -42,10 +45,17 @@ export function InterviewFlow({
 
   return (
     <main className="mx-auto flex min-h-screen max-w-md flex-col items-center justify-center px-6">
-      {step === "mobile-blocked" && <MobileBlockedScreen />}
-      {step === "intro" && (
-        <IntroScreen title={title} description={description} onAgree={() => setStep("intake")} />
-      )}
+      {step === "mobile-blocked" && <MobileBlockedScreen type={type} />}
+      {step === "intro" &&
+        (type === "feedback" ? (
+          <FeedbackIntroScreen
+            title={title}
+            description={description}
+            onAgree={() => setStep("intake")}
+          />
+        ) : (
+          <IntroScreen title={title} description={description} onAgree={() => setStep("intake")} />
+        ))}
       {step === "intake" && (
         <IntakeForm
           linkToken={linkToken}

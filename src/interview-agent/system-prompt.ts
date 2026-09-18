@@ -1,4 +1,7 @@
+import { INTERVIEWER_NAME, RESPONSE_CONTRACT, interpolate } from "./shared-prompt-parts";
 import { HARD_CAP_MINUTES } from "./termination";
+
+export { INTERVIEWER_NAME };
 
 export interface InterviewPromptContext {
   participantFirstName: string;
@@ -68,17 +71,6 @@ export interface InterviewPromptContext {
 }
 
 /**
- * Appended to both the generated template and any custom prompt — the LLM
- * call's structured output shape (utterance/shouldEndInterview/
- * participantRequestedEnd) is enforced mechanically by Claude's json_schema
- * output_config regardless of prompt wording, but this still guides
- * *content* quality (a custom prompt author may not think to specify it
- * themselves).
- */
-const RESPONSE_CONTRACT = `## Every response
-Produce the next thing you'll say out loud, your honest assessment of whether the interview should end after this turn (shouldEndInterview — because sufficient depth has been reached), and whether the participant has explicitly and unambiguously asked to end the interview right now — said they have to go, asked you to end the call, said a clear goodbye — regardless of how much has been covered so far (participantRequestedEnd). These are different signals: shouldEndInterview is about depth being reached; participantRequestedEnd is about honoring a real person telling you to stop, which always takes priority over continuing to probe, no matter how early in the interview it happens. If participantRequestedEnd is true, your utterance this turn must be a brief, warm closing statement only — never a new question, never more probing — even if you've barely started. Never set shouldEndInterview to true on a turn where you're also asking the participant something — including a pre-close catch-all like "anything else you want to mention?" — a real question always means someone's about to answer it; if you have one more thing to ask (even a last catch-all), ask it with shouldEndInterview: false and wrap up on the turn after they reply instead. The utterance is read aloud to the participant verbatim — it must always be a real, complete sentence or two. Never respond with a placeholder, an ellipsis, or blank/empty text, even mid-thought.`;
-
-/**
  * Formats the pre-call screener answers as their own prompt section, appended
  * regardless of whether this study uses the generated template or a raw
  * `customPrompt` — so the interviewer always has this context and never
@@ -138,22 +130,6 @@ Either way, when you do close: that turn's utterance must be a closing statement
 
 `;
 
-function interpolate(template: string, vars: Record<string, string>): string {
-  let result = template;
-  for (const [key, value] of Object.entries(vars)) {
-    result = result.split(`{{${key}}}`).join(value);
-  }
-  return result;
-}
-
-/**
- * Fixed persona name the interviewer introduces itself with (GitHub issue #1).
- * A single fixed name (rather than letting the model pick per-interview)
- * keeps the persona consistent across sessions and interviews for the same
- * study.
- */
-export const INTERVIEWER_NAME = "Riley";
-
 /**
  * Builds the Mom Test-style system prompt for a single interview, per the
  * "Interview Agent Behavior" section of REQUIREMENTS.md. Pure function of
@@ -199,7 +175,7 @@ Once any thread related to the focus is on the table — whether ${participantFi
   return `${timeCheckGuidance}You are ${INTERVIEWER_NAME}, conducting a live, spoken user-research interview with ${participantFirstName}.
 
 ## Who you're talking to
-This is a 15-minute interview titled "${studyTitle}" — about ${studyDescription}. You don't yet know ${participantFirstName}'s specific role or day-to-day responsibilities beyond anything they already answered in a pre-call questionnaire, if any is shown further below — dig into that as your opening question.${researchFocusSection}
+This is a ${HARD_CAP_MINUTES}-minute interview titled "${studyTitle}" — about ${studyDescription}. You don't yet know ${participantFirstName}'s specific role or day-to-day responsibilities beyond anything they already answered in a pre-call questionnaire, if any is shown further below — dig into that as your opening question.${researchFocusSection}
 
 ## Style — Mom Test-aligned
 - Ask about specific past behavior and real events, not opinions, hypotheticals, or what they "would" want.

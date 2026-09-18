@@ -67,4 +67,41 @@ describe("validateStudyInput", () => {
     expect(result.errors).toContain("question 1: label is required");
     expect(result.errors).toContain("question 2: at least 2 options are required");
   });
+
+  describe("feedback-type input", () => {
+    const validFeedbackInput = {
+      type: "feedback" as const,
+      title: "Post-webinar feedback",
+      description: "quick check-in after today's session",
+      preInterviewQuestions: [],
+      feedbackQuestions: ["What did you think of the content?"],
+    };
+
+    it("is valid for a well-formed feedback-type input", () => {
+      expect(validateStudyInput(validFeedbackInput)).toEqual({ valid: true, errors: [] });
+    });
+
+    it("requires at least one feedback question", () => {
+      const result = validateStudyInput({ ...validFeedbackInput, feedbackQuestions: [] });
+      expect(result.valid).toBe(false);
+      expect(result.errors).toContain("at least one feedback question is required");
+    });
+
+    it("rejects a blank feedback question", () => {
+      const result = validateStudyInput({
+        ...validFeedbackInput,
+        feedbackQuestions: ["  "],
+      });
+      expect(result.valid).toBe(false);
+      expect(result.errors).toContain("feedback question 1: text is required");
+    });
+
+    it("ignores preInterviewQuestions content for feedback-type input", () => {
+      const result = validateStudyInput({
+        ...validFeedbackInput,
+        preInterviewQuestions: [{ id: "x", label: "", type: "single", options: [] }],
+      });
+      expect(result.valid).toBe(true);
+    });
+  });
 });

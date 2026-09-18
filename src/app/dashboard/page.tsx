@@ -37,6 +37,9 @@ export default async function DashboardPage() {
                   </p>
                 </div>
                 <div className="flex items-center gap-3 text-sm">
+                  <span className="rounded-full bg-neutral-100 px-2 py-0.5 capitalize text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300">
+                    {study.type}
+                  </span>
                   <span
                     className={
                       study.status === "open"

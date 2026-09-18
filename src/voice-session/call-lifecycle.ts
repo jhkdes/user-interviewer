@@ -3,12 +3,14 @@ import type { CompletionWebhookClient } from "@/lib/webhook";
 import type { LLMProviderAdapter } from "@/llm";
 import { notifyCompletionWebhook, sendInterviewSummaryEmail } from "@/notification-service";
 import type { InterviewRepository } from "@/repositories/interview-repository";
+import type { StudyRepository } from "@/repositories/study-repository";
 import type { SummaryRepository } from "@/repositories/summary-repository";
 import { generateIndividualSummary } from "@/summary-service";
 import type { NormalizedCallEndedEvent } from "./types";
 
 export interface CallLifecycleDeps {
   interviewRepo: InterviewRepository;
+  studyRepo: StudyRepository;
   summaryRepo: SummaryRepository;
   llm: LLMProviderAdapter;
   emailClient: EmailClient;

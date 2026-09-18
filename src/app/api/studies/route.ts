@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import type { PreInterviewQuestion, VoiceProvider } from "@/domain";
+import type { PreInterviewQuestion, StudyType, VoiceProvider } from "@/domain";
 import { getStudyRepository } from "@/repositories/get-study-repository";
 import { createStudy, InvalidStudyInputError } from "@/study-service";
 
@@ -9,9 +9,11 @@ export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
   const body = (await request.json().catch(() => null)) as {
+    type?: StudyType;
     title?: string;
     description?: string;
     preInterviewQuestions?: PreInterviewQuestion[];
+    feedbackQuestions?: string[];
     researchTopic?: string;
     customPrompt?: string;
     voiceProvider?: VoiceProvider;
@@ -23,9 +25,11 @@ export async function POST(request: Request) {
 
   try {
     const study = await createStudy(getStudyRepository(), {
+      type: body.type,
       title: body.title,
       description: body.description,
       preInterviewQuestions: body.preInterviewQuestions ?? [],
+      feedbackQuestions: body.feedbackQuestions,
       researchTopic: body.researchTopic,
       customPrompt: body.customPrompt,
       voiceProvider: body.voiceProvider,

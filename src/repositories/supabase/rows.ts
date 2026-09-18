@@ -2,9 +2,11 @@
 
 export interface StudyRow {
   id: string;
+  type: string;
   title: string;
   description: string;
   pre_interview_questions: unknown;
+  feedback_questions: unknown;
   research_topic: string | null;
   custom_prompt: string | null;
   link_token: string;
@@ -39,15 +41,20 @@ export interface InterviewRow {
   time_check_asked_at: string | null;
   extension_granted: boolean | null;
   second_time_check_asked_at: string | null;
+  open_floor_asked_at: string | null;
   tracking_id: string | null;
 }
 
 export interface SummaryRow {
   id: string;
   interview_id: string;
+  type: string;
   pain_points: unknown;
   notable_quotes: unknown;
   takeaways: unknown;
+  liked: unknown;
+  disliked: unknown;
+  suggestions: unknown;
   created_at: string;
 }
 

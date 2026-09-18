@@ -10,10 +10,16 @@ export function isSubstantiveSummary(summary: {
   painPoints: string[];
   notableQuotes: string[];
   takeaways: string[];
+  liked: string[];
+  disliked: string[];
+  suggestions: string[];
 }): boolean {
   return (
     summary.painPoints.length > 0 ||
     summary.notableQuotes.length > 0 ||
-    summary.takeaways.length > 0
+    summary.takeaways.length > 0 ||
+    summary.liked.length > 0 ||
+    summary.disliked.length > 0 ||
+    summary.suggestions.length > 0
   );
 }

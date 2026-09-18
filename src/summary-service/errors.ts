@@ -11,3 +11,10 @@ export class MissingTranscriptError extends Error {
     this.name = "MissingTranscriptError";
   }
 }
+
+export class StudyNotFoundError extends Error {
+  constructor(studyId: string) {
+    super(`No study found for id: ${studyId}`);
+    this.name = "StudyNotFoundError";
+  }
+}

@@ -39,6 +39,17 @@ export const summarySchema = {
   additionalProperties: false,
 } as const;
 
+export const feedbackSummarySchema = {
+  type: "object",
+  properties: {
+    liked: { type: "array", items: { type: "string" } },
+    disliked: { type: "array", items: { type: "string" } },
+    suggestions: { type: "array", items: { type: "string" } },
+  },
+  required: ["liked", "disliked", "suggestions"],
+  additionalProperties: false,
+} as const;
+
 export const draftPreInterviewQuestionsSchema = {
   type: "object",
   properties: {

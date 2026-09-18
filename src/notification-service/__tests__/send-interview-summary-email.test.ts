@@ -6,9 +6,13 @@ import { sendInterviewSummaryEmail } from "../send-interview-summary-email";
 import { InterviewNotFoundError } from "../errors";
 
 const substantiveSummary = {
+  type: "discovery" as const,
   painPoints: ["Manual status reporting eats a full afternoon each week."],
   notableQuotes: ["I basically have a second job just making slides."],
   takeaways: ["Reporting tooling is a strong candidate for automation."],
+  liked: [],
+  disliked: [],
+  suggestions: [],
 };
 
 async function setup() {
@@ -66,9 +70,13 @@ describe("sendInterviewSummaryEmail", () => {
     const { interviewRepo, emailClient, interview } = await setup();
 
     const result = await sendInterviewSummaryEmail({ interviewRepo, emailClient }, interview.id, {
+      type: "discovery",
       painPoints: [],
       notableQuotes: [],
       takeaways: [],
+      liked: [],
+      disliked: [],
+      suggestions: [],
     });
 
     expect(result).toEqual({ sent: false });

@@ -34,6 +34,7 @@ function toInterview(row: InterviewRow): Interview {
     secondTimeCheckAskedAt: row.second_time_check_asked_at
       ? new Date(row.second_time_check_asked_at)
       : null,
+    openFloorAskedAt: row.open_floor_asked_at ? new Date(row.open_floor_asked_at) : null,
     trackingId: row.tracking_id,
   };
 }
@@ -74,6 +75,9 @@ function toUpdateRow(patch: InterviewUpdate): Record<string, unknown> {
     row.second_time_check_asked_at = patch.secondTimeCheckAskedAt
       ? patch.secondTimeCheckAskedAt.toISOString()
       : null;
+  }
+  if (patch.openFloorAskedAt !== undefined) {
+    row.open_floor_asked_at = patch.openFloorAskedAt ? patch.openFloorAskedAt.toISOString() : null;
   }
   return row;
 }

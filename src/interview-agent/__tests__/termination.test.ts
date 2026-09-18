@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { InterviewTurn } from "@/llm";
 import {
   checkTermination,
+  FEEDBACK_HARD_CAP_MS,
   HARD_CAP_MS,
   isApproachingTimeLimit,
   MIN_PARTICIPANT_TURNS_BEFORE_LLM_CAN_END,
@@ -134,6 +135,54 @@ describe("checkTermination", () => {
       participantRequestedEnd: true,
     });
     expect(result).toBe("time-cap");
+  });
+
+  it("honors hardCapMs override — reaches 'time-cap' at FEEDBACK_HARD_CAP_MS rather than HARD_CAP_MS", () => {
+    const result = checkTermination({
+      conversationHistory: participantTurns(1),
+      interviewStartedAt: START,
+      now: new Date(START.getTime() + FEEDBACK_HARD_CAP_MS),
+      llmSuggestsEnd: false,
+      participantRequestedEnd: false,
+      hardCapMs: FEEDBACK_HARD_CAP_MS,
+    });
+    expect(result).toBe("time-cap");
+  });
+
+  it("does not trigger the feedback hard cap at the default (Discovery) HARD_CAP_MS duration", () => {
+    const result = checkTermination({
+      conversationHistory: participantTurns(1),
+      interviewStartedAt: START,
+      now: new Date(START.getTime() + FEEDBACK_HARD_CAP_MS - 1000),
+      llmSuggestsEnd: false,
+      participantRequestedEnd: false,
+      hardCapMs: FEEDBACK_HARD_CAP_MS,
+    });
+    expect(result).toBeNull();
+  });
+
+  it("honors minParticipantTurnsBeforeLlmCanEnd: 0 — the LLM's self-assessment is trusted immediately", () => {
+    const result = checkTermination({
+      conversationHistory: participantTurns(1),
+      interviewStartedAt: START,
+      now: new Date(START.getTime() + 60_000),
+      llmSuggestsEnd: true,
+      participantRequestedEnd: false,
+      minParticipantTurnsBeforeLlmCanEnd: 0,
+    });
+    expect(result).toBe("llm-self-assessed");
+  });
+
+  it("honors minParticipantTurnsBeforeLlmCanEnd: 0 even with zero participant turns at all", () => {
+    const result = checkTermination({
+      conversationHistory: [],
+      interviewStartedAt: START,
+      now: START,
+      llmSuggestsEnd: true,
+      participantRequestedEnd: false,
+      minParticipantTurnsBeforeLlmCanEnd: 0,
+    });
+    expect(result).toBe("llm-self-assessed");
   });
 });
 

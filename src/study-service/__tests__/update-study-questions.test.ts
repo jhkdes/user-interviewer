@@ -134,4 +134,47 @@ describe("updateStudyQuestions", () => {
     expect(updated.researchTopic).toBeNull();
     expect(updated.customPrompt).toBeNull();
   });
+
+  describe("feedback-type studies", () => {
+    async function setupFeedback() {
+      const repo = new InMemoryStudyRepository();
+      const study = await repo.create({
+        title: "Post-webinar feedback",
+        description: "quick check-in after today's session",
+        type: "feedback",
+        preInterviewQuestions: [],
+        feedbackQuestions: ["What did you think of the content?"],
+        linkToken: "feedback-token",
+      });
+      return { repo, study };
+    }
+
+    it("updates feedbackQuestions without requiring preInterviewQuestions", async () => {
+      const { repo, study } = await setupFeedback();
+
+      const updated = await updateStudyQuestions(repo, study.id, {
+        feedbackQuestions: ["What worked well?", "What could be improved?"],
+      });
+
+      expect(updated.feedbackQuestions).toEqual(["What worked well?", "What could be improved?"]);
+      expect(updated.type).toBe("feedback");
+    });
+
+    it("rejects an empty feedbackQuestions list", async () => {
+      const { repo, study } = await setupFeedback();
+
+      await expect(updateStudyQuestions(repo, study.id, { feedbackQuestions: [] })).rejects.toThrow(
+        InvalidStudyInputError,
+      );
+    });
+
+    it("leaves feedbackQuestions untouched when omitted, e.g. a title-only patch", async () => {
+      const { repo, study } = await setupFeedback();
+
+      const updated = await updateStudyQuestions(repo, study.id, { title: "New title" });
+
+      expect(updated.title).toBe("New title");
+      expect(updated.feedbackQuestions).toEqual(["What did you think of the content?"]);
+    });
+  });
 });
