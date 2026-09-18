@@ -9,6 +9,7 @@ function stubUserAgent(userAgent: string) {
 }
 
 const sampleStudy = {
+  type: "discovery" as const,
   title: "How AI Actually Shows Up in a PM's Day",
   description: "how product managers really use AI at work",
   questions: [],
@@ -41,5 +42,43 @@ describe("InterviewFlow", () => {
 
     await waitFor(() => expect(screen.getByText(/How AI Actually Shows Up/)).toBeInTheDocument());
     expect(screen.queryByText("Please open this link on a desktop")).not.toBeInTheDocument();
+  });
+
+  it("renders the simplified feedback intro screen for a feedback-type study", async () => {
+    stubUserAgent(
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    );
+
+    render(
+      <InterviewFlow
+        linkToken="token-1"
+        type="feedback"
+        title="Post-webinar feedback"
+        description="today's onboarding webinar"
+        questions={[]}
+      />,
+    );
+
+    await waitFor(() => expect(screen.getByText("Post-webinar feedback")).toBeInTheDocument());
+    expect(screen.getByText(/~5-minute/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Start" })).toBeInTheDocument();
+  });
+
+  it("shows the 5-7 minute duration on the mobile-blocked screen for a feedback-type study", async () => {
+    stubUserAgent(
+      "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1",
+    );
+
+    render(
+      <InterviewFlow
+        linkToken="token-1"
+        type="feedback"
+        title="Post-webinar feedback"
+        description="today's onboarding webinar"
+        questions={[]}
+      />,
+    );
+
+    expect(await screen.findByText(/5.7 minute/)).toBeInTheDocument();
   });
 });

@@ -5,6 +5,7 @@ import { verifyWebhookSignature } from "@/lib/elevenlabs/client";
 import { getCompletionWebhookClient } from "@/lib/webhook";
 import { getLLMProvider } from "@/llm";
 import { getInterviewRepository } from "@/repositories/get-interview-repository";
+import { getStudyRepository } from "@/repositories/get-study-repository";
 import { getSummaryRepository } from "@/repositories/get-summary-repository";
 import { handleElevenLabsWebhookMessage, type ElevenLabsWebhookPayload } from "@/voice-session";
 
@@ -56,6 +57,7 @@ export async function POST(request: Request) {
     await handleElevenLabsWebhookMessage(
       {
         interviewRepo: getInterviewRepository(),
+        studyRepo: getStudyRepository(),
         summaryRepo: getSummaryRepository(),
         llm: getLLMProvider(),
         emailClient: getEmailClient(),

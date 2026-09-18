@@ -1,8 +1,12 @@
 export interface SummaryEmailContent {
   firstName: string;
+  type: "discovery" | "feedback";
   painPoints: string[];
   notableQuotes: string[];
   takeaways: string[];
+  liked: string[];
+  disliked: string[];
+  suggestions: string[];
 }
 
 export interface RenderedEmail {
@@ -34,15 +38,24 @@ function renderList(items: string[]): string {
  * — no I/O, so it's fully unit-testable without a real email provider.
  */
 export function renderSummaryEmail(content: SummaryEmailContent): RenderedEmail {
-  const { firstName, painPoints, notableQuotes, takeaways } = content;
+  const { firstName, type, painPoints, notableQuotes, takeaways, liked, disliked, suggestions } =
+    content;
   const name = escapeHtml(firstName);
 
-  const sections = [
-    painPoints.length > 0 && `<h2>What stood out</h2>${renderList(painPoints)}`,
-    notableQuotes.length > 0 &&
-      `<h2>In your words</h2>${renderList(notableQuotes.map((quote) => `"${quote}"`))}`,
-    takeaways.length > 0 && `<h2>Takeaways</h2>${renderList(takeaways)}`,
-  ]
+  const sections = (
+    type === "feedback"
+      ? [
+          liked.length > 0 && `<h2>What you liked</h2>${renderList(liked)}`,
+          disliked.length > 0 && `<h2>What could be better</h2>${renderList(disliked)}`,
+          suggestions.length > 0 && `<h2>Suggestions</h2>${renderList(suggestions)}`,
+        ]
+      : [
+          painPoints.length > 0 && `<h2>What stood out</h2>${renderList(painPoints)}`,
+          notableQuotes.length > 0 &&
+            `<h2>In your words</h2>${renderList(notableQuotes.map((quote) => `"${quote}"`))}`,
+          takeaways.length > 0 && `<h2>Takeaways</h2>${renderList(takeaways)}`,
+        ]
+  )
     .filter(Boolean)
     .join("");
 

@@ -39,6 +39,20 @@ export const EXTENDED_SOFT_CAP_MS = EXTENDED_SOFT_CAP_MINUTES * 60 * 1000;
  */
 export const MIN_PARTICIPANT_TURNS_BEFORE_LLM_CAN_END = 4;
 
+/**
+ * Feedback-type studies (FEEDBACK_STUDY_TYPE.md decision 3): a single hard
+ * cap, not a soft/extended two-tier system like Discovery. FEEDBACK_TARGET_MINUTES
+ * is a *prompt-level* instruction only ("aim to wrap up in about 5
+ * minutes") — never enforced here. FEEDBACK_HARD_CAP_MS is the actual
+ * mechanical ceiling passed as `hardCapMs` for feedback-type interviews;
+ * there is no feedback-specific soft-cap constant since there's no
+ * scripted time-based check-in for this type (see FeedbackAgent's
+ * model-triggered open-floor mechanism instead).
+ */
+export const FEEDBACK_TARGET_MINUTES = 5;
+export const FEEDBACK_HARD_CAP_MINUTES = 7;
+export const FEEDBACK_HARD_CAP_MS = FEEDBACK_HARD_CAP_MINUTES * 60 * 1000;
+
 export type TerminationReason = "time-cap" | "participant-requested" | "llm-self-assessed" | null;
 
 export interface TerminationCheckInput {
@@ -60,8 +74,10 @@ export interface TerminationCheckInput {
    * `isInterviewOver` every time despite the LLM saying so.
    */
   participantRequestedEnd: boolean;
-  /** The effective hard cap for this interview — HARD_CAP_MS unless the participant has agreed to extend (EXTENDED_HARD_CAP_MS, see Interview.extensionGranted). Defaults to HARD_CAP_MS. */
+  /** The effective hard cap for this interview — HARD_CAP_MS unless the participant has agreed to extend (EXTENDED_HARD_CAP_MS, see Interview.extensionGranted), or FEEDBACK_HARD_CAP_MS for a feedback-type interview. Defaults to HARD_CAP_MS. */
   hardCapMs?: number;
+  /** Overrides MIN_PARTICIPANT_TURNS_BEFORE_LLM_CAN_END — FeedbackAgent passes 0, since a fixed short feedback-question list is already naturally bounded (FEEDBACK_STUDY_TYPE.md decision 4). Defaults to MIN_PARTICIPANT_TURNS_BEFORE_LLM_CAN_END. */
+  minParticipantTurnsBeforeLlmCanEnd?: number;
 }
 
 /** Pure predicate feeding system-prompt.ts's time-check guidance — see SOFT_CAP_MS. `softCapMs` defaults to SOFT_CAP_MS; pass EXTENDED_SOFT_CAP_MS to check against the extended cap's warning window instead. */
@@ -103,7 +119,9 @@ export function checkTermination(input: TerminationCheckInput): TerminationReaso
     (turn) => turn.speaker === "participant",
   ).length;
 
-  if (input.llmSuggestsEnd && participantTurnCount >= MIN_PARTICIPANT_TURNS_BEFORE_LLM_CAN_END) {
+  const minParticipantTurns =
+    input.minParticipantTurnsBeforeLlmCanEnd ?? MIN_PARTICIPANT_TURNS_BEFORE_LLM_CAN_END;
+  if (input.llmSuggestsEnd && participantTurnCount >= minParticipantTurns) {
     return "llm-self-assessed";
   }
 

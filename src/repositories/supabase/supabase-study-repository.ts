@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { PreInterviewQuestion, Study, StudyStatus, VoiceProvider } from "@/domain";
+import type { PreInterviewQuestion, Study, StudyStatus, StudyType, VoiceProvider } from "@/domain";
 import type {
   CreateStudyInput,
   StudyRepository,
@@ -10,9 +10,11 @@ import type { StudyRow } from "./rows";
 function toStudy(row: StudyRow): Study {
   return {
     id: row.id,
+    type: row.type as StudyType,
     title: row.title,
     description: row.description,
     preInterviewQuestions: (row.pre_interview_questions as PreInterviewQuestion[] | null) ?? [],
+    feedbackQuestions: (row.feedback_questions as string[] | null) ?? [],
     researchTopic: row.research_topic,
     customPrompt: row.custom_prompt,
     linkToken: row.link_token,
@@ -31,9 +33,11 @@ export class SupabaseStudyRepository implements StudyRepository {
     const { data, error } = await this.client
       .from("studies")
       .insert({
+        type: input.type ?? "discovery",
         title: input.title,
         description: input.description,
         pre_interview_questions: input.preInterviewQuestions,
+        feedback_questions: input.feedbackQuestions ?? [],
         research_topic: input.researchTopic ?? null,
         custom_prompt: input.customPrompt ?? null,
         link_token: input.linkToken,
@@ -107,6 +111,7 @@ export class SupabaseStudyRepository implements StudyRepository {
     if (patch.preInterviewQuestions !== undefined) {
       row.pre_interview_questions = patch.preInterviewQuestions;
     }
+    if (patch.feedbackQuestions !== undefined) row.feedback_questions = patch.feedbackQuestions;
     if (patch.researchTopic !== undefined) row.research_topic = patch.researchTopic;
     if (patch.customPrompt !== undefined) row.custom_prompt = patch.customPrompt;
 
@@ -120,5 +125,17 @@ export class SupabaseStudyRepository implements StudyRepository {
     if (error) throw new Error(`Failed to update study details: ${error.message}`);
     if (!data) throw new Error(`Study not found: ${id}`);
     return toStudy(data as StudyRow);
+  }
+
+  async delete(id: string): Promise<void> {
+    const { data, error } = await this.client
+      .from("studies")
+      .delete()
+      .eq("id", id)
+      .select("id")
+      .maybeSingle();
+
+    if (error) throw new Error(`Failed to delete study: ${error.message}`);
+    if (!data) throw new Error(`Study not found: ${id}`);
   }
 }

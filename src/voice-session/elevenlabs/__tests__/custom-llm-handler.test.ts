@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { InterviewAgent } from "@/interview-agent";
+import { FeedbackAgent, InterviewAgent } from "@/interview-agent";
 import { FakeLLMProvider } from "@/llm";
 import { InMemoryInterviewRepository } from "@/repositories/in-memory/in-memory-interview-repository";
 import { InMemoryStudyRepository } from "@/repositories/in-memory/in-memory-study-repository";
@@ -15,6 +15,7 @@ async function setup() {
   const interviewRepo = new InMemoryInterviewRepository();
   const llm = new FakeLLMProvider();
   const interviewAgent = new InterviewAgent(llm);
+  const feedbackAgent = new FeedbackAgent(llm);
 
   const study = await studyRepo.create({
     title: "How AI Actually Shows Up in a PM's Day",
@@ -31,7 +32,7 @@ async function setup() {
     voiceProvider: "elevenlabs",
   });
 
-  return { studyRepo, interviewRepo, llm, interviewAgent, study, interview };
+  return { studyRepo, interviewRepo, llm, interviewAgent, feedbackAgent, study, interview };
 }
 
 function requestFor(
@@ -72,7 +73,7 @@ async function drain(stream: AsyncGenerator<string, void, unknown>): Promise<Str
 
 describe("streamElevenLabsCustomLlmResponse", () => {
   it("streams the utterance incrementally, one content-delta chunk per scripted text chunk, before the decision is known", async () => {
-    const { interviewAgent, interviewRepo, studyRepo, llm, interview, study } = await setup();
+    const { interviewAgent, feedbackAgent, interviewRepo, studyRepo, llm, interview, study } = await setup();
     const now = new Date("2026-08-19T12:01:00.000Z");
     await interviewRepo.update(interview.id, { startedAt: now });
     llm.scriptInterviewerTurnStreams([
@@ -81,7 +82,7 @@ describe("streamElevenLabsCustomLlmResponse", () => {
 
     const chunks = await drain(
       streamElevenLabsCustomLlmResponse(
-        { interviewAgent, interviewRepo, studyRepo, now },
+        { interviewAgent, feedbackAgent, interviewRepo, studyRepo, now },
         requestFor(interview.id, [{ role: "user", content: "It's frustrating." }]),
         { interviewId: interview.id, interview, study },
       ),
@@ -101,7 +102,7 @@ describe("streamElevenLabsCustomLlmResponse", () => {
   });
 
   it("streams the utterance followed by an end_call tool call when the interview is over", async () => {
-    const { interviewAgent, interviewRepo, studyRepo, llm, interview, study } = await setup();
+    const { interviewAgent, feedbackAgent, interviewRepo, studyRepo, llm, interview, study } = await setup();
     const now = new Date("2026-08-19T12:01:00.000Z");
     await interviewRepo.update(interview.id, { startedAt: now });
     const history = Array.from({ length: 4 }, (_, i) => [
@@ -114,7 +115,7 @@ describe("streamElevenLabsCustomLlmResponse", () => {
 
     const chunks = await drain(
       streamElevenLabsCustomLlmResponse(
-        { interviewAgent, interviewRepo, studyRepo, now },
+        { interviewAgent, feedbackAgent, interviewRepo, studyRepo, now },
         requestFor(interview.id, history),
         { interviewId: interview.id, interview, study },
       ),
@@ -128,14 +129,14 @@ describe("streamElevenLabsCustomLlmResponse", () => {
   });
 
   it("forwards a degenerate/empty utterance with no retry — no safety net on the streaming path", async () => {
-    const { interviewAgent, interviewRepo, studyRepo, llm, interview, study } = await setup();
+    const { interviewAgent, feedbackAgent, interviewRepo, studyRepo, llm, interview, study } = await setup();
     const now = new Date("2026-08-19T12:01:00.000Z");
     await interviewRepo.update(interview.id, { startedAt: now });
     llm.scriptInterviewerTurnStreams([{ textChunks: [""], shouldEndInterview: false }]);
 
     const chunks = await drain(
       streamElevenLabsCustomLlmResponse(
-        { interviewAgent, interviewRepo, studyRepo, now },
+        { interviewAgent, feedbackAgent, interviewRepo, studyRepo, now },
         requestFor(interview.id, [{ role: "user", content: "..." }]),
         { interviewId: interview.id, interview, study },
       ),
@@ -148,21 +149,21 @@ describe("streamElevenLabsCustomLlmResponse", () => {
 
 describe("resolveElevenLabsStreamContext", () => {
   it("throws MissingInterviewIdError when elevenlabs_extra_body.interviewId is absent", async () => {
-    const { interviewAgent, interviewRepo, studyRepo } = await setup();
+    const { interviewAgent, feedbackAgent, interviewRepo, studyRepo } = await setup();
 
     await expect(
       resolveElevenLabsStreamContext(
-        { interviewAgent, interviewRepo, studyRepo },
+        { interviewAgent, feedbackAgent, interviewRepo, studyRepo },
         { model: "gpt-4o", messages: [] },
       ),
     ).rejects.toThrow(MissingInterviewIdError);
   });
 
   it("resolves the interview and study eagerly, before any stream is opened", async () => {
-    const { interviewAgent, interviewRepo, studyRepo, interview, study } = await setup();
+    const { interviewAgent, feedbackAgent, interviewRepo, studyRepo, interview, study } = await setup();
 
     const context = await resolveElevenLabsStreamContext(
-      { interviewAgent, interviewRepo, studyRepo },
+      { interviewAgent, feedbackAgent, interviewRepo, studyRepo },
       requestFor(interview.id, []),
     );
 

@@ -7,6 +7,7 @@ import { checkLinkValidity } from "@/study-service";
 import { StudyLink } from "../../study-link";
 import { ExtendLinkButton } from "./extend-link-button";
 import { GenerateReportButton } from "./generate-report-button";
+import { RemoveStudyButton } from "./remove-study-button";
 
 const STATUS_STYLES: Record<string, string> = {
   completed: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
@@ -38,7 +39,12 @@ export default async function StudyDetailPage({ params }: { params: { studyId: s
         ← All studies
       </Link>
 
-      <h1 className="mt-2 text-xl font-semibold">{study.title || "(untitled study)"}</h1>
+      <div className="mt-2 flex items-center gap-2">
+        <h1 className="text-xl font-semibold">{study.title || "(untitled study)"}</h1>
+        <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-sm capitalize text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300">
+          {study.type}
+        </span>
+      </div>
       <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-sm text-neutral-600 dark:text-neutral-400">
         <div className="col-span-2">
           <dt className="inline font-medium">Description: </dt>
@@ -49,8 +55,17 @@ export default async function StudyDetailPage({ params }: { params: { studyId: s
           <dd className="inline">{study.status}</dd>
         </div>
         <div>
-          <dt className="inline font-medium">Pre-interview questions: </dt>
-          <dd className="inline">{study.preInterviewQuestions.length}</dd>
+          {study.type === "feedback" ? (
+            <>
+              <dt className="inline font-medium">Feedback questions: </dt>
+              <dd className="inline">{study.feedbackQuestions.length}</dd>
+            </>
+          ) : (
+            <>
+              <dt className="inline font-medium">Pre-interview questions: </dt>
+              <dd className="inline">{study.preInterviewQuestions.length}</dd>
+            </>
+          )}
         </div>
       </dl>
       <Link
@@ -120,7 +135,12 @@ export default async function StudyDetailPage({ params }: { params: { studyId: s
 
       <section className="mt-8">
         <h2 className="font-semibold">Study report</h2>
-        {report ? (
+        {study.type === "feedback" ? (
+          <p className="mt-2 text-sm text-neutral-500 dark:text-neutral-400">
+            Cross-participant study reports aren&apos;t available for feedback studies yet — see
+            each interview&apos;s individual summary instead.
+          </p>
+        ) : report ? (
           <div className="mt-3">
             <p className="text-sm text-neutral-500 dark:text-neutral-400">
               Version {report.version} · generated {report.generatedAt.toLocaleString()} ·{" "}
@@ -152,10 +172,14 @@ export default async function StudyDetailPage({ params }: { params: { studyId: s
             No report generated yet.
           </p>
         )}
-        <div className="mt-4">
-          <GenerateReportButton studyId={study.id} />
-        </div>
+        {study.type !== "feedback" && (
+          <div className="mt-4">
+            <GenerateReportButton studyId={study.id} />
+          </div>
+        )}
       </section>
+
+      <RemoveStudyButton studyId={study.id} studyTitle={study.title} />
     </div>
   );
 }

@@ -12,9 +12,13 @@ export interface SendInterviewSummaryEmailDeps {
 }
 
 export interface InterviewSummaryEmailInput {
+  type: "discovery" | "feedback";
   painPoints: string[];
   notableQuotes: string[];
   takeaways: string[];
+  liked: string[];
+  disliked: string[];
+  suggestions: string[];
 }
 
 export interface SendInterviewSummaryEmailResult {
@@ -52,9 +56,13 @@ export async function sendInterviewSummaryEmail(
 
   const { subject, html } = renderSummaryEmail({
     firstName: interview.firstName,
+    type: summary.type,
     painPoints: summary.painPoints,
     notableQuotes: summary.notableQuotes,
     takeaways: summary.takeaways,
+    liked: summary.liked,
+    disliked: summary.disliked,
+    suggestions: summary.suggestions,
   });
 
   await deps.emailClient.send({ to: interview.email, subject, html });

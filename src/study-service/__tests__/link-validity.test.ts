@@ -4,9 +4,11 @@ import { checkLinkValidity } from "../link-validity";
 
 const baseStudy: Study = {
   id: "study-1",
+  type: "discovery",
   title: "How AI Actually Shows Up in a PM's Day",
   description: "how product managers really use AI at work",
   preInterviewQuestions: [],
+  feedbackQuestions: [],
   researchTopic: null,
   customPrompt: null,
   linkToken: "token",

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { InterviewAgent } from "@/interview-agent";
+import { FeedbackAgent, InterviewAgent } from "@/interview-agent";
 import { isVoiceSessionDebugEnabled } from "@/lib/debug";
 import { getLLMProvider } from "@/llm";
 import { getInterviewRepository } from "@/repositories/get-interview-repository";
@@ -34,6 +34,7 @@ export async function POST(request: Request) {
 
   const deps = {
     interviewAgent: new InterviewAgent(getLLMProvider()),
+    feedbackAgent: new FeedbackAgent(getLLMProvider()),
     interviewRepo: getInterviewRepository(),
     studyRepo: getStudyRepository(),
   };

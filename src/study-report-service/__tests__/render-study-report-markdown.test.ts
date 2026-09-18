@@ -4,9 +4,11 @@ import { renderStudyReportMarkdown } from "../render-study-report-markdown";
 
 const study: Study = {
   id: "study-1",
+  type: "discovery",
   title: "Engineering Manager",
   description: "how engineering managers keep delivery on track",
   preInterviewQuestions: [],
+  feedbackQuestions: [],
   researchTopic: null,
   customPrompt: null,
   linkToken: "token-1",

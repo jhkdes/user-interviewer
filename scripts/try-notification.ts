@@ -27,6 +27,7 @@ async function main() {
 
   const { subject, html } = renderSummaryEmail({
     firstName: "Jordan",
+    type: "discovery",
     painPoints: [
       "Manually copies sales numbers between two spreadsheets every morning — about an hour a day.",
       "No visibility into which deals are stuck until a customer complains.",
@@ -36,6 +37,9 @@ async function main() {
       "By the time I notice something's wrong, it's already a fire.",
     ],
     takeaways: ["Reporting tooling is a strong candidate for automation."],
+    liked: [],
+    disliked: [],
+    suggestions: [],
   });
 
   console.log(`Sending test summary email to ${to}...`);
