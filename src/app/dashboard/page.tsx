@@ -1,5 +1,36 @@
 import Link from "next/link";
 import { getStudyRepository } from "@/repositories/get-study-repository";
+import { getLinkExpiryInfo } from "@/study-service";
+
+/** Small "Expires in Xd" / "Link expired" indicator so a PM can see it's about to go dead before it actually does, without opening each study. Nothing shown for a closed study — there's no countdown to report. */
+function ExpiryBadge({
+  expiresAt,
+  daysRemaining,
+  validity,
+  isExpiringSoon,
+}: ReturnType<typeof getLinkExpiryInfo>) {
+  if (!expiresAt) return null;
+
+  if (validity === "expired") {
+    return (
+      <span className="rounded-full bg-red-100 px-2 py-0.5 text-red-800 dark:bg-red-900 dark:text-red-200">
+        Link expired
+      </span>
+    );
+  }
+
+  return (
+    <span
+      className={
+        isExpiringSoon
+          ? "rounded-full bg-amber-100 px-2 py-0.5 text-amber-800 dark:bg-amber-900 dark:text-amber-200"
+          : "rounded-full bg-neutral-100 px-2 py-0.5 text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400"
+      }
+    >
+      Expires in {daysRemaining}d
+    </span>
+  );
+}
 
 /** Study list (T10.2) — the dashboard's landing page. */
 export default async function DashboardPage() {
@@ -37,6 +68,7 @@ export default async function DashboardPage() {
                   </p>
                 </div>
                 <div className="flex items-center gap-3 text-sm">
+                  <ExpiryBadge {...getLinkExpiryInfo(study)} />
                   <span
                     className={
                       study.status === "open"
