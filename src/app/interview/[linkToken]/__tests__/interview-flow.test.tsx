@@ -8,6 +8,12 @@ function stubUserAgent(userAgent: string) {
   vi.stubGlobal("navigator", { ...navigator, userAgent });
 }
 
+const sampleStudy = {
+  title: "How AI Actually Shows Up in a PM's Day",
+  description: "how product managers really use AI at work",
+  questions: [],
+};
+
 afterEach(() => {
   vi.unstubAllGlobals();
   cleanup();
@@ -19,7 +25,7 @@ describe("InterviewFlow", () => {
       "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1",
     );
 
-    render(<InterviewFlow linkToken="token-1" />);
+    render(<InterviewFlow linkToken="token-1" {...sampleStudy} />);
 
     expect(await screen.findByText("Please open this link on a desktop")).toBeInTheDocument();
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
@@ -31,7 +37,7 @@ describe("InterviewFlow", () => {
       "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
     );
 
-    render(<InterviewFlow linkToken="token-1" />);
+    render(<InterviewFlow linkToken="token-1" {...sampleStudy} />);
 
     await waitFor(() => expect(screen.getByText(/How AI Actually Shows Up/)).toBeInTheDocument());
     expect(screen.queryByText("Please open this link on a desktop")).not.toBeInTheDocument();

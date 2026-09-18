@@ -24,19 +24,14 @@ const context: InterviewPromptContext = {
   participantFirstName: "Jordan",
   participantRoleDescription:
     "Senior Product Manager owning the core platform roadmap at a mid-size SaaS company",
-  targetProfile: {
-    industry: "SaaS",
-    yearsOfExperience: "5-10 years",
-    jobTitle: "Product Manager",
-    seniority: "Senior",
-    responsibility: "Owns the core platform roadmap",
-  },
+  studyTitle: "How AI Actually Shows Up in a PM's Day",
+  studyDescription: "how product managers really use AI at work",
   researchTopic:
     "How AI actually shows up in a PM's day — dig into where they use AI tools, where they've tried and abandoned it, and where they're anxious about it (job security, being second-guessed by AI-generated specs, etc.)",
   // customPrompt takes precedence over researchTopic above when both are set
   // (researchTopic is simply ignored while this is non-null). Set to null to
   // fall back to testing the generated template + researchTopic path instead.
-  customPrompt: `You are a research interviewer conducting a voice conversation for a study called "How AI Actually Shows Up in a PM's Day," run by discoverFirst.co. You are talking with {{participant_name}}, who described their role as: {{participant_role}}.
+  customPrompt: `You are a research interviewer conducting a voice conversation for a study called "How AI Actually Shows Up in a PM's Day," run by discoverFirst.co. You are talking with {{participant_name}}, a Senior Product Manager.
 
 ### Your goal
 

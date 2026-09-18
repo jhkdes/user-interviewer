@@ -1,14 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import type { Interview } from "@/domain";
-// Imported from their own modules, not the `@/participant-intake` barrel —
+import type { Interview, PreInterviewQuestion } from "@/domain";
+// Imported from its own module, not the `@/participant-intake` barrel —
 // this is a Client Component, and the barrel also re-exports
 // `start-interview.ts`, which transitively pulls in `@/study-service`'s
 // barrel and its `node:crypto`-using `link-token.ts` (see M10's PROGRESS.md
 // for the same bug hit with `@/study-service`).
 import { validateIntake } from "@/participant-intake/intake-validation";
-import { SCREENER_QUESTIONS } from "@/participant-intake/screener-questions";
 
 interface IntakeFormValues {
   firstName: string;
@@ -24,18 +23,21 @@ const OTHER_OPTION = "Other";
  * submission sends `consentGiven: true`. Role/responsibility (M13) is no
  * longer collected here — the interviewer asks for it conversationally as
  * the opening question instead (see system-prompt.ts). Below name/email,
- * renders the (all-optional) pre-call screener questionnaire, shared with
- * the AI interviewer as context (see screener-questions.ts).
+ * renders this study's own (all-optional) pre-call screener questionnaire
+ * — authored per study rather than a fixed global list — shared with the AI
+ * interviewer as context (see Study.preInterviewQuestions).
  */
 export function IntakeForm({
   linkToken,
   trackingId,
   deviceType,
+  questions,
   onStarted,
 }: {
   linkToken: string;
   trackingId?: string;
   deviceType: "desktop" | "mobile";
+  questions: PreInterviewQuestion[];
   onStarted: (interview: Interview) => void;
 }) {
   const [values, setValues] = useState<IntakeFormValues>(EMPTY_VALUES);
@@ -158,11 +160,13 @@ export function IntakeForm({
           />
         </label>
 
-        <p className="pt-2 text-xs text-neutral-500 dark:text-neutral-400">
-          A few optional questions to help us understand who we&apos;re talking with:
-        </p>
+        {questions.length > 0 && (
+          <p className="pt-2 text-xs text-neutral-500 dark:text-neutral-400">
+            A few optional questions to help us understand who we&apos;re talking with:
+          </p>
+        )}
 
-        {SCREENER_QUESTIONS.map((question) =>
+        {questions.map((question) =>
           question.type === "single" ? (
             <label key={question.id} className="block text-sm">
               {question.label}

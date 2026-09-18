@@ -2,62 +2,61 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import type { Study, TargetProfile } from "@/domain";
-// Imported from its own module, not the `@/study-service` barrel — this is
-// a Client Component, and the barrel also re-exports `link-token.ts`
-// (`node:crypto`), which webpack can't bundle for the browser.
-import { validateTargetProfile } from "@/study-service/target-profile-validation";
+import type { PreInterviewQuestion, Study } from "@/domain";
+import { QuestionEditor } from "../question-editor";
 import { StudyLink } from "../../study-link";
 
-const FIELDS: { name: keyof TargetProfile; label: string; placeholder: string }[] = [
-  { name: "industry", label: "Industry", placeholder: "e.g. Fintech" },
-  { name: "yearsOfExperience", label: "Years of experience", placeholder: "e.g. 5-10 years" },
-  { name: "jobTitle", label: "Job title", placeholder: "e.g. Product Manager" },
-  { name: "seniority", label: "Seniority", placeholder: "e.g. Senior" },
-  {
-    name: "responsibility",
-    label: "Overall responsibility",
-    placeholder: "e.g. Owns the payments roadmap",
-  },
-];
-
-const EMPTY_PROFILE: TargetProfile = {
-  industry: "",
-  yearsOfExperience: "",
-  jobTitle: "",
-  seniority: "",
-  responsibility: "",
-};
+type Step = "details" | "questions";
 
 export function NewStudyForm() {
-  const [profile, setProfile] = useState<TargetProfile>(EMPTY_PROFILE);
+  const [step, setStep] = useState<Step>("details");
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
   const [researchTopic, setResearchTopic] = useState("");
   const [customPrompt, setCustomPrompt] = useState("");
   const [voiceProvider, setVoiceProvider] = useState<"vapi" | "elevenlabs">("vapi");
+  const [questions, setQuestions] = useState<PreInterviewQuestion[]>([]);
   const [errors, setErrors] = useState<string[]>([]);
+  const [generating, setGenerating] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [created, setCreated] = useState<Study | null>(null);
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleGenerateQuestions(e: React.FormEvent) {
     e.preventDefault();
 
-    // Pre-validate client-side with the same pure function the API route
-    // uses server-side (src/study-service/target-profile-validation.ts), so
-    // the messages are identical and a round trip isn't needed just to
-    // catch an empty field.
-    const result = validateTargetProfile(profile);
-    if (!result.valid) {
-      setErrors(result.errors);
+    if (!title.trim() || !description.trim()) {
+      setErrors(["title and description are required"]);
       return;
     }
 
+    setErrors([]);
+    setGenerating(true);
+    const res = await fetch("/api/studies/draft-questions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: title.trim(), description: description.trim() }),
+    });
+    setGenerating(false);
+
+    if (!res.ok) {
+      setErrors(["Failed to generate questions. Please try again."]);
+      return;
+    }
+
+    setQuestions((await res.json()) as PreInterviewQuestion[]);
+    setStep("questions");
+  }
+
+  async function handleCreateStudy() {
     setErrors([]);
     setSubmitting(true);
     const res = await fetch("/api/studies", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        targetProfile: profile,
+        title: title.trim(),
+        description: description.trim(),
+        preInterviewQuestions: questions,
         ...(researchTopic.trim() ? { researchTopic: researchTopic.trim() } : {}),
         ...(customPrompt.trim() ? { customPrompt: customPrompt.trim() } : {}),
         voiceProvider,
@@ -94,27 +93,92 @@ export function NewStudyForm() {
     );
   }
 
+  if (step === "questions") {
+    return (
+      <div>
+        <h1 className="text-xl font-semibold">Pre-interview questions</h1>
+        <p className="mt-2 text-sm text-neutral-500 dark:text-neutral-400">
+          Drafted from your study details — edit, add, or remove questions before creating the
+          study.
+        </p>
+
+        <div className="mt-6">
+          <QuestionEditor questions={questions} onChange={setQuestions} />
+        </div>
+
+        {errors.length > 0 && (
+          <ul
+            role="alert"
+            className="mt-4 list-inside list-disc text-sm text-red-600 dark:text-red-400"
+          >
+            {errors.map((error) => (
+              <li key={error}>{error}</li>
+            ))}
+          </ul>
+        )}
+
+        <div className="mt-6 flex gap-2">
+          <button
+            type="button"
+            onClick={() => setStep("details")}
+            className="rounded border border-neutral-300 px-4 py-1.5 text-sm hover:bg-neutral-50 dark:border-neutral-700 dark:hover:bg-neutral-900"
+          >
+            Back
+          </button>
+          <button
+            type="button"
+            onClick={handleGenerateQuestions}
+            disabled={generating}
+            className="rounded border border-neutral-300 px-4 py-1.5 text-sm hover:bg-neutral-50 dark:border-neutral-700 dark:hover:bg-neutral-900"
+          >
+            {generating ? "Regenerating…" : "Regenerate"}
+          </button>
+          <button
+            type="button"
+            onClick={handleCreateStudy}
+            disabled={submitting}
+            className="rounded bg-neutral-900 px-4 py-1.5 text-sm text-white hover:bg-neutral-700 dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-200"
+          >
+            {submitting ? "Creating…" : "Create study"}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div>
       <h1 className="text-xl font-semibold">New Study</h1>
-      <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-        {FIELDS.map((field) => (
-          <label key={field.name} className="block text-sm">
-            {field.label}
-            <input
-              type="text"
-              placeholder={field.placeholder}
-              value={profile[field.name]}
-              onChange={(e) => setProfile({ ...profile, [field.name]: e.target.value })}
-              className="mt-1 block w-full rounded border border-neutral-300 px-3 py-1.5 dark:border-neutral-700 dark:bg-neutral-900"
-            />
-          </label>
-        ))}
+      <form onSubmit={handleGenerateQuestions} className="mt-6 space-y-4">
+        <label className="block text-sm">
+          Title
+          <input
+            type="text"
+            placeholder="e.g. How Controllers Keep Financial Statements Clean"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            className="mt-1 block w-full rounded border border-neutral-300 px-3 py-1.5 dark:border-neutral-700 dark:bg-neutral-900"
+          />
+        </label>
+
+        <label className="block text-sm">
+          Description
+          <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
+            Completes: &ldquo;A 15-minute AI-run interview about ...&rdquo;
+          </p>
+          <textarea
+            placeholder="e.g. challenges in keeping financial statements clean and reconciled"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            rows={2}
+            className="mt-1 block w-full rounded border border-neutral-300 px-3 py-1.5 dark:border-neutral-700 dark:bg-neutral-900"
+          />
+        </label>
 
         <label className="block text-sm">
           Research topic <span className="text-neutral-400">(optional)</span>
           <textarea
-            placeholder="e.g. How AI actually shows up in a PM's day — dig into where they use AI tools, where they've abandoned it, and where they're anxious about it"
+            placeholder="e.g. dig into where reconciliation breaks down, what tools they've tried, and where they're anxious about compliance"
             value={researchTopic}
             onChange={(e) => setResearchTopic(e.target.value)}
             rows={3}
@@ -126,8 +190,7 @@ export function NewStudyForm() {
           Custom interview prompt <span className="text-neutral-400">(advanced, optional)</span>
           <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
             Full control over interviewing strategy. If set, this replaces the research topic above
-            entirely for this study. Supports <code>{"{{participant_name}}"}</code> and{" "}
-            <code>{"{{participant_role}}"}</code> placeholders.
+            entirely for this study. Supports <code>{"{{participant_name}}"}</code> placeholders.
           </p>
           <textarea
             placeholder="Paste a full custom system prompt here..."
@@ -164,10 +227,10 @@ export function NewStudyForm() {
 
         <button
           type="submit"
-          disabled={submitting}
+          disabled={generating}
           className="rounded bg-neutral-900 px-4 py-1.5 text-sm text-white hover:bg-neutral-700 dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-200"
         >
-          {submitting ? "Creating…" : "Create study"}
+          {generating ? "Generating…" : "Generate questions"}
         </button>
       </form>
     </div>

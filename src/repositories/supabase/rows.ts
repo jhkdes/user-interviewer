@@ -2,11 +2,9 @@
 
 export interface StudyRow {
   id: string;
-  industry: string;
-  years_of_experience: string;
-  job_title: string;
-  seniority: string;
-  responsibility: string;
+  title: string;
+  description: string;
+  pre_interview_questions: unknown;
   research_topic: string | null;
   custom_prompt: string | null;
   link_token: string;

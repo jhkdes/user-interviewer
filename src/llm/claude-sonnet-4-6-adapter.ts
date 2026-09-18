@@ -2,6 +2,8 @@ import Anthropic from "@anthropic-ai/sdk";
 import { isVoiceSessionDebugEnabled } from "@/lib/debug";
 import { IncrementalJsonStringExtractor } from "./incremental-json-string-extractor";
 import type {
+  GenerateDraftPreInterviewQuestionsInput,
+  GenerateDraftPreInterviewQuestionsOutput,
   GenerateInterviewerTurnInput,
   GenerateInterviewerTurnOutput,
   GenerateStudyReportInput,
@@ -13,7 +15,12 @@ import type {
   LLMProviderAdapter,
   StudyReportInterviewInput,
 } from "./types";
-import { interviewerTurnSchema, studyReportSchema, summarySchema } from "./schemas";
+import {
+  draftPreInterviewQuestionsSchema,
+  interviewerTurnSchema,
+  studyReportSchema,
+  summarySchema,
+} from "./schemas";
 
 const MODEL = "claude-sonnet-5";
 
@@ -88,6 +95,11 @@ Identify themes/pain points that recur across multiple participants (not one-off
 For each theme, report: the theme itself, how many distinct participants raised it (participantCount), and a few representative verbatim quotes drawn from their transcripts.
 Only surface themes that are actually grounded in what participants said.`;
 
+const DRAFT_QUESTIONS_SYSTEM_PROMPT = `You draft a pre-interview screener questionnaire for a user-research study, given its title and description.
+Propose 5-8 questions that would help a researcher understand who's answering and segment results afterward — e.g. role/seniority, years of experience, company/team size, tools or processes currently used, and anything else clearly relevant to this specific study's topic.
+Every question must be single-select or multi-select with concrete, mutually distinct options (never open-ended/free text) — set allowOther to true when a fixed option list plausibly won't cover everyone.
+Ground every question in the given title/description — do not invent questions unrelated to what this study is actually about.`;
+
 /** Formats a transcript as plain "Interviewer: ..." / "Participant: ..." lines for inclusion in a prompt. */
 function formatTranscript(transcript: InterviewTurn[]): string {
   return transcript
@@ -145,7 +157,16 @@ function parseStructuredResponse<T>(response: Anthropic.Message, context: string
   try {
     return JSON.parse(textBlock.text) as T;
   } catch (cause) {
-    throw new Error(`${context}: failed to parse structured response as JSON`, { cause });
+    // A JSON.parse failure here is very often a truncated response — max_tokens
+    // hit mid-object — rather than a genuinely malformed one; call that out
+    // explicitly so it's diagnosable from the error message alone.
+    const truncated =
+      response.stop_reason === "max_tokens"
+        ? " (response was truncated: stop_reason=max_tokens)"
+        : "";
+    throw new Error(`${context}: failed to parse structured response as JSON${truncated}`, {
+      cause,
+    });
   }
 }
 
@@ -312,8 +333,15 @@ export class ClaudeSonnet46Adapter implements LLMProviderAdapter {
     try {
       response = await this.client.messages.create({
         model: MODEL,
-        max_tokens: 2048,
+        max_tokens: 4096,
         system: SUMMARY_SYSTEM_PROMPT,
+        // Sonnet 5 runs adaptive thinking by default when this is omitted,
+        // which eats into max_tokens before the structured JSON output even
+        // starts — on a long, content-dense transcript that pushed the
+        // response past max_tokens mid-JSON (stop_reason "max_tokens"),
+        // producing a truncated, unparseable summary. Disabling it keeps the
+        // full budget for the actual output, same as generateInterviewerTurn.
+        thinking: { type: "disabled" },
         messages: [
           {
             role: "user",
@@ -335,8 +363,11 @@ export class ClaudeSonnet46Adapter implements LLMProviderAdapter {
     try {
       response = await this.client.messages.create({
         model: MODEL,
-        max_tokens: 4096,
+        max_tokens: 8192,
         system: STUDY_REPORT_SYSTEM_PROMPT,
+        // See generateSummary's comment — same truncation risk, worse here
+        // since this prompt bundles every interview in the study.
+        thinking: { type: "disabled" },
         messages: [
           {
             role: "user",
@@ -353,6 +384,34 @@ export class ClaudeSonnet46Adapter implements LLMProviderAdapter {
     return parseStructuredResponse<GenerateStudyReportOutput>(
       response,
       "Failed to generate study report",
+    );
+  }
+
+  async draftPreInterviewQuestions(
+    input: GenerateDraftPreInterviewQuestionsInput,
+  ): Promise<GenerateDraftPreInterviewQuestionsOutput> {
+    let response: Anthropic.Message;
+    try {
+      response = await this.client.messages.create({
+        model: MODEL,
+        max_tokens: 2048,
+        system: DRAFT_QUESTIONS_SYSTEM_PROMPT,
+        messages: [
+          {
+            role: "user",
+            content: `Study title: ${input.title}\nStudy description: ${input.description}`,
+          },
+        ],
+        output_config: {
+          format: { type: "json_schema", schema: draftPreInterviewQuestionsSchema },
+        },
+      });
+    } catch (cause) {
+      throw new Error("Failed to draft pre-interview questions", { cause });
+    }
+    return parseStructuredResponse<GenerateDraftPreInterviewQuestionsOutput>(
+      response,
+      "Failed to draft pre-interview questions",
     );
   }
 }

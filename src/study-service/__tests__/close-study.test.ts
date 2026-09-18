@@ -3,18 +3,15 @@ import { InMemoryStudyRepository } from "@/repositories/in-memory/in-memory-stud
 import { NONEXISTENT_ID } from "@/repositories/contract-tests/nonexistent-id";
 import { closeStudy } from "../close-study";
 
-const validProfile = {
-  industry: "Fintech",
-  yearsOfExperience: "5-10 years",
-  jobTitle: "Product Manager",
-  seniority: "Senior",
-  responsibility: "Owns the payments roadmap",
-};
-
 describe("closeStudy", () => {
   it("marks the study closed", async () => {
     const repo = new InMemoryStudyRepository();
-    const study = await repo.create({ targetProfile: validProfile, linkToken: "token" });
+    const study = await repo.create({
+      title: "How AI Actually Shows Up in a PM's Day",
+      description: "how product managers really use AI at work",
+      preInterviewQuestions: [],
+      linkToken: "token",
+    });
 
     const closed = await closeStudy(repo, study.id);
     expect(closed.status).toBe("closed");

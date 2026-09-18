@@ -4,13 +4,9 @@ import { renderStudyReportMarkdown } from "../render-study-report-markdown";
 
 const study: Study = {
   id: "study-1",
-  targetProfile: {
-    industry: "SaaS",
-    yearsOfExperience: "5+",
-    jobTitle: "Engineering Manager",
-    seniority: "Manager",
-    responsibility: "Team delivery",
-  },
+  title: "Engineering Manager",
+  description: "how engineering managers keep delivery on track",
+  preInterviewQuestions: [],
   researchTopic: null,
   customPrompt: null,
   linkToken: "token-1",

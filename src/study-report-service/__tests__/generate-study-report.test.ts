@@ -8,14 +8,6 @@ import { NONEXISTENT_ID } from "@/repositories/contract-tests/nonexistent-id";
 import { generateStudyReport } from "../generate-study-report";
 import { NoEligibleInterviewsError, StudyNotFoundError } from "../errors";
 
-const targetProfile = {
-  industry: "SaaS",
-  yearsOfExperience: "5+",
-  jobTitle: "Engineering Manager",
-  seniority: "Manager",
-  responsibility: "Team delivery",
-};
-
 const scriptedThemes = [
   {
     theme: "Manual status reporting is a major time sink",
@@ -31,7 +23,12 @@ async function setup() {
   const studyReportRepo = new InMemoryStudyReportRepository();
   const llm = new FakeLLMProvider();
 
-  const study = await studyRepo.create({ targetProfile, linkToken: "token-1" });
+  const study = await studyRepo.create({
+    title: "How Engineering Managers Ship",
+    description: "how engineering managers keep delivery on track",
+    preInterviewQuestions: [],
+    linkToken: "token-1",
+  });
 
   return { studyRepo, interviewRepo, summaryRepo, studyReportRepo, llm, study };
 }

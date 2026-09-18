@@ -102,6 +102,8 @@ export async function completeInterview(
       console.error(`Failed to call completion webhook for interview ${event.interviewId}:`, error);
     }
   } else {
-    console.log(`Skipped completion webhook for interview ${event.interviewId}: no client wired up`);
+    console.log(
+      `Skipped completion webhook for interview ${event.interviewId}: no client wired up`,
+    );
   }
 }

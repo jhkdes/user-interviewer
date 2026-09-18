@@ -57,7 +57,7 @@ export async function GET(_request: Request, { params }: { params: { id: string 
     );
   }
 
-  const filename = `${study.targetProfile.jobTitle}-study-report-v${report.version}`
+  const filename = `${study.title}-study-report-v${report.version}`
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/(^-|-$)/g, "");

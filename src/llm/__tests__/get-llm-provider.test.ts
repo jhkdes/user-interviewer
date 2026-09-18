@@ -22,6 +22,9 @@ class DummyProvider implements LLMProviderAdapter {
   async generateStudyReport() {
     return { themes: [] };
   }
+  async draftPreInterviewQuestions() {
+    return { questions: [] };
+  }
 }
 
 /** Simulates a call site — code that only knows about LLMProviderAdapter, never a concrete class. */

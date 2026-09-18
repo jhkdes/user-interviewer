@@ -8,7 +8,7 @@ import type { Study, StudyReport } from "@/domain";
  */
 export function renderStudyReportMarkdown(study: Study, report: StudyReport): string {
   const lines: string[] = [
-    `# ${study.targetProfile.jobTitle} — Study Report`,
+    `# ${study.title} — Study Report`,
     "",
     `Version ${report.version} · generated ${report.generatedAt.toISOString()}`,
     "",

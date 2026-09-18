@@ -1,6 +1,10 @@
 import { randomUUID } from "node:crypto";
 import type { Study, StudyStatus } from "@/domain";
-import type { CreateStudyInput, StudyRepository } from "../study-repository";
+import type {
+  CreateStudyInput,
+  StudyRepository,
+  UpdateStudyDetailsInput,
+} from "../study-repository";
 
 export class InMemoryStudyRepository implements StudyRepository {
   private studies = new Map<string, Study>();
@@ -8,7 +12,9 @@ export class InMemoryStudyRepository implements StudyRepository {
   async create(input: CreateStudyInput): Promise<Study> {
     const study: Study = {
       id: randomUUID(),
-      targetProfile: input.targetProfile,
+      title: input.title,
+      description: input.description,
+      preInterviewQuestions: input.preInterviewQuestions,
       researchTopic: input.researchTopic ?? null,
       customPrompt: input.customPrompt ?? null,
       linkToken: input.linkToken,
@@ -54,6 +60,14 @@ export class InMemoryStudyRepository implements StudyRepository {
     const study = this.studies.get(id);
     if (!study) throw new Error(`Study not found: ${id}`);
     const updated: Study = { ...study, linkExtendedAt: new Date() };
+    this.studies.set(id, updated);
+    return { ...updated };
+  }
+
+  async updateDetails(id: string, patch: UpdateStudyDetailsInput): Promise<Study> {
+    const study = this.studies.get(id);
+    if (!study) throw new Error(`Study not found: ${id}`);
+    const updated: Study = { ...study, ...patch };
     this.studies.set(id, updated);
     return { ...updated };
   }
