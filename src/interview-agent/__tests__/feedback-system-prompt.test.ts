@@ -58,10 +58,12 @@ describe("buildFeedbackSystemPrompt", () => {
     expect(prompt).toMatch(/both what worked and what didn't/i);
   });
 
-  it("instructs a guaranteed open-ended closing question before wrapping up", () => {
+  it("tells the model the system appends its own open-floor question, and not to ask it or say goodbye itself", () => {
     const prompt = buildFeedbackSystemPrompt(context);
-    expect(prompt).toMatch(/one final open-ended question before closing/i);
-    expect(prompt).toMatch(/do not set shouldEndInterview to true until this final question/i);
+    expect(prompt).toMatch(/set shouldEndInterview: true on that turn/i);
+    expect(prompt).toMatch(/do not ask the final open-ended catch-all yourself/i);
+    expect(prompt).toMatch(/do not say goodbye, wrap up, or give any kind of send-off/i);
+    expect(prompt).toMatch(/system automatically appends its own/i);
   });
 
   it("does not include Discovery-only concepts (Mom Test, pain points)", () => {
@@ -84,12 +86,13 @@ describe("buildFeedbackSystemPrompt", () => {
       expect(buildFeedbackSystemPrompt(context)).not.toMatch(/## Closing/);
     });
 
-    it("instructs a brief closing statement only, never another question, on the closing turn", () => {
+    it("instructs a real, complete goodbye — never another question — on the closing turn", () => {
       const prompt = buildFeedbackSystemPrompt({ ...context, isClosingTurn: true });
 
       expect(prompt).toMatch(/## Closing/);
       expect(prompt).toMatch(/do not ask another question/i);
-      expect(prompt).toMatch(/system appends its own official closing line/i);
+      expect(prompt).toMatch(/really is the end of the call/i);
+      expect(prompt).toMatch(/warm, complete goodbye/i);
     });
 
     it("is positioned first in the prompt, not appended at the end", () => {

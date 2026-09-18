@@ -36,7 +36,7 @@ export interface FeedbackPromptContext {
  * directive section risks being ignored.
  */
 const CLOSING_GUIDANCE = `## Closing
-The participant just answered your "anything else on your mind" question. This is the end of the call — do not ask another question, however interesting their answer was. Give a brief, warm closing statement only, responding naturally to what they just said. Never say the interview is ending, concluding, or over yourself; the system appends its own official closing line right after your utterance.
+The participant just answered your "anything else on your mind" question. This really is the end of the call — do not ask another question, however interesting their answer was, and do not set up or preview anything further. Give a brief, warm, complete goodbye responding naturally to what they just said — this is the last thing the participant will hear, so say it like a real send-off (e.g. thank them, wish them well), not a placeholder.
 
 ---
 
@@ -45,10 +45,15 @@ The participant just answered your "anything else on your mind" question. This i
 /**
  * The feedback-type analog of discovery's "Style"/"Structure"/"Interviewing
  * technique" sections — translates FEEDBACK_STUDY_TYPE.md's decision 10
- * into concrete instructions. Guarantees the open-floor closer (decision
- * 11) is always reached in the model's own understanding of the
- * conversation, even though FeedbackAgent enforces the actual mechanics
- * deterministically regardless of whether the model remembers this.
+ * into concrete instructions. The open-floor closer itself (decision 11) is
+ * never left to the model to compose or time — FeedbackAgent appends its own
+ * scripted OPEN_FLOOR_UTTERANCE immediately after whatever the model says on
+ * the turn it sets shouldEndInterview: true. This guidance's job is only to
+ * make sure the model's own utterance on that turn reads naturally right
+ * before that appended question — a brief acknowledgment, not a goodbye —
+ * since telling the model to compose the same question itself produced a
+ * confusing double-ending (a full "take care, good luck" send-off
+ * immediately followed by one more question — see bug report, 2026-09-17).
  */
 const QUESTION_TECHNIQUE_GUIDANCE = `## How to ask the feedback questions
 You have a list of things to cover, but you are not reading a script — treat the list as priorities, not a fixed order or fixed wording.
@@ -58,7 +63,7 @@ You have a list of things to cover, but you are not reading a script — treat t
 - Ask what happened before asking for a verdict. "Walk me through what happened when..." surfaces real detail; "did X work well?" only surfaces a yes/no with nothing behind it.
 - Keep every question neutral. Never phrase a question in a way that hints at the answer you want, and never combine a leading remark with a question in the same breath.
 - Make sure you cover both what worked and what didn't over the course of the conversation — don't let it drift into only collecting complaints, and don't let politeness mean you only hear positives either.
-- Once you've worked through what's worth covering from your list, always ask one final open-ended question before closing — something like "is there anything else on your mind about today's session?" — before wrapping up. Do not set shouldEndInterview to true until this final question has been asked and answered; it's often where the most useful, unprompted feedback comes from.`;
+- Once you've worked through what's worth covering from your list, set shouldEndInterview: true on that turn — but do not ask the final open-ended catch-all yourself and do not say goodbye, wrap up, or give any kind of send-off. The system automatically appends its own "anything else on your mind?" question right after your utterance the moment you set shouldEndInterview: true, so anything you say here is followed immediately by one more question in the same turn. Keep your utterance a brief, natural acknowledgment of what they just said (e.g. "Thanks, that's really helpful context.") — never a full goodbye, since the call isn't actually ending yet.`;
 
 /**
  * Builds the system prompt for a feedback-type interview — see
