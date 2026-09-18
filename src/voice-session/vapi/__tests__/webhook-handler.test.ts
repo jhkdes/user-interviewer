@@ -160,7 +160,10 @@ describe("handleVapiWebhookMessage", () => {
         messages: [{ role: "assistant", message: "Hello." }],
       };
 
-      await handleVapiWebhookMessage({ interviewRepo, studyRepo, summaryRepo, llm, emailClient }, message);
+      await handleVapiWebhookMessage(
+        { interviewRepo, studyRepo, summaryRepo, llm, emailClient },
+        message,
+      );
 
       const updated = await interviewRepo.getById(interview.id);
       expect(updated?.recordingUrl).toBe("https://recordings.example.com/legacy.wav");
@@ -195,7 +198,10 @@ describe("handleVapiWebhookMessage", () => {
         },
       };
 
-      await handleVapiWebhookMessage({ interviewRepo, studyRepo, summaryRepo, llm, emailClient }, message);
+      await handleVapiWebhookMessage(
+        { interviewRepo, studyRepo, summaryRepo, llm, emailClient },
+        message,
+      );
 
       const summary = await summaryRepo.getByInterviewId(interview.id);
       expect(summary).toMatchObject(summaryFields);
@@ -221,7 +227,10 @@ describe("handleVapiWebhookMessage", () => {
         },
       };
 
-      await handleVapiWebhookMessage({ interviewRepo, studyRepo, summaryRepo, llm, emailClient }, message);
+      await handleVapiWebhookMessage(
+        { interviewRepo, studyRepo, summaryRepo, llm, emailClient },
+        message,
+      );
 
       expect(emailClient.sent).toHaveLength(1);
       expect(emailClient.sent[0].to).toBe("jordan@example.com");
@@ -259,7 +268,10 @@ describe("handleVapiWebhookMessage", () => {
         artifact: { messages: [{ role: "assistant", message: "Hello?" }] },
       };
 
-      await handleVapiWebhookMessage({ interviewRepo, studyRepo, summaryRepo, llm, emailClient }, message);
+      await handleVapiWebhookMessage(
+        { interviewRepo, studyRepo, summaryRepo, llm, emailClient },
+        message,
+      );
 
       expect(emailClient.sent).toHaveLength(0);
     });
@@ -280,7 +292,10 @@ describe("handleVapiWebhookMessage", () => {
         },
       };
 
-      await handleVapiWebhookMessage({ interviewRepo, studyRepo, summaryRepo, llm, emailClient }, message);
+      await handleVapiWebhookMessage(
+        { interviewRepo, studyRepo, summaryRepo, llm, emailClient },
+        message,
+      );
 
       const updated = await interviewRepo.getById(interview.id);
       expect(updated?.status).toBe("completed");
@@ -314,7 +329,10 @@ describe("handleVapiWebhookMessage", () => {
         artifact: { messages: [{ role: "assistant", message: "Hello." }] },
       };
 
-      await handleVapiWebhookMessage({ interviewRepo, studyRepo, summaryRepo, llm, emailClient }, message);
+      await handleVapiWebhookMessage(
+        { interviewRepo, studyRepo, summaryRepo, llm, emailClient },
+        message,
+      );
 
       const updated = await interviewRepo.getById(interview.id);
       expect(updated?.status).toBe("completed");

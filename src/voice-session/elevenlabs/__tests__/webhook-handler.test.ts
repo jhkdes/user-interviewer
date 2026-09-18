@@ -134,7 +134,10 @@ describe("handleElevenLabsWebhookMessage", () => {
       };
 
       await expect(
-        handleElevenLabsWebhookMessage({ interviewRepo, studyRepo, summaryRepo, llm, emailClient }, message),
+        handleElevenLabsWebhookMessage(
+          { interviewRepo, studyRepo, summaryRepo, llm, emailClient },
+          message,
+        ),
       ).resolves.not.toThrow();
     });
   });

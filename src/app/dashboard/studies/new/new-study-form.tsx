@@ -126,8 +126,8 @@ export function NewStudyForm() {
           >
             <div className="font-medium">Discovery</div>
             <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
-              A 15-minute Mom Test-style interview exploring a broad topic — for open-ended
-              product discovery, not a specific session.
+              A 15-minute Mom Test-style interview exploring a broad topic — for open-ended product
+              discovery, not a specific session.
             </p>
           </button>
           <button
@@ -156,7 +156,10 @@ export function NewStudyForm() {
         </p>
 
         <div className="mt-6">
-          <FeedbackQuestionListEditor questions={feedbackQuestions} onChange={setFeedbackQuestions} />
+          <FeedbackQuestionListEditor
+            questions={feedbackQuestions}
+            onChange={setFeedbackQuestions}
+          />
         </div>
 
         {errors.length > 0 && (

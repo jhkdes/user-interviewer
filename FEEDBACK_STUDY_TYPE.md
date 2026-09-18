@@ -59,7 +59,7 @@ email, consent, the live call itself, and the mobile-block gate).
 3. **Duration is entirely a function of Study Type — not independently
    configurable per study.** A single hard cap, not a soft/extended
    two-tier system:
-   - Base target: **5 minutes** — a *prompt-level* instruction ("aim to
+   - Base target: **5 minutes** — a _prompt-level_ instruction ("aim to
      wrap up in about 5 minutes, once you've been through the feedback
      questions"), not a mechanical checkpoint.
    - Mechanical hard cap: **7 minutes** — enforced the same way
@@ -89,7 +89,7 @@ email, consent, the live call itself, and the mobile-block gate).
    questions/topics (not multiple-choice — this is what the interviewer
    asks the participant, unlike `preInterviewQuestions`, which is what the
    participant answers before the call). The list order is a PM-authored
-   *priority* ordering, not a rigid script — see decision 10: the
+   _priority_ ordering, not a rigid script — see decision 10: the
    interviewer has latitude to split, reorder, skip, or rephrase entries
    based on time remaining and how the conversation is actually going. The
    feedback system-prompt template weaves these in automatically, handling
@@ -156,14 +156,14 @@ email, consent, the live call itself, and the mobile-block gate).
       pure complaint-harvesting — explicitly cover both what worked and
       what didn't, even if the PM's list skews toward one.
     - **Always end with an open floor.** A final, unprompted "anything
-      else on your mind?"-style question is *guaranteed*, asked after the
+      else on your mind?"-style question is _guaranteed_, asked after the
       PM's list is covered — not something the PM has to remember to add,
       and not something left to the LLM to remember either. Per the
       decision below, this is **deterministically scripted**, the same
       way `TIME_CHECK_UTTERANCE` is: covering the list alone never ends
       the call on its own; the interviewer's belief that it's covered the
       list instead triggers a scripted open-floor turn, and only the turn
-      *after* the participant answers it is allowed to actually close.
+      _after_ the participant answers it is allowed to actually close.
 
     Whether this whole guidance block still applies under a `customPrompt`
     override was an open question — **resolved: no.** For consistency
@@ -184,7 +184,7 @@ email, consent, the live call itself, and the mobile-block gate).
       today's session?"
     - On an ordinary feedback-type turn, once the model returns
       `shouldEndInterview: true` for the first time (its honest signal
-      that it believes the list is covered) *and* the open-floor question
+      that it believes the list is covered) _and_ the open-floor question
       hasn't been asked yet (detected the same way `wasUtteranceSpoken`
       scans the transcript for `TIME_CHECK_FRAGMENTS` today), the turn is
       intercepted: the model's proposed utterance is discarded and
@@ -205,6 +205,7 @@ email, consent, the live call itself, and the mobile-block gate).
 ## Proposed shape (not yet built)
 
 **Domain (`src/domain/study.ts`):**
+
 ```ts
 export type StudyType = "discovery" | "feedback";
 
@@ -216,6 +217,7 @@ export interface Study {
   feedbackQuestions: string[];
 }
 ```
+
 `preInterviewQuestions` stays as-is but is simply never populated/shown for
 `type === "feedback"` studies (empty array, screener step skipped in both
 the creation wizard and the participant intake form).

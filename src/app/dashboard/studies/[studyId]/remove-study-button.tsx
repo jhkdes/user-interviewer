@@ -3,7 +3,13 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-export function RemoveStudyButton({ studyId, studyTitle }: { studyId: string; studyTitle: string }) {
+export function RemoveStudyButton({
+  studyId,
+  studyTitle,
+}: {
+  studyId: string;
+  studyTitle: string;
+}) {
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);

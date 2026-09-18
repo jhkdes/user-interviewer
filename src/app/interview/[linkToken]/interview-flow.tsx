@@ -54,11 +54,7 @@ export function InterviewFlow({
             onAgree={() => setStep("intake")}
           />
         ) : (
-          <IntroScreen
-            title={title}
-            description={description}
-            onAgree={() => setStep("intake")}
-          />
+          <IntroScreen title={title} description={description} onAgree={() => setStep("intake")} />
         ))}
       {step === "intake" && (
         <IntakeForm

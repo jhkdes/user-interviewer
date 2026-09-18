@@ -47,7 +47,8 @@ function spokenUtterance(sseBody: string): string {
 
 describe("handleVapiCustomLlmRequest", () => {
   it("returns the utterance as-is (no phrase appended) when the interview should continue", async () => {
-    const { interviewAgent, feedbackAgent, interviewRepo, studyRepo, llm, interview } = await setup();
+    const { interviewAgent, feedbackAgent, interviewRepo, studyRepo, llm, interview } =
+      await setup();
     const now = new Date("2026-08-19T12:01:00.000Z");
     await interviewRepo.update(interview.id, { startedAt: now });
     llm.scriptInterviewerTurns([{ utterance: "What happens next?", shouldEndInterview: false }]);
@@ -61,7 +62,8 @@ describe("handleVapiCustomLlmRequest", () => {
   });
 
   it("appends END_CALL_PHRASE when the interview is over", async () => {
-    const { interviewAgent, feedbackAgent, interviewRepo, studyRepo, llm, interview } = await setup();
+    const { interviewAgent, feedbackAgent, interviewRepo, studyRepo, llm, interview } =
+      await setup();
     const now = new Date("2026-08-19T12:01:00.000Z");
     await interviewRepo.update(interview.id, { startedAt: now });
     // Enough participant turns for the LLM's self-assessment to be honored (see termination.ts).
@@ -82,7 +84,8 @@ describe("handleVapiCustomLlmRequest", () => {
   });
 
   it("ends the call when the participant explicitly asks to end it, even on the very first exchange", async () => {
-    const { interviewAgent, feedbackAgent, interviewRepo, studyRepo, llm, interview } = await setup();
+    const { interviewAgent, feedbackAgent, interviewRepo, studyRepo, llm, interview } =
+      await setup();
     const now = new Date("2026-08-19T12:01:00.000Z");
     await interviewRepo.update(interview.id, { startedAt: now });
     llm.scriptInterviewerTurns([
@@ -107,7 +110,8 @@ describe("handleVapiCustomLlmRequest", () => {
   });
 
   it("strips the LLM's own concluding sentence before appending END_CALL_PHRASE, so the exact phrase Vapi listens for is never garbled", async () => {
-    const { interviewAgent, feedbackAgent, interviewRepo, studyRepo, llm, interview } = await setup();
+    const { interviewAgent, feedbackAgent, interviewRepo, studyRepo, llm, interview } =
+      await setup();
     const now = new Date("2026-08-19T12:01:00.000Z");
     await interviewRepo.update(interview.id, { startedAt: now });
     const history = Array.from({ length: 4 }, (_, i) => [
@@ -133,12 +137,19 @@ describe("handleVapiCustomLlmRequest", () => {
   });
 
   it("forces END_CALL_PHRASE once the 15-minute hard cap has elapsed, regardless of the LLM's own signal", async () => {
-    const { interviewAgent, feedbackAgent, interviewRepo, studyRepo, llm, interview } = await setup();
+    const { interviewAgent, feedbackAgent, interviewRepo, studyRepo, llm, interview } =
+      await setup();
     await interviewRepo.update(interview.id, { startedAt: new Date("2026-08-19T12:00:00.000Z") });
     llm.scriptInterviewerTurns([{ utterance: "One more thing...", shouldEndInterview: false }]);
 
     const sseBody = await handleVapiCustomLlmRequest(
-      { interviewAgent, feedbackAgent, interviewRepo, studyRepo, now: new Date("2026-08-19T12:20:01.000Z") },
+      {
+        interviewAgent,
+        feedbackAgent,
+        interviewRepo,
+        studyRepo,
+        now: new Date("2026-08-19T12:20:01.000Z"),
+      },
       requestFor(interview.id, [{ role: "user", content: "..." }]),
     );
 
@@ -146,7 +157,8 @@ describe("handleVapiCustomLlmRequest", () => {
   });
 
   it("falls back to call.assistantOverrides.metadata.interviewId when top-level metadata is absent", async () => {
-    const { interviewAgent, feedbackAgent, interviewRepo, studyRepo, llm, interview } = await setup();
+    const { interviewAgent, feedbackAgent, interviewRepo, studyRepo, llm, interview } =
+      await setup();
     const now = new Date("2026-08-19T12:01:00.000Z");
     await interviewRepo.update(interview.id, { startedAt: now });
     llm.scriptInterviewerTurns([{ utterance: "Got it.", shouldEndInterview: false }]);

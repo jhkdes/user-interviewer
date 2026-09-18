@@ -21,8 +21,8 @@ export function MobileBlockedScreen({ type }: { type: StudyType }) {
       <h1 className="text-xl font-semibold">Please open this link on a desktop</h1>
       <p className="mt-4 text-sm text-neutral-600 dark:text-neutral-400">
         This is a {durationLabel} voice call. On a phone, the call is likely to get interrupted if
-        your screen locks, you switch apps, or the phone senses it&apos;s near your ear &mdash;
-        and once that happens, the interview ends and can&apos;t be resumed.
+        your screen locks, you switch apps, or the phone senses it&apos;s near your ear &mdash; and
+        once that happens, the interview ends and can&apos;t be resumed.
       </p>
       <p className="mt-4 text-sm text-neutral-600 dark:text-neutral-400">
         To take part, please open this same link on a desktop or laptop computer with microphone

@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { FeedbackAgent, InterviewAgent, SOFT_CAP_MS, TIME_CHECK_UTTERANCE } from "@/interview-agent";
+import {
+  FeedbackAgent,
+  InterviewAgent,
+  SOFT_CAP_MS,
+  TIME_CHECK_UTTERANCE,
+} from "@/interview-agent";
 import { FakeLLMProvider } from "@/llm";
 import { InMemoryInterviewRepository } from "@/repositories/in-memory/in-memory-interview-repository";
 import { InMemoryStudyRepository } from "@/repositories/in-memory/in-memory-study-repository";
@@ -36,7 +41,8 @@ function inputFor(interviewId: string, messages: OpenAIChatMessage[]) {
 
 describe("generateTurn", () => {
   it("maps OpenAI-formatted messages into the InterviewAgent's conversation history", async () => {
-    const { interviewAgent, feedbackAgent, interviewRepo, studyRepo, llm, interview } = await setup();
+    const { interviewAgent, feedbackAgent, interviewRepo, studyRepo, llm, interview } =
+      await setup();
     const now = new Date("2026-08-19T12:01:00.000Z");
     await interviewRepo.update(interview.id, { startedAt: now });
     llm.scriptInterviewerTurns([
@@ -85,7 +91,8 @@ describe("generateTurn", () => {
   });
 
   it("returns the utterance and isInterviewOver as InterviewAgent reported them, with no phrase/tool-call encoding", async () => {
-    const { interviewAgent, feedbackAgent, interviewRepo, studyRepo, llm, interview } = await setup();
+    const { interviewAgent, feedbackAgent, interviewRepo, studyRepo, llm, interview } =
+      await setup();
     const now = new Date("2026-08-19T12:01:00.000Z");
     await interviewRepo.update(interview.id, { startedAt: now });
     llm.scriptInterviewerTurns([{ utterance: "What happens next?", shouldEndInterview: false }]);
@@ -99,7 +106,8 @@ describe("generateTurn", () => {
   });
 
   it("reports isInterviewOver: true as-is — encoding it on the wire is each provider adapter's job", async () => {
-    const { interviewAgent, feedbackAgent, interviewRepo, studyRepo, llm, interview } = await setup();
+    const { interviewAgent, feedbackAgent, interviewRepo, studyRepo, llm, interview } =
+      await setup();
     const now = new Date("2026-08-19T12:01:00.000Z");
     await interviewRepo.update(interview.id, { startedAt: now });
     // Enough participant turns for the LLM's self-assessment to be honored (see termination.ts).
@@ -120,12 +128,19 @@ describe("generateTurn", () => {
   });
 
   it("forces isInterviewOver once the 15-minute hard cap has elapsed, regardless of the LLM's own signal", async () => {
-    const { interviewAgent, feedbackAgent, interviewRepo, studyRepo, llm, interview } = await setup();
+    const { interviewAgent, feedbackAgent, interviewRepo, studyRepo, llm, interview } =
+      await setup();
     await interviewRepo.update(interview.id, { startedAt: new Date("2026-08-19T12:00:00.000Z") });
     llm.scriptInterviewerTurns([{ utterance: "One more thing...", shouldEndInterview: false }]);
 
     const result = await generateTurn(
-      { interviewAgent, feedbackAgent, interviewRepo, studyRepo, now: new Date("2026-08-19T12:20:01.000Z") },
+      {
+        interviewAgent,
+        feedbackAgent,
+        interviewRepo,
+        studyRepo,
+        now: new Date("2026-08-19T12:20:01.000Z"),
+      },
       inputFor(interview.id, [{ role: "user", content: "..." }]),
     );
 
@@ -133,7 +148,8 @@ describe("generateTurn", () => {
   });
 
   it("returns the deterministic time-check utterance once the soft cap elapses, and persists timeCheckAskedAt", async () => {
-    const { interviewAgent, feedbackAgent, interviewRepo, studyRepo, llm, interview } = await setup();
+    const { interviewAgent, feedbackAgent, interviewRepo, studyRepo, llm, interview } =
+      await setup();
     const startedAt = new Date("2026-08-19T12:00:00.000Z");
     await interviewRepo.update(interview.id, { startedAt });
     const now = new Date(startedAt.getTime() + SOFT_CAP_MS);
@@ -149,7 +165,8 @@ describe("generateTurn", () => {
   });
 
   it("does not re-inject the time-check utterance on a later turn once it's already been asked", async () => {
-    const { interviewAgent, feedbackAgent, interviewRepo, studyRepo, llm, interview } = await setup();
+    const { interviewAgent, feedbackAgent, interviewRepo, studyRepo, llm, interview } =
+      await setup();
     const startedAt = new Date("2026-08-19T12:00:00.000Z");
     await interviewRepo.update(interview.id, {
       startedAt,

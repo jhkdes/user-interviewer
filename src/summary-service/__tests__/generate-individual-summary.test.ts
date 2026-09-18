@@ -53,7 +53,11 @@ describe("generateIndividualSummary", () => {
       interview.id,
     );
 
-    expect(summary).toMatchObject({ interviewId: interview.id, type: "discovery", ...summaryFields });
+    expect(summary).toMatchObject({
+      interviewId: interview.id,
+      type: "discovery",
+      ...summaryFields,
+    });
     expect(await summaryRepo.getByInterviewId(interview.id)).toEqual(summary);
   });
 
@@ -160,7 +164,11 @@ describe("generateIndividualSummary", () => {
     await interviewRepo.update(interview.id, {
       transcript: [
         { speaker: "interviewer", text: "What stood out to you today?", timestampMs: 0 },
-        { speaker: "participant", text: "The pacing was great, but audio cut out once.", timestampMs: 3000 },
+        {
+          speaker: "participant",
+          text: "The pacing was great, but audio cut out once.",
+          timestampMs: 3000,
+        },
       ],
     });
     const feedbackFields = {
@@ -175,7 +183,11 @@ describe("generateIndividualSummary", () => {
       interview.id,
     );
 
-    expect(summary).toMatchObject({ interviewId: interview.id, type: "feedback", ...feedbackFields });
+    expect(summary).toMatchObject({
+      interviewId: interview.id,
+      type: "feedback",
+      ...feedbackFields,
+    });
     expect(llm.calls.generateFeedbackSummary).toHaveLength(1);
     expect(llm.calls.generateSummary).toHaveLength(0);
     expect((await interviewRepo.getById(interview.id))?.roleDescription).toBeNull();

@@ -73,7 +73,8 @@ async function drain(stream: AsyncGenerator<string, void, unknown>): Promise<Str
 
 describe("streamElevenLabsCustomLlmResponse", () => {
   it("streams the utterance incrementally, one content-delta chunk per scripted text chunk, before the decision is known", async () => {
-    const { interviewAgent, feedbackAgent, interviewRepo, studyRepo, llm, interview, study } = await setup();
+    const { interviewAgent, feedbackAgent, interviewRepo, studyRepo, llm, interview, study } =
+      await setup();
     const now = new Date("2026-08-19T12:01:00.000Z");
     await interviewRepo.update(interview.id, { startedAt: now });
     llm.scriptInterviewerTurnStreams([
@@ -102,7 +103,8 @@ describe("streamElevenLabsCustomLlmResponse", () => {
   });
 
   it("streams the utterance followed by an end_call tool call when the interview is over", async () => {
-    const { interviewAgent, feedbackAgent, interviewRepo, studyRepo, llm, interview, study } = await setup();
+    const { interviewAgent, feedbackAgent, interviewRepo, studyRepo, llm, interview, study } =
+      await setup();
     const now = new Date("2026-08-19T12:01:00.000Z");
     await interviewRepo.update(interview.id, { startedAt: now });
     const history = Array.from({ length: 4 }, (_, i) => [
@@ -129,7 +131,8 @@ describe("streamElevenLabsCustomLlmResponse", () => {
   });
 
   it("forwards a degenerate/empty utterance with no retry — no safety net on the streaming path", async () => {
-    const { interviewAgent, feedbackAgent, interviewRepo, studyRepo, llm, interview, study } = await setup();
+    const { interviewAgent, feedbackAgent, interviewRepo, studyRepo, llm, interview, study } =
+      await setup();
     const now = new Date("2026-08-19T12:01:00.000Z");
     await interviewRepo.update(interview.id, { startedAt: now });
     llm.scriptInterviewerTurnStreams([{ textChunks: [""], shouldEndInterview: false }]);
@@ -160,7 +163,8 @@ describe("resolveElevenLabsStreamContext", () => {
   });
 
   it("resolves the interview and study eagerly, before any stream is opened", async () => {
-    const { interviewAgent, feedbackAgent, interviewRepo, studyRepo, interview, study } = await setup();
+    const { interviewAgent, feedbackAgent, interviewRepo, studyRepo, interview, study } =
+      await setup();
 
     const context = await resolveElevenLabsStreamContext(
       { interviewAgent, feedbackAgent, interviewRepo, studyRepo },

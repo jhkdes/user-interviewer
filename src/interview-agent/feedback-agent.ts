@@ -31,8 +31,7 @@ export interface FeedbackAgentTurnInput {
 }
 
 export type FeedbackAgentStreamEvent =
-  | { type: "text-delta"; text: string }
-  | { type: "done"; result: FeedbackAgentTurnOutput };
+  { type: "text-delta"; text: string } | { type: "done"; result: FeedbackAgentTurnOutput };
 
 export interface FeedbackAgentTurnOutput {
   utterance: string;
@@ -84,7 +83,11 @@ export class FeedbackAgent {
     now: Date,
     isClosingTurn: boolean,
     openFloorAsked: boolean,
-    llmOutput: { utterance: string; shouldEndInterview: boolean; participantRequestedEnd?: boolean },
+    llmOutput: {
+      utterance: string;
+      shouldEndInterview: boolean;
+      participantRequestedEnd?: boolean;
+    },
   ): FeedbackAgentTurnOutput {
     const { utterance, shouldEndInterview, participantRequestedEnd } = llmOutput;
 
@@ -101,7 +104,12 @@ export class FeedbackAgent {
       minParticipantTurnsBeforeLlmCanEnd: 0,
     });
     if (timeCapReason !== null) {
-      return { utterance, isInterviewOver: true, terminationReason: timeCapReason, openFloorJustAsked: false };
+      return {
+        utterance,
+        isInterviewOver: true,
+        terminationReason: timeCapReason,
+        openFloorJustAsked: false,
+      };
     }
 
     if (isClosingTurn) {
@@ -109,7 +117,12 @@ export class FeedbackAgent {
       // deterministic close — never trusted from the model, same
       // non-negotiable-close principle discovery-type's finalizeTurn
       // applies to its own reactive turns.
-      return { utterance, isInterviewOver: true, terminationReason: "llm-self-assessed", openFloorJustAsked: false };
+      return {
+        utterance,
+        isInterviewOver: true,
+        terminationReason: "llm-self-assessed",
+        openFloorJustAsked: false,
+      };
     }
 
     if (shouldEndInterview && !openFloorAsked) {
@@ -126,7 +139,12 @@ export class FeedbackAgent {
       };
     }
 
-    return { utterance, isInterviewOver: false, terminationReason: null, openFloorJustAsked: false };
+    return {
+      utterance,
+      isInterviewOver: false,
+      terminationReason: null,
+      openFloorJustAsked: false,
+    };
   }
 
   async generateNextTurn(input: FeedbackAgentTurnInput): Promise<FeedbackAgentTurnOutput> {
@@ -137,9 +155,19 @@ export class FeedbackAgent {
       openFloorAsked && lastInterviewerUtteranceMatches(history, OPEN_FLOOR_FRAGMENTS);
 
     const systemPrompt = buildFeedbackSystemPrompt({ ...input.context, isClosingTurn });
-    const llmOutput = await this.llm.generateInterviewerTurn({ systemPrompt, conversationHistory: history });
+    const llmOutput = await this.llm.generateInterviewerTurn({
+      systemPrompt,
+      conversationHistory: history,
+    });
 
-    return this.finalizeTurn(history, input.interviewStartedAt, now, isClosingTurn, openFloorAsked, llmOutput);
+    return this.finalizeTurn(
+      history,
+      input.interviewStartedAt,
+      now,
+      isClosingTurn,
+      openFloorAsked,
+      llmOutput,
+    );
   }
 
   /**

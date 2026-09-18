@@ -1,7 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { isSubstantiveSummary } from "../is-substantive-summary";
 
-const empty = { painPoints: [], notableQuotes: [], takeaways: [], liked: [], disliked: [], suggestions: [] };
+const empty = {
+  painPoints: [],
+  notableQuotes: [],
+  takeaways: [],
+  liked: [],
+  disliked: [],
+  suggestions: [],
+};
 
 describe("isSubstantiveSummary", () => {
   it("is false when all six arrays are empty", () => {

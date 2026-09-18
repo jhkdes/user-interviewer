@@ -55,7 +55,11 @@ describe("FeedbackAgent.generateNextTurn", () => {
   it("ends immediately when the LLM signals an explicit participant request to end, with no minimum-depth gate", async () => {
     const llm = new FakeLLMProvider();
     llm.scriptInterviewerTurns([
-      { utterance: "Of course, thanks for the time.", shouldEndInterview: false, participantRequestedEnd: true },
+      {
+        utterance: "Of course, thanks for the time.",
+        shouldEndInterview: false,
+        participantRequestedEnd: true,
+      },
     ]);
     const agent = new FeedbackAgent(llm);
 

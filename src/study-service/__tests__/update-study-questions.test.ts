@@ -163,9 +163,9 @@ describe("updateStudyQuestions", () => {
     it("rejects an empty feedbackQuestions list", async () => {
       const { repo, study } = await setupFeedback();
 
-      await expect(
-        updateStudyQuestions(repo, study.id, { feedbackQuestions: [] }),
-      ).rejects.toThrow(InvalidStudyInputError);
+      await expect(updateStudyQuestions(repo, study.id, { feedbackQuestions: [] })).rejects.toThrow(
+        InvalidStudyInputError,
+      );
     });
 
     it("leaves feedbackQuestions untouched when omitted, e.g. a title-only patch", async () => {

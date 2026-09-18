@@ -185,7 +185,7 @@ export async function* generateTurnStreaming(
     input.preloaded ?? (await loadInterviewAndStudy(deps, input.interviewId));
   const now = deps.now ?? new Date();
 
-  let final: TurnSideEffects & { utterance: string; isInterviewOver: boolean } | undefined;
+  let final: (TurnSideEffects & { utterance: string; isInterviewOver: boolean }) | undefined;
 
   if (study.type === "feedback") {
     for await (const event of deps.feedbackAgent.generateNextTurnStreaming(
