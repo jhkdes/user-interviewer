@@ -36,6 +36,8 @@ function toInterview(row: InterviewRow): Interview {
       : null,
     openFloorAskedAt: row.open_floor_asked_at ? new Date(row.open_floor_asked_at) : null,
     trackingId: row.tracking_id,
+    redactedTranscript: (row.redacted_transcript as TranscriptEntry[] | null) ?? null,
+    redactedAt: row.redacted_at ? new Date(row.redacted_at) : null,
   };
 }
 
@@ -78,6 +80,10 @@ function toUpdateRow(patch: InterviewUpdate): Record<string, unknown> {
   }
   if (patch.openFloorAskedAt !== undefined) {
     row.open_floor_asked_at = patch.openFloorAskedAt ? patch.openFloorAskedAt.toISOString() : null;
+  }
+  if (patch.redactedTranscript !== undefined) row.redacted_transcript = patch.redactedTranscript;
+  if (patch.redactedAt !== undefined) {
+    row.redacted_at = patch.redactedAt ? patch.redactedAt.toISOString() : null;
   }
   return row;
 }
