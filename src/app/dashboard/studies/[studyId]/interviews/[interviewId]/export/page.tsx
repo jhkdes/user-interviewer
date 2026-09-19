@@ -48,6 +48,29 @@ export default async function InterviewExportPage({
         {interview.createdAt.toLocaleDateString()} · interview id: {interview.id}
         {interview.roleDescription && ` · ${interview.roleDescription}`}
       </p>
+      {study.description && (
+        <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">{study.description}</p>
+      )}
+
+      {study.type === "feedback" && study.feedbackQuestions.length > 0 && (
+        <section className="mt-6">
+          <h2 className="font-semibold">Questions asked</h2>
+          <ul className="mt-2 list-inside list-disc space-y-1 text-sm text-neutral-600 dark:text-neutral-400">
+            {study.feedbackQuestions.map((question) => (
+              <li key={question}>{question}</li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {study.type === "discovery" && study.researchTopic && (
+        <section className="mt-6">
+          <h2 className="font-semibold">Research focus</h2>
+          <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">
+            {study.researchTopic}
+          </p>
+        </section>
+      )}
 
       {screenerAnswers.length > 0 && (
         <section className="mt-6">
