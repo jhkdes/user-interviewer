@@ -36,6 +36,8 @@ export type InterviewUpdate = Partial<
     | "extensionGranted"
     | "secondTimeCheckAskedAt"
     | "openFloorAskedAt"
+    | "redactedTranscript"
+    | "redactedAt"
   >
 >;
 

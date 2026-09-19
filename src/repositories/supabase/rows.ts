@@ -43,6 +43,8 @@ export interface InterviewRow {
   second_time_check_asked_at: string | null;
   open_floor_asked_at: string | null;
   tracking_id: string | null;
+  redacted_transcript: unknown;
+  redacted_at: string | null;
 }
 
 export interface SummaryRow {
