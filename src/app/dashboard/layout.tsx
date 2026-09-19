@@ -16,7 +16,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   return (
     <div className="min-h-screen bg-white text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100">
-      <header className="flex items-center justify-between border-b border-neutral-200 px-6 py-4 dark:border-neutral-800">
+      <header className="print:hidden flex items-center justify-between border-b border-neutral-200 px-6 py-4 dark:border-neutral-800">
         <Link href="/dashboard" className="font-semibold">
           User Interviewer
         </Link>

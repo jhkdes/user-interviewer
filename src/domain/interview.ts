@@ -62,4 +62,8 @@ export interface Interview {
   openFloorAskedAt: Date | null;
   /** Opaque id a third-party tool passes as the `tracking_id` URL query param on the interview link, to correlate this interview with its own participant record. `null` when the link was opened without that param. Used to call the completion webhook (see notify-completion-webhook.ts) once the interview completes — skipped silently when `null`. */
   trackingId: string | null;
+  /** PM-reviewed, PII-redacted copy of `transcript`, produced for the printable interview export (see interview-export-service). Same shape/length/order as `transcript` — only `text` differs per turn. `null` until the PM has saved one. */
+  redactedTranscript: TranscriptEntry[] | null;
+  /** When the redacted transcript was last saved. `null` until then. */
+  redactedAt: Date | null;
 }
