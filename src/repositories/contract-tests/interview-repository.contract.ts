@@ -46,6 +46,8 @@ export function runInterviewRepositoryContractTests(
       expect(interview.extensionGranted).toBeNull();
       expect(interview.secondTimeCheckAskedAt).toBeNull();
       expect(interview.trackingId).toBeNull();
+      expect(interview.redactedTranscript).toBeNull();
+      expect(interview.redactedAt).toBeNull();
     });
 
     it("creates an interview with a tracking id when provided", async () => {
@@ -277,6 +279,28 @@ export function runInterviewRepositoryContractTests(
 
       expect(updated.extensionGranted).toBe(false);
       expect((await repo.getById(created.id))?.extensionGranted).toBe(false);
+    });
+
+    it("update can set and round-trip redactedTranscript/redactedAt", async () => {
+      const repo = await makeRepository();
+      const created = await repo.create({
+        studyId: getStudyId(),
+        firstName: "Sam",
+        email: "sam@example.com",
+      });
+      const redactedTranscript = [
+        { speaker: "interviewer" as const, text: "Hi there.", timestampMs: 0 },
+        { speaker: "participant" as const, text: "Hi, I'm [Participant].", timestampMs: 2000 },
+      ];
+      const redactedAt = new Date("2026-01-01T00:05:00.000Z");
+
+      const updated = await repo.update(created.id, { redactedTranscript, redactedAt });
+
+      expect(updated.redactedTranscript).toEqual(redactedTranscript);
+      expect(updated.redactedAt).toEqual(redactedAt);
+      const reloaded = await repo.getById(created.id);
+      expect(reloaded?.redactedTranscript).toEqual(redactedTranscript);
+      expect(reloaded?.redactedAt).toEqual(redactedAt);
     });
 
     it("delete removes the interview (#5)", async () => {

@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { fetchFreshRecordingUrl } from "@/lib/vapi/client";
 import { getInterviewRepository } from "@/repositories/get-interview-repository";
 import { getSummaryRepository } from "@/repositories/get-summary-repository";
+import { SummarySections } from "@/app/dashboard/summary-sections";
 import { RemoveInterviewButton } from "./remove-interview-button";
 
 /** Interview detail (T10.4): transcript, individual summary, audio player. */
@@ -66,69 +67,7 @@ export default async function InterviewDetailPage({
 
       <section className="mt-6">
         <h2 className="font-semibold">Summary</h2>
-        {summary ? (
-          <div className="mt-2 space-y-4 text-sm">
-            {summary.type === "feedback" ? (
-              <>
-                <div>
-                  <p className="font-medium">What they liked</p>
-                  <ul className="list-inside list-disc text-neutral-600 dark:text-neutral-400">
-                    {summary.liked.map((point) => (
-                      <li key={point}>{point}</li>
-                    ))}
-                  </ul>
-                </div>
-                <div>
-                  <p className="font-medium">What could be better</p>
-                  <ul className="list-inside list-disc text-neutral-600 dark:text-neutral-400">
-                    {summary.disliked.map((point) => (
-                      <li key={point}>{point}</li>
-                    ))}
-                  </ul>
-                </div>
-                <div>
-                  <p className="font-medium">Suggestions</p>
-                  <ul className="list-inside list-disc text-neutral-600 dark:text-neutral-400">
-                    {summary.suggestions.map((point) => (
-                      <li key={point}>{point}</li>
-                    ))}
-                  </ul>
-                </div>
-              </>
-            ) : (
-              <>
-                <div>
-                  <p className="font-medium">Pain points</p>
-                  <ul className="list-inside list-disc text-neutral-600 dark:text-neutral-400">
-                    {summary.painPoints.map((point) => (
-                      <li key={point}>{point}</li>
-                    ))}
-                  </ul>
-                </div>
-                <div>
-                  <p className="font-medium">Notable quotes</p>
-                  <ul className="list-inside list-disc text-neutral-600 dark:text-neutral-400">
-                    {summary.notableQuotes.map((quote) => (
-                      <li key={quote}>&quot;{quote}&quot;</li>
-                    ))}
-                  </ul>
-                </div>
-                <div>
-                  <p className="font-medium">Takeaways</p>
-                  <ul className="list-inside list-disc text-neutral-600 dark:text-neutral-400">
-                    {summary.takeaways.map((takeaway) => (
-                      <li key={takeaway}>{takeaway}</li>
-                    ))}
-                  </ul>
-                </div>
-              </>
-            )}
-          </div>
-        ) : (
-          <p className="mt-2 text-sm text-neutral-500 dark:text-neutral-400">
-            No summary available yet.
-          </p>
-        )}
+        <SummarySections summary={summary} />
       </section>
 
       <section className="mt-6">
@@ -150,6 +89,19 @@ export default async function InterviewDetailPage({
           </p>
         )}
       </section>
+
+      {interview.status === "completed" &&
+        interview.transcript &&
+        interview.transcript.length > 0 && (
+          <p className="mt-6 text-sm">
+            <Link
+              href={`/dashboard/studies/${params.studyId}/interviews/${interview.id}/export`}
+              className="underline hover:no-underline"
+            >
+              {interview.redactedAt ? "View exported report →" : "Export report →"}
+            </Link>
+          </p>
+        )}
 
       <RemoveInterviewButton studyId={params.studyId} interviewId={interview.id} />
     </div>
