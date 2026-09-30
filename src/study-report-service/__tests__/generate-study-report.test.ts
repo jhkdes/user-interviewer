@@ -177,4 +177,100 @@ describe("generateStudyReport", () => {
       ),
     ).rejects.toThrow(NoEligibleInterviewsError);
   });
+
+  describe("feedback-type studies", () => {
+    async function setupFeedback() {
+      const studyRepo = new InMemoryStudyRepository();
+      const interviewRepo = new InMemoryInterviewRepository();
+      const summaryRepo = new InMemorySummaryRepository();
+      const studyReportRepo = new InMemoryStudyReportRepository();
+      const llm = new FakeLLMProvider();
+
+      const study = await studyRepo.create({
+        title: "Post-webinar feedback",
+        description: "quick check-in after today's session",
+        type: "feedback",
+        feedbackQuestions: ["What did you think of the content?"],
+        preInterviewQuestions: [],
+        linkToken: "feedback-token",
+      });
+
+      return { studyRepo, interviewRepo, summaryRepo, studyReportRepo, llm, study };
+    }
+
+    const scriptedFeedbackReport = {
+      whatWorkedWell: [
+        { theme: "The live Q&A", participantCount: 2, representativeQuotes: ["Loved it."] },
+      ],
+      whatCouldBeImproved: [
+        { theme: "Audio issues", participantCount: 1, representativeQuotes: [] },
+      ],
+      topicsForFuture: [],
+      otherInsights: [],
+    };
+
+    it("calls generateFeedbackStudyReport with redacted transcripts and persists a feedback-type report", async () => {
+      const { studyRepo, interviewRepo, summaryRepo, studyReportRepo, llm, study } =
+        await setupFeedback();
+      const interview = await interviewRepo.create({
+        studyId: study.id,
+        firstName: "Jae",
+        email: "jae@example.com",
+      });
+      await interviewRepo.update(interview.id, {
+        status: "completed",
+        transcript: [
+          { speaker: "interviewer", text: "Thanks, Jae, for joining.", timestampMs: 0 },
+          { speaker: "participant", text: "Happy to be here.", timestampMs: 3000 },
+        ],
+      });
+      await summaryRepo.create({
+        interviewId: interview.id,
+        type: "feedback",
+        liked: ["The pacing"],
+        disliked: ["Audio cut out once"],
+        suggestions: ["Double-check the audio setup"],
+      });
+      llm.scriptFeedbackStudyReport(scriptedFeedbackReport);
+
+      const report = await generateStudyReport(
+        { studyRepo, interviewRepo, summaryRepo, studyReportRepo, llm },
+        study.id,
+      );
+
+      expect(report).toMatchObject({ studyId: study.id, type: "feedback", version: 1 });
+      expect(report.whatWorkedWell).toEqual(scriptedFeedbackReport.whatWorkedWell);
+      expect(report.themes).toEqual([]);
+
+      const [call] = llm.calls.generateFeedbackStudyReport;
+      expect(call.interviews).toHaveLength(1);
+      expect(call.interviews[0].transcript[0].text).toBe("Thanks, [Participant], for joining.");
+      expect(call.interviews[0].summary).toEqual({
+        liked: ["The pacing"],
+        disliked: ["Audio cut out once"],
+        suggestions: ["Double-check the audio setup"],
+      });
+    });
+
+    it("throws NoEligibleInterviewsError when no feedback interview has a summary", async () => {
+      const { studyRepo, interviewRepo, summaryRepo, studyReportRepo, llm, study } =
+        await setupFeedback();
+      const interview = await interviewRepo.create({
+        studyId: study.id,
+        firstName: "Jae",
+        email: "jae@example.com",
+      });
+      await interviewRepo.update(interview.id, {
+        status: "completed",
+        transcript: [{ speaker: "participant", text: "Hi.", timestampMs: 0 }],
+      });
+
+      await expect(
+        generateStudyReport(
+          { studyRepo, interviewRepo, summaryRepo, studyReportRepo, llm },
+          study.id,
+        ),
+      ).rejects.toThrow(NoEligibleInterviewsError);
+    });
+  });
 });

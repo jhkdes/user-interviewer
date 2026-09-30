@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { StudyReport } from "@/domain";
+import type { StudyReport, StudyReportType } from "@/domain";
 import type { CreateStudyReportInput, StudyReportRepository } from "../study-report-repository";
 import type { StudyReportRow } from "./rows";
 
@@ -8,7 +8,13 @@ function toStudyReport(row: StudyReportRow): StudyReport {
     id: row.id,
     studyId: row.study_id,
     version: row.version,
-    themes: row.themes as StudyReport["themes"],
+    type: row.type as StudyReportType,
+    themes: (row.themes as StudyReport["themes"] | null) ?? [],
+    whatWorkedWell: (row.what_worked_well as StudyReport["whatWorkedWell"] | null) ?? [],
+    whatCouldBeImproved:
+      (row.what_could_be_improved as StudyReport["whatCouldBeImproved"] | null) ?? [],
+    topicsForFuture: (row.topics_for_future as StudyReport["topicsForFuture"] | null) ?? [],
+    otherInsights: (row.other_insights as StudyReport["otherInsights"] | null) ?? [],
     generatedAt: new Date(row.generated_at),
   };
 }
@@ -32,7 +38,16 @@ export class SupabaseStudyReportRepository implements StudyReportRepository {
 
     const { data, error } = await this.client
       .from("study_reports")
-      .insert({ study_id: input.studyId, version: nextVersion, themes: input.themes })
+      .insert({
+        study_id: input.studyId,
+        version: nextVersion,
+        type: input.type ?? "discovery",
+        themes: input.themes ?? [],
+        what_worked_well: input.whatWorkedWell ?? [],
+        what_could_be_improved: input.whatCouldBeImproved ?? [],
+        topics_for_future: input.topicsForFuture ?? [],
+        other_insights: input.otherInsights ?? [],
+      })
       .select()
       .single();
 

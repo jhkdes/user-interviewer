@@ -1,6 +1,8 @@
 import type {
   GenerateDraftPreInterviewQuestionsInput,
   GenerateDraftPreInterviewQuestionsOutput,
+  GenerateFeedbackStudyReportInput,
+  GenerateFeedbackStudyReportOutput,
   GenerateFeedbackSummaryInput,
   GenerateFeedbackSummaryOutput,
   GenerateInterviewerTurnInput,
@@ -33,6 +35,7 @@ export class FakeLLMProvider implements LLMProviderAdapter {
     generateSummary: GenerateSummaryInput[];
     generateFeedbackSummary: GenerateFeedbackSummaryInput[];
     generateStudyReport: GenerateStudyReportInput[];
+    generateFeedbackStudyReport: GenerateFeedbackStudyReportInput[];
     draftPreInterviewQuestions: GenerateDraftPreInterviewQuestionsInput[];
   } = {
     generateInterviewerTurn: [],
@@ -40,6 +43,7 @@ export class FakeLLMProvider implements LLMProviderAdapter {
     generateSummary: [],
     generateFeedbackSummary: [],
     generateStudyReport: [],
+    generateFeedbackStudyReport: [],
     draftPreInterviewQuestions: [],
   };
 
@@ -48,6 +52,7 @@ export class FakeLLMProvider implements LLMProviderAdapter {
   private summaryResult: GenerateSummaryOutput | null = null;
   private feedbackSummaryResult: GenerateFeedbackSummaryOutput | null = null;
   private studyReportResult: GenerateStudyReportOutput | null = null;
+  private feedbackStudyReportResult: GenerateFeedbackStudyReportOutput | null = null;
   private draftPreInterviewQuestionsResult: GenerateDraftPreInterviewQuestionsOutput | null = null;
 
   /** Queues the responses returned by successive `generateInterviewerTurn` calls, in order. */
@@ -70,6 +75,10 @@ export class FakeLLMProvider implements LLMProviderAdapter {
 
   scriptStudyReport(result: GenerateStudyReportOutput): void {
     this.studyReportResult = result;
+  }
+
+  scriptFeedbackStudyReport(result: GenerateFeedbackStudyReportOutput): void {
+    this.feedbackStudyReportResult = result;
   }
 
   scriptDraftPreInterviewQuestions(result: GenerateDraftPreInterviewQuestionsOutput): void {
@@ -140,6 +149,18 @@ export class FakeLLMProvider implements LLMProviderAdapter {
       throw new Error("FakeLLMProvider: no scripted study report — call scriptStudyReport() first");
     }
     return this.studyReportResult;
+  }
+
+  async generateFeedbackStudyReport(
+    input: GenerateFeedbackStudyReportInput,
+  ): Promise<GenerateFeedbackStudyReportOutput> {
+    this.calls.generateFeedbackStudyReport.push(structuredClone(input));
+    if (!this.feedbackStudyReportResult) {
+      throw new Error(
+        "FakeLLMProvider: no scripted feedback study report — call scriptFeedbackStudyReport() first",
+      );
+    }
+    return this.feedbackStudyReportResult;
   }
 
   async draftPreInterviewQuestions(

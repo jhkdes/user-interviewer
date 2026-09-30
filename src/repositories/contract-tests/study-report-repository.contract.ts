@@ -26,6 +26,41 @@ export function runStudyReportRepositoryContractTests(
       expect(report.generatedAt).toBeInstanceOf(Date);
     });
 
+    it("defaults type to 'discovery' with empty feedback-only fields when omitted", async () => {
+      const repo = await makeRepository();
+      const report = await repo.create({ studyId: getStudyId(), themes: [] });
+
+      expect(report.type).toBe("discovery");
+      expect(report.whatWorkedWell).toEqual([]);
+      expect(report.whatCouldBeImproved).toEqual([]);
+      expect(report.topicsForFuture).toEqual([]);
+      expect(report.otherInsights).toEqual([]);
+    });
+
+    it("creates a feedback-type report with its own fields and empty themes", async () => {
+      const repo = await makeRepository();
+      const theme = { theme: "Loved the live Q&A", participantCount: 2, representativeQuotes: [] };
+      const report = await repo.create({
+        studyId: getStudyId(),
+        type: "feedback",
+        whatWorkedWell: [theme],
+        whatCouldBeImproved: [theme],
+        topicsForFuture: [theme],
+        otherInsights: [theme],
+      });
+
+      expect(report.type).toBe("feedback");
+      expect(report.whatWorkedWell).toEqual([theme]);
+      expect(report.whatCouldBeImproved).toEqual([theme]);
+      expect(report.topicsForFuture).toEqual([theme]);
+      expect(report.otherInsights).toEqual([theme]);
+      expect(report.themes).toEqual([]);
+
+      const reloaded = await repo.getLatestByStudyId(getStudyId());
+      expect(reloaded?.type).toBe("feedback");
+      expect(reloaded?.whatWorkedWell).toEqual([theme]);
+    });
+
     it("increments the version on each subsequent create for the same study", async () => {
       const repo = await makeRepository();
       const studyId = getStudyId();

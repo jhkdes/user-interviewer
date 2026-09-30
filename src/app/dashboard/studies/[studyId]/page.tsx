@@ -8,6 +8,7 @@ import { StudyLink } from "../../study-link";
 import { ExtendLinkButton } from "./extend-link-button";
 import { GenerateReportButton } from "./generate-report-button";
 import { RemoveStudyButton } from "./remove-study-button";
+import { StudyReportThemes } from "./study-report-themes";
 
 const STATUS_STYLES: Record<string, string> = {
   completed: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
@@ -147,12 +148,7 @@ export default async function StudyDetailPage({ params }: { params: { studyId: s
 
       <section className="mt-8">
         <h2 className="font-semibold">Study report</h2>
-        {study.type === "feedback" ? (
-          <p className="mt-2 text-sm text-neutral-500 dark:text-neutral-400">
-            Cross-participant study reports aren&apos;t available for feedback studies yet — see
-            each interview&apos;s individual summary instead.
-          </p>
-        ) : report ? (
+        {report ? (
           <div className="mt-3">
             <p className="text-sm text-neutral-500 dark:text-neutral-400">
               Version {report.version} · generated {report.generatedAt.toLocaleString()} ·{" "}
@@ -160,35 +156,31 @@ export default async function StudyDetailPage({ params }: { params: { studyId: s
                 Download .md
               </a>
             </p>
-            <ul className="mt-3 space-y-4">
-              {report.themes.map((theme) => (
-                <li
-                  key={theme.theme}
-                  className="rounded border border-neutral-200 p-3 dark:border-neutral-800"
-                >
-                  <p className="font-medium">{theme.theme}</p>
-                  <p className="text-sm text-neutral-500 dark:text-neutral-400">
-                    {theme.participantCount} participant{theme.participantCount === 1 ? "" : "s"}
-                  </p>
-                  <ul className="mt-2 list-inside list-disc space-y-1 text-sm text-neutral-600 dark:text-neutral-400">
-                    {theme.representativeQuotes.map((quote) => (
-                      <li key={quote}>&quot;{quote}&quot;</li>
-                    ))}
-                  </ul>
-                </li>
-              ))}
-            </ul>
+            {report.type === "feedback" ? (
+              <>
+                <StudyReportThemes title="What worked well" themes={report.whatWorkedWell} />
+                <StudyReportThemes
+                  title="What could be improved"
+                  themes={report.whatCouldBeImproved}
+                />
+                <StudyReportThemes
+                  title="Topics for future sessions"
+                  themes={report.topicsForFuture}
+                />
+                <StudyReportThemes title="Other insights" themes={report.otherInsights} />
+              </>
+            ) : (
+              <StudyReportThemes themes={report.themes} />
+            )}
           </div>
         ) : (
           <p className="mt-2 text-sm text-neutral-500 dark:text-neutral-400">
             No report generated yet.
           </p>
         )}
-        {study.type !== "feedback" && (
-          <div className="mt-4">
-            <GenerateReportButton studyId={study.id} />
-          </div>
-        )}
+        <div className="mt-4">
+          <GenerateReportButton studyId={study.id} />
+        </div>
       </section>
 
       <RemoveStudyButton studyId={study.id} studyTitle={study.title} />
