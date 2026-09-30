@@ -2,8 +2,11 @@ import Anthropic from "@anthropic-ai/sdk";
 import { isVoiceSessionDebugEnabled } from "@/lib/debug";
 import { IncrementalJsonStringExtractor } from "./incremental-json-string-extractor";
 import type {
+  FeedbackStudyReportInterviewInput,
   GenerateDraftPreInterviewQuestionsInput,
   GenerateDraftPreInterviewQuestionsOutput,
+  GenerateFeedbackStudyReportInput,
+  GenerateFeedbackStudyReportOutput,
   GenerateFeedbackSummaryInput,
   GenerateFeedbackSummaryOutput,
   GenerateInterviewerTurnInput,
@@ -19,6 +22,7 @@ import type {
 } from "./types";
 import {
   draftPreInterviewQuestionsSchema,
+  feedbackStudyReportSchema,
   feedbackSummarySchema,
   interviewerTurnSchema,
   studyReportSchema,
@@ -105,6 +109,16 @@ Identify themes/pain points that recur across multiple participants (not one-off
 For each theme, report: the theme itself, how many distinct participants raised it (participantCount), and a few representative verbatim quotes drawn from their transcripts.
 Only surface themes that are actually grounded in what participants said.`;
 
+const FEEDBACK_STUDY_REPORT_SYSTEM_PROMPT = `You produce a cross-participant feedback report from several individual post-session feedback call summaries and transcripts within the same study.
+Extract, each as a list of recurring themes (not one-off mentions) grounded in what multiple participants actually said:
+- whatWorkedWell: positive feedback that came up across participants.
+- whatCouldBeImproved: criticisms or pain points that came up across participants.
+- topicsForFuture: subjects or topics participants said they'd like to see covered in future sessions.
+- otherInsights: anything else useful to future participants or the person who owns/runs this session (e.g. logistics, pacing, format) that doesn't fit the three categories above.
+For each theme in every category, report: the theme itself, how many distinct participants raised it (participantCount), and a few representative verbatim quotes drawn from their transcripts.
+This report may be shared outside your organization to protect participant privacy — never include a participant's name, email, or any other detail that could identify a specific individual, even if it appears in the transcript. Keep every theme and quote general enough that no single participant could be singled out from it.
+It's fine for a category to end up empty if nothing was actually said that fits it — never invent a theme just to fill a category.`;
+
 const DRAFT_QUESTIONS_SYSTEM_PROMPT = `You draft a pre-interview screener questionnaire for a user-research study, given its title and description.
 Propose 5-8 questions that would help a researcher understand who's answering and segment results afterward — e.g. role/seniority, years of experience, company/team size, tools or processes currently used, and anything else clearly relevant to this specific study's topic.
 Every question must be single-select or multi-select with concrete, mutually distinct options (never open-ended/free text) — set allowOther to true when a fixed option list plausibly won't cover everyone.
@@ -127,6 +141,22 @@ Summary:
   Pain points: ${interview.summary.painPoints.join("; ") || "(none)"}
   Notable quotes: ${interview.summary.notableQuotes.join("; ") || "(none)"}
   Takeaways: ${interview.summary.takeaways.join("; ") || "(none)"}
+Transcript:
+${formatTranscript(interview.transcript)}`,
+    )
+    .join("\n\n");
+}
+
+function formatFeedbackStudyReportInterviews(
+  interviews: FeedbackStudyReportInterviewInput[],
+): string {
+  return interviews
+    .map(
+      (interview, index) => `--- Interview ${index + 1} (id: ${interview.interviewId}) ---
+Summary:
+  Liked: ${interview.summary.liked.join("; ") || "(none)"}
+  Disliked: ${interview.summary.disliked.join("; ") || "(none)"}
+  Suggestions: ${interview.summary.suggestions.join("; ") || "(none)"}
 Transcript:
 ${formatTranscript(interview.transcript)}`,
     )
@@ -423,6 +453,37 @@ export class ClaudeSonnet46Adapter implements LLMProviderAdapter {
     return parseStructuredResponse<GenerateStudyReportOutput>(
       response,
       "Failed to generate study report",
+    );
+  }
+
+  async generateFeedbackStudyReport(
+    input: GenerateFeedbackStudyReportInput,
+  ): Promise<GenerateFeedbackStudyReportOutput> {
+    let response: Anthropic.Message;
+    try {
+      response = await this.client.messages.create({
+        model: MODEL,
+        max_tokens: 8192,
+        system: FEEDBACK_STUDY_REPORT_SYSTEM_PROMPT,
+        // See generateSummary's comment — same truncation risk, worse here
+        // since this prompt bundles every interview in the study.
+        thinking: { type: "disabled" },
+        messages: [
+          {
+            role: "user",
+            content: `Feedback calls in this study:\n\n${formatFeedbackStudyReportInterviews(input.interviews)}`,
+          },
+        ],
+        output_config: {
+          format: { type: "json_schema", schema: feedbackStudyReportSchema },
+        },
+      });
+    } catch (cause) {
+      throw new Error("Failed to generate feedback study report", { cause });
+    }
+    return parseStructuredResponse<GenerateFeedbackStudyReportOutput>(
+      response,
+      "Failed to generate feedback study report",
     );
   }
 
