@@ -94,6 +94,23 @@ export interface GenerateStudyReportOutput {
   themes: StudyReportTheme[];
 }
 
+export interface FeedbackStudyReportInterviewInput {
+  interviewId: string;
+  transcript: InterviewTurn[];
+  summary: GenerateFeedbackSummaryOutput;
+}
+
+export interface GenerateFeedbackStudyReportInput {
+  interviews: FeedbackStudyReportInterviewInput[];
+}
+
+export interface GenerateFeedbackStudyReportOutput {
+  whatWorkedWell: StudyReportTheme[];
+  whatCouldBeImproved: StudyReportTheme[];
+  topicsForFuture: StudyReportTheme[];
+  otherInsights: StudyReportTheme[];
+}
+
 export interface GenerateDraftPreInterviewQuestionsInput {
   title: string;
   description: string;
@@ -129,6 +146,9 @@ export interface LLMProviderAdapter {
     input: GenerateFeedbackSummaryInput,
   ): Promise<GenerateFeedbackSummaryOutput>;
   generateStudyReport(input: GenerateStudyReportInput): Promise<GenerateStudyReportOutput>;
+  generateFeedbackStudyReport(
+    input: GenerateFeedbackStudyReportInput,
+  ): Promise<GenerateFeedbackStudyReportOutput>;
   draftPreInterviewQuestions(
     input: GenerateDraftPreInterviewQuestionsInput,
   ): Promise<GenerateDraftPreInterviewQuestionsOutput>;

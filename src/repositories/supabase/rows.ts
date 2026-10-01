@@ -64,6 +64,11 @@ export interface StudyReportRow {
   id: string;
   study_id: string;
   version: number;
+  type: string;
   themes: unknown;
+  what_worked_well: unknown;
+  what_could_be_improved: unknown;
+  topics_for_future: unknown;
+  other_insights: unknown;
   generated_at: string;
 }

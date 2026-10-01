@@ -15,7 +15,12 @@ export class InMemoryStudyReportRepository implements StudyReportRepository {
       id: randomUUID(),
       studyId: input.studyId,
       version: nextVersion,
-      themes: input.themes,
+      type: input.type ?? "discovery",
+      themes: input.themes ?? [],
+      whatWorkedWell: input.whatWorkedWell ?? [],
+      whatCouldBeImproved: input.whatCouldBeImproved ?? [],
+      topicsForFuture: input.topicsForFuture ?? [],
+      otherInsights: input.otherInsights ?? [],
       generatedAt: new Date(),
     };
     this.reports.push(report);

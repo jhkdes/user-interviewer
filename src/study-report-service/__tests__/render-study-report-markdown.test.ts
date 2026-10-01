@@ -23,6 +23,7 @@ const report: StudyReport = {
   id: "report-1",
   studyId: "study-1",
   version: 2,
+  type: "discovery",
   generatedAt: new Date("2026-08-27T12:00:00.000Z"),
   themes: [
     {
@@ -39,6 +40,10 @@ const report: StudyReport = {
       representativeQuotes: [],
     },
   ],
+  whatWorkedWell: [],
+  whatCouldBeImproved: [],
+  topicsForFuture: [],
+  otherInsights: [],
 };
 
 describe("renderStudyReportMarkdown", () => {
@@ -63,5 +68,51 @@ Version 2 · generated 2026-08-27T12:00:00.000Z
 1 participant
 `,
     );
+  });
+
+  it("renders a feedback-type report's four named sections instead of themes, omitting empty ones", () => {
+    const feedbackStudy: Study = { ...study, type: "feedback" };
+    const feedbackReport: StudyReport = {
+      ...report,
+      type: "feedback",
+      themes: [],
+      whatWorkedWell: [
+        {
+          theme: "The live Q&A format",
+          participantCount: 3,
+          representativeQuotes: ["Loved being able to ask questions in real time."],
+        },
+      ],
+      whatCouldBeImproved: [
+        { theme: "Audio cut out occasionally", participantCount: 2, representativeQuotes: [] },
+      ],
+      topicsForFuture: [],
+      otherInsights: [],
+    };
+
+    const markdown = renderStudyReportMarkdown(feedbackStudy, feedbackReport);
+
+    expect(markdown).toBe(
+      `# Engineering Manager — Study Report
+
+Version 2 · generated 2026-08-27T12:00:00.000Z
+
+## What worked well
+
+### The live Q&A format
+
+3 participants
+
+> Loved being able to ask questions in real time.
+
+## What could be improved
+
+### Audio cut out occasionally
+
+2 participants
+`,
+    );
+    expect(markdown).not.toContain("Topics for future sessions");
+    expect(markdown).not.toContain("Other insights");
   });
 });

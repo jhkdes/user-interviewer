@@ -108,3 +108,29 @@ export const studyReportSchema = {
   required: ["themes"],
   additionalProperties: false,
 } as const;
+
+const studyReportThemeArray = {
+  type: "array",
+  items: {
+    type: "object",
+    properties: {
+      theme: { type: "string" },
+      participantCount: { type: "number" },
+      representativeQuotes: { type: "array", items: { type: "string" } },
+    },
+    required: ["theme", "participantCount", "representativeQuotes"],
+    additionalProperties: false,
+  },
+} as const;
+
+export const feedbackStudyReportSchema = {
+  type: "object",
+  properties: {
+    whatWorkedWell: studyReportThemeArray,
+    whatCouldBeImproved: studyReportThemeArray,
+    topicsForFuture: studyReportThemeArray,
+    otherInsights: studyReportThemeArray,
+  },
+  required: ["whatWorkedWell", "whatCouldBeImproved", "topicsForFuture", "otherInsights"],
+  additionalProperties: false,
+} as const;
