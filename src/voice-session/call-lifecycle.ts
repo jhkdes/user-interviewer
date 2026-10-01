@@ -25,14 +25,29 @@ export interface CallLifecycleDeps {
  * webhook handler. A no-op if the interview doesn't exist or has already
  * started, so a repeat "call started" event from any provider doesn't
  * clobber the original startedAt.
+ *
+ * `startedAt` lets a caller supply the call's real start time when the
+ * provider's own webhook reports one (see ElevenLabs' `handleTranscription`,
+ * which passes `metadata.start_time_unix_secs`) — ElevenLabs has no separate
+ * real-time "call started" event the way Vapi's status-update does, so
+ * without this the only timestamp available is "whenever the single
+ * post-call webhook happened to arrive," which made `startedAt` and
+ * `completedAt` land within milliseconds of each other and every interview
+ * duration show as 0:00 regardless of how long the call actually ran.
+ * Defaults to `deps.now ?? new Date()` for Vapi's case, where that "now" IS
+ * the real start time.
  */
-export async function startInterview(deps: CallLifecycleDeps, interviewId: string): Promise<void> {
+export async function startInterview(
+  deps: CallLifecycleDeps,
+  interviewId: string,
+  startedAt?: Date,
+): Promise<void> {
   const interview = await deps.interviewRepo.getById(interviewId);
   if (!interview || interview.startedAt) return;
 
   await deps.interviewRepo.update(interviewId, {
     status: "in-progress",
-    startedAt: deps.now ?? new Date(),
+    startedAt: startedAt ?? deps.now ?? new Date(),
   });
 }
 
@@ -54,7 +69,7 @@ export async function completeInterview(
     ...(event.elevenLabsConversationId !== undefined
       ? { elevenLabsConversationId: event.elevenLabsConversationId }
       : {}),
-    completedAt: deps.now ?? new Date(),
+    completedAt: event.completedAt ?? deps.now ?? new Date(),
     endedReason: event.endedReason,
   });
 

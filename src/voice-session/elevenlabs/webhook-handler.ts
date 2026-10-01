@@ -36,6 +36,14 @@ function toTranscriptEntries(entries: ElevenLabsTranscriptEntry[] | undefined): 
  * in-progress -> completed one — both driven off the same post-call event.
  * startInterview is idempotent (no-ops if already started), so this is safe
  * even though it's really "the call already ended" information.
+ *
+ * `metadata.start_time_unix_secs`/`call_duration_secs` (confirmed present on
+ * a real captured payload) give the call's actual start/end times — without
+ * passing these through explicitly, both `startInterview` and
+ * `completeInterview` would default to "whenever this single webhook
+ * happened to arrive," landing `startedAt`/`completedAt` within
+ * milliseconds of each other and showing every ElevenLabs interview's
+ * duration as 0:00 regardless of how long the call actually ran.
  */
 async function handleTranscription(
   deps: CallLifecycleDeps,
@@ -44,7 +52,17 @@ async function handleTranscription(
   const interviewId = extractInterviewId(payload.data.conversation_initiation_client_data);
   if (!interviewId) throw new MissingInterviewIdError(`ElevenLabs "${payload.type}" event`);
 
-  await startInterview(deps, interviewId);
+  const metadata = payload.data.metadata;
+  const startedAt =
+    metadata?.start_time_unix_secs !== undefined
+      ? new Date(metadata.start_time_unix_secs * 1000)
+      : undefined;
+  const completedAt =
+    startedAt && metadata?.call_duration_secs !== undefined
+      ? new Date(startedAt.getTime() + metadata.call_duration_secs * 1000)
+      : undefined;
+
+  await startInterview(deps, interviewId, startedAt);
   await completeInterview(deps, {
     interviewId,
     transcript: toTranscriptEntries(payload.data.transcript),
@@ -56,6 +74,7 @@ async function handleTranscription(
     recordingUrl: null,
     endedReason: payload.data.analysis?.call_successful ?? null,
     elevenLabsConversationId: payload.data.conversation_id,
+    completedAt,
   });
 }
 
