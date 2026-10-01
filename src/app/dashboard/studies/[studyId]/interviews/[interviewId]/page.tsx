@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { fetchFreshRecordingUrl } from "@/lib/vapi/client";
+import { formatDuration } from "@/lib/format-duration";
 import { getInterviewRepository } from "@/repositories/get-interview-repository";
 import { getSummaryRepository } from "@/repositories/get-summary-repository";
 import { SummarySections } from "@/app/dashboard/summary-sections";
+import { InterviewRecordingAndTranscript } from "./interview-recording-and-transcript";
 import { RemoveInterviewButton } from "./remove-interview-button";
 
 /** Interview detail (T10.4): transcript, individual summary, audio player. */
@@ -34,6 +36,11 @@ export default async function InterviewDetailPage({
         ? await fetchFreshRecordingUrl(interview.vapiCallId)
         : interview.recordingUrl;
 
+  const durationSeconds =
+    interview.startedAt && interview.completedAt
+      ? Math.round((interview.completedAt.getTime() - interview.startedAt.getTime()) / 1000)
+      : null;
+
   return (
     <div>
       <Link
@@ -51,43 +58,19 @@ export default async function InterviewDetailPage({
       </p>
       <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
         Status: {interview.status}
+        {durationSeconds !== null && ` · duration ${formatDuration(durationSeconds)}`}
         {interview.completedAt && ` · completed ${interview.completedAt.toLocaleString()}`}
       </p>
 
-      <section className="mt-6">
-        <h2 className="font-semibold">Recording</h2>
-        {playableRecordingUrl ? (
-          <audio controls src={playableRecordingUrl} className="mt-2 w-full" />
-        ) : (
-          <p className="mt-2 text-sm text-neutral-500 dark:text-neutral-400">
-            No recording available.
-          </p>
-        )}
-      </section>
+      <InterviewRecordingAndTranscript
+        recordingUrl={playableRecordingUrl}
+        transcript={interview.transcript}
+        participantName={interview.firstName}
+      />
 
       <section className="mt-6">
         <h2 className="font-semibold">Summary</h2>
         <SummarySections summary={summary} />
-      </section>
-
-      <section className="mt-6">
-        <h2 className="font-semibold">Transcript</h2>
-        {interview.transcript && interview.transcript.length > 0 ? (
-          <ol className="mt-2 space-y-2 text-sm">
-            {interview.transcript.map((entry, i) => (
-              <li key={i}>
-                <span className="font-medium">
-                  {entry.speaker === "interviewer" ? "Interviewer" : interview.firstName}:
-                </span>{" "}
-                {entry.text}
-              </li>
-            ))}
-          </ol>
-        ) : (
-          <p className="mt-2 text-sm text-neutral-500 dark:text-neutral-400">
-            No transcript available yet.
-          </p>
-        )}
       </section>
 
       {interview.status === "completed" &&
