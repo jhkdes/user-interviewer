@@ -81,6 +81,36 @@ describe("handleElevenLabsWebhookMessage", () => {
       ]);
     });
 
+    it("derives startedAt/completedAt from metadata.start_time_unix_secs/call_duration_secs rather than the webhook's arrival time", async () => {
+      const { interviewRepo, studyRepo, summaryRepo, llm, emailClient, interview } = await setup();
+      // The webhook "arrives" well after the call actually started and ended
+      // — if startedAt/completedAt fell back to this, the interview would
+      // show a near-zero duration despite the real call lasting 5 minutes.
+      const webhookArrivedAt = new Date("2026-08-19T12:30:00.000Z");
+      const realStart = new Date("2026-08-19T12:00:00.000Z");
+
+      const message: ElevenLabsPostCallTranscriptionPayload = {
+        type: "post_call_transcription",
+        data: {
+          conversation_id: "conv-1",
+          conversation_initiation_client_data: {
+            dynamic_variables: { interviewId: interview.id },
+          },
+          transcript: [{ role: "agent", message: "Hi there.", time_in_call_secs: 0 }],
+          metadata: { start_time_unix_secs: realStart.getTime() / 1000, call_duration_secs: 300 },
+        },
+      };
+
+      await handleElevenLabsWebhookMessage(
+        { interviewRepo, studyRepo, summaryRepo, llm, emailClient, now: webhookArrivedAt },
+        message,
+      );
+
+      const updated = await interviewRepo.getById(interview.id);
+      expect(updated?.startedAt).toEqual(realStart);
+      expect(updated?.completedAt).toEqual(new Date("2026-08-19T12:05:00.000Z"));
+    });
+
     it("throws MissingInterviewIdError when dynamic_variables.interviewId is absent", async () => {
       const { interviewRepo, studyRepo, summaryRepo, llm, emailClient } = await setup();
 

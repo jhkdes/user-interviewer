@@ -20,4 +20,6 @@ export interface NormalizedCallEndedEvent {
   endedReason: string | null;
   vapiCallId?: string;
   elevenLabsConversationId?: string;
+  /** The call's real end time, when the provider's webhook reports one more precisely than "whenever the webhook happened to arrive" — see ElevenLabs' `handleTranscription`, which derives it from `start_time_unix_secs + call_duration_secs`. Falls back to `deps.now ?? new Date()` when omitted. */
+  completedAt?: Date;
 }
