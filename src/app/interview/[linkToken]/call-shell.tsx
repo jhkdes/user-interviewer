@@ -1,5 +1,6 @@
 import type { StudyType } from "@/domain";
 import { FEEDBACK_TARGET_MINUTES, HARD_CAP_MINUTES } from "@/interview-agent/termination";
+import { formatDuration } from "@/lib/format-duration";
 
 export type CallStatus = "connecting" | "starting" | "in-progress" | "ended" | "error";
 
@@ -24,12 +25,6 @@ function GettingReadyAnimation() {
       ))}
     </div>
   );
-}
-
-export function formatElapsed(totalSeconds: number): string {
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  return `${minutes}:${seconds.toString().padStart(2, "0")}`;
 }
 
 /** Fire-and-forget — best-effort signal, never blocks or surfaces errors to the participant. */
@@ -80,7 +75,7 @@ export function CallShell({
       {status === "in-progress" && (
         <>
           <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400" aria-live="polite">
-            {formatElapsed(elapsedSeconds)} elapsed
+            {formatDuration(elapsedSeconds)} elapsed
           </p>
           <p className="mt-6 text-sm text-neutral-500 dark:text-neutral-400">
             {type === "feedback" ? "This" : "Interview"} takes about {targetMinutes} mins. If you
