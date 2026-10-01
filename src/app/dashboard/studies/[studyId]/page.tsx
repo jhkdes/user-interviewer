@@ -103,7 +103,17 @@ export default async function StudyDetailPage({ params }: { params: { studyId: s
       </div>
 
       <section className="mt-8">
-        <h2 className="font-semibold">Interviews</h2>
+        <div className="flex items-center justify-between">
+          <h2 className="font-semibold">Interviews</h2>
+          {sortedInterviews.some((i) => i.transcript && i.transcript.length > 0) && (
+            <a
+              href={`/api/studies/${study.id}/transcripts`}
+              className="text-sm underline hover:no-underline"
+            >
+              Download all transcripts (.md)
+            </a>
+          )}
+        </div>
         {sortedInterviews.length === 0 ? (
           <p className="mt-2 text-sm text-neutral-500 dark:text-neutral-400">
             No one has started an interview for this study yet.
