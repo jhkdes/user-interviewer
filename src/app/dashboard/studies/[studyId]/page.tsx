@@ -5,6 +5,7 @@ import { getStudyRepository } from "@/repositories/get-study-repository";
 import { getStudyReportRepository } from "@/repositories/get-study-report-repository";
 import { getLinkExpiryInfo } from "@/study-service";
 import { StudyLink } from "../../study-link";
+import { CopyParticipantEmailsButton } from "./copy-participant-emails-button";
 import { ExtendLinkButton } from "./extend-link-button";
 import { GenerateReportButton } from "./generate-report-button";
 import { RemoveStudyButton } from "./remove-study-button";
@@ -30,6 +31,7 @@ export default async function StudyDetailPage({ params }: { params: { studyId: s
   const sortedInterviews = [...interviews].sort(
     (a, b) => b.createdAt.getTime() - a.createdAt.getTime(),
   );
+  const participantEmails = [...new Set(sortedInterviews.map((i) => i.email))];
 
   return (
     <div>
@@ -105,14 +107,19 @@ export default async function StudyDetailPage({ params }: { params: { studyId: s
       <section className="mt-8">
         <div className="flex items-center justify-between">
           <h2 className="font-semibold">Interviews</h2>
-          {sortedInterviews.some((i) => i.transcript && i.transcript.length > 0) && (
-            <a
-              href={`/api/studies/${study.id}/transcripts`}
-              className="text-sm underline hover:no-underline"
-            >
-              Download all transcripts (.md)
-            </a>
-          )}
+          <div className="flex items-center gap-4">
+            {participantEmails.length > 0 && (
+              <CopyParticipantEmailsButton emails={participantEmails} />
+            )}
+            {sortedInterviews.some((i) => i.transcript && i.transcript.length > 0) && (
+              <a
+                href={`/api/studies/${study.id}/transcripts`}
+                className="text-sm underline hover:no-underline"
+              >
+                Download all transcripts (.md)
+              </a>
+            )}
+          </div>
         </div>
         {sortedInterviews.length === 0 ? (
           <p className="mt-2 text-sm text-neutral-500 dark:text-neutral-400">
