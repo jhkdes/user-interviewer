@@ -337,6 +337,14 @@ export function TextChat({
     };
   }, [status, interviewId, linkToken, finish]);
 
+  // The box is disabled while the interviewer is replying, and a disabled
+  // element loses focus — so put the cursor back as soon as the participant
+  // can type again (after the greeting, after each reply, after an error),
+  // instead of making them click into it every time.
+  useEffect(() => {
+    if (status === "idle") inputRef.current?.focus();
+  }, [status]);
+
   /** Tells the server the participant is typing (at most once every TYPING_SIGNAL_INTERVAL_MS), so the idle nudge and timeout wait for them. */
   const onDraftChange = (value: string) => {
     setDraft(value);

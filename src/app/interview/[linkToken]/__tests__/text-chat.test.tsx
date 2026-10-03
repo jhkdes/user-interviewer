@@ -712,6 +712,105 @@ describe("TextChat", () => {
     });
   });
 
+  describe("keeping the cursor in the box", () => {
+    it("focuses the box once the greeting has arrived, with no click", async () => {
+      stubServer({ turns: [greeting()] });
+      renderChat();
+
+      await screen.findByText("Hi Sam, thanks for joining.");
+
+      await waitFor(() => expect(screen.getByLabelText("Your message")).toHaveFocus());
+    });
+
+    it("gives focus back after each reply, so the participant can keep typing without clicking", async () => {
+      stubServer({
+        turns: [
+          greeting(),
+          ndjsonResponse([doneEvent(3, "What stood out most?")]),
+          ndjsonResponse([doneEvent(5, "And the pacing?")]),
+        ],
+      });
+      const user = userEvent.setup();
+      renderChat();
+      await waitFor(() => expect(screen.getByLabelText("Your message")).toHaveFocus());
+
+      // First answer: click once to start, as the participant would.
+      await user.click(screen.getByLabelText("Your message"));
+      await user.keyboard("The demo was clear.{Enter}");
+      await screen.findByText("What stood out most?");
+      await waitFor(() => expect(screen.getByLabelText("Your message")).toHaveFocus());
+
+      // Second answer: no click, just keep typing.
+      await user.keyboard("Pacing was fine.{Enter}");
+      await screen.findByText("And the pacing?");
+
+      await waitFor(() => expect(screen.getByLabelText("Your message")).toHaveFocus());
+      expect(screen.getByLabelText("Your message")).toHaveValue("");
+    });
+
+    it("types into the box without a click after a reply", async () => {
+      stubServer({
+        turns: [greeting(), ndjsonResponse([doneEvent(3, "What stood out most?")])],
+      });
+      const user = userEvent.setup();
+      renderChat();
+      await waitFor(() => expect(screen.getByLabelText("Your message")).toBeEnabled());
+      await user.click(screen.getByLabelText("Your message"));
+      await user.keyboard("Hello{Enter}");
+      await screen.findByText("What stood out most?");
+      await waitFor(() => expect(screen.getByLabelText("Your message")).toHaveFocus());
+
+      await user.keyboard("typed with no click");
+
+      expect(screen.getByLabelText("Your message")).toHaveValue("typed with no click");
+    });
+
+    it("gives focus back when a send is refused and the text is returned to the box", async () => {
+      stubServer({
+        turns: [
+          greeting(),
+          turnError(429, "rate-limited", "You're sending messages quite fast. Please wait."),
+        ],
+      });
+      const user = userEvent.setup();
+      renderChat();
+      await waitFor(() => expect(screen.getByLabelText("Your message")).toBeEnabled());
+      await user.click(screen.getByLabelText("Your message"));
+      await user.keyboard("Too fast{Enter}");
+      await screen.findByRole("alert");
+
+      await waitFor(() => expect(screen.getByLabelText("Your message")).toHaveFocus());
+      expect(screen.getByLabelText("Your message")).toHaveValue("Too fast");
+    });
+
+    it("focuses the box when resuming a conversation", () => {
+      stubServer({});
+      renderChat({
+        initialMessages: [{ key: "seq-1", speaker: "interviewer", text: "What stood out most?" }],
+      });
+
+      expect(screen.getByLabelText("Your message")).toHaveFocus();
+    });
+
+    it("does not focus the box once the interview has ended", async () => {
+      stubServer({
+        turns: [
+          greeting(),
+          ndjsonResponse([doneEvent(3, "Of course, thanks!", true, "participant-requested")]),
+        ],
+      });
+      const user = userEvent.setup();
+      renderChat();
+      await waitFor(() => expect(screen.getByLabelText("Your message")).toBeEnabled());
+      await user.click(screen.getByLabelText("Your message"));
+      await user.keyboard("I need to go{Enter}");
+
+      await screen.findByText("The interview has ended.");
+
+      expect(screen.queryByLabelText("Your message")).not.toBeInTheDocument();
+    });
+  });
+
   describe("a resumed interview", () => {
     const resumed: ChatMessage[] = [
       { key: "seq-1", speaker: "interviewer", text: "Hi Sam, thanks for joining." },
