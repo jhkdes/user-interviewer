@@ -5,6 +5,7 @@ import { getLLMProvider } from "@/llm";
 import { getInterviewRepository } from "@/repositories/get-interview-repository";
 import { getStudyRepository } from "@/repositories/get-study-repository";
 import {
+  InterviewNotVoiceError,
   resolveElevenLabsStreamContext,
   streamElevenLabsCustomLlmResponse,
   type ElevenLabsCustomLlmChatCompletionRequest,
@@ -47,6 +48,13 @@ export async function POST(request: Request) {
   try {
     context = await resolveElevenLabsStreamContext(deps, body);
   } catch (error) {
+    if (error instanceof InterviewNotVoiceError) {
+      console.log(error.message);
+      return NextResponse.json(
+        { error: "This interview is no longer a voice interview" },
+        { status: 409 },
+      );
+    }
     console.error("Failed to generate the next interview turn:", error);
     return NextResponse.json({ error: "Failed to generate the next turn" }, { status: 500 });
   }

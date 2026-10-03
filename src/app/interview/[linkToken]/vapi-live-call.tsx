@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Vapi from "@vapi-ai/web";
 import type { StudyType } from "@/domain";
 import { CallShell, reportBackgrounded, requestWakeLock, type CallStatus } from "./call-shell";
+import { requestSwitchToText } from "./switch-to-text-client";
 
 /**
  * T11.3 — starts the Vapi web call as soon as this screen mounts (consent
@@ -18,10 +19,16 @@ export function VapiLiveCall({
   interviewId,
   type,
   onEnded,
+  onSwitchedToTyping,
+  onRetry,
 }: {
   interviewId: string;
   type: StudyType;
   onEnded: () => void;
+  /** Present only when typing is offered: called after the interview was restarted as a typing interview and this call was stopped. */
+  onSwitchedToTyping?: () => void;
+  /** Present only when a retry is offered after an error before the call began. */
+  onRetry?: () => void;
 }) {
   const [status, setStatus] = useState<CallStatus>("connecting");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -37,6 +44,13 @@ export function VapiLiveCall({
   // utterance triggers it — `speech-start` fires again on every subsequent
   // thing Riley says for the rest of the call.
   const hasStartedSpeakingRef = useRef(false);
+  // Set while the participant restarts as a typing interview. Stopping the
+  // call fires `call-end`, which would otherwise be taken for the interview
+  // finishing.
+  const switchingRef = useRef(false);
+  // An error before the interviewer ever spoke (e.g. the mic was refused)
+  // can be retried; one mid-interview cannot.
+  const [canRetry, setCanRetry] = useState(false);
 
   useEffect(() => {
     // React 18 StrictMode double-invokes effects in development (mount →
@@ -121,6 +135,7 @@ export function VapiLiveCall({
       callActiveRef.current = false;
       releaseWakeLock();
       if (elapsedIntervalId) clearInterval(elapsedIntervalId);
+      if (switchingRef.current) return;
       setStatus("ended");
       onEnded();
     });
@@ -128,8 +143,10 @@ export function VapiLiveCall({
       callActiveRef.current = false;
       releaseWakeLock();
       if (elapsedIntervalId) clearInterval(elapsedIntervalId);
+      if (switchingRef.current) return;
       setStatus("error");
       setErrorMessage(error instanceof Error ? error.message : "Call error");
+      setCanRetry(!hasStartedSpeakingRef.current);
     });
 
     vapi.start(assistantId, { metadata: { interviewId } });
@@ -153,12 +170,31 @@ export function VapiLiveCall({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- start the call exactly once per mount
   }, []);
 
+  // The server must confirm the restart before the call is stopped: stopping
+  // makes Vapi send its end-of-call webhook, which is only ignored once the
+  // interview is marked as a typing interview.
+  const restartWithTyping = onSwitchedToTyping
+    ? async () => {
+        if (!(await requestSwitchToText(interviewId))) return false;
+        switchingRef.current = true;
+        try {
+          await vapiRef.current?.stop();
+        } catch {
+          // Nothing to stop if the call never connected.
+        }
+        onSwitchedToTyping();
+        return true;
+      }
+    : undefined;
+
   return (
     <CallShell
       status={status}
       errorMessage={errorMessage}
       elapsedSeconds={elapsedSeconds}
       type={type}
+      onRestartWithTyping={restartWithTyping}
+      onRetry={canRetry ? onRetry : undefined}
     />
   );
 }

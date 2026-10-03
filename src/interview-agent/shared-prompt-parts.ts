@@ -17,6 +17,34 @@ export const RESPONSE_CONTRACT = `## Every response
 Produce the next thing you'll say out loud, your honest assessment of whether the interview should end after this turn (shouldEndInterview — because sufficient depth has been reached), and whether the participant has explicitly and unambiguously asked to end the interview right now — said they have to go, asked you to end the call, said a clear goodbye — regardless of how much has been covered so far (participantRequestedEnd). These are different signals: shouldEndInterview is about depth being reached; participantRequestedEnd is about honoring a real person telling you to stop, which always takes priority over continuing to probe, no matter how early in the interview it happens. If participantRequestedEnd is true, your utterance this turn must be a brief, warm closing statement only — never a new question, never more probing — even if you've barely started. Never set shouldEndInterview to true on a turn where you're also asking the participant something — including a pre-close catch-all like "anything else you want to mention?" — a real question always means someone's about to answer it; if you have one more thing to ask (even a last catch-all), ask it with shouldEndInterview: false and wrap up on the turn after they reply instead. The utterance is read aloud to the participant verbatim — it must always be a real, complete sentence or two. Never respond with a placeholder, an ellipsis, or blank/empty text, even mid-thought.`;
 
 /**
+ * Replaces `from` with `to` in `text`, throwing if `from` isn't found — so a
+ * future edit to the source text can never silently leave the derived text
+ * variant with its spoken-only wording.
+ */
+function replaceRequired(text: string, from: string, to: string): string {
+  if (!text.includes(from)) {
+    throw new Error(`Expected prompt text to contain: ${from}`);
+  }
+  return text.replace(from, to);
+}
+
+/**
+ * `RESPONSE_CONTRACT` for the written-chat (text) channel — derived from the
+ * spoken version so the decision-signal wording (shouldEndInterview vs
+ * participantRequestedEnd, the "never end on a question" rule) can never drift
+ * between the two; only the two phrases that describe speech are swapped.
+ */
+export const TEXT_RESPONSE_CONTRACT = replaceRequired(
+  replaceRequired(
+    RESPONSE_CONTRACT,
+    "Produce the next thing you'll say out loud,",
+    "Write the next message you'll send in the chat,",
+  ),
+  "The utterance is read aloud to the participant verbatim — it must always be a real, complete sentence or two.",
+  "The utterance is shown to the participant in the chat verbatim — it must always be a real, complete message of a sentence or two.",
+);
+
+/**
  * Fixed persona name the interviewer introduces itself with (GitHub issue #1),
  * shared by both study types. A single fixed name (rather than letting the
  * model pick per-interview) keeps the persona consistent across sessions.

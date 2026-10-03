@@ -1,5 +1,10 @@
 import type { TranscriptEntry } from "@/domain";
-import { completeInterview, startInterview, type CallLifecycleDeps } from "../call-lifecycle";
+import {
+  completeInterview,
+  shouldIgnoreEventForTypingInterview,
+  startInterview,
+  type CallLifecycleDeps,
+} from "../call-lifecycle";
 import { MissingInterviewIdError } from "../errors";
 import type {
   ElevenLabsConversationInitiationClientData,
@@ -61,6 +66,14 @@ async function handleTranscription(
     startedAt && metadata?.call_duration_secs !== undefined
       ? new Date(startedAt.getTime() + metadata.call_duration_secs * 1000)
       : undefined;
+
+  if (
+    await shouldIgnoreEventForTypingInterview(deps, interviewId, {
+      elevenLabsConversationId: payload.data.conversation_id,
+    })
+  ) {
+    return;
+  }
 
   await startInterview(deps, interviewId, startedAt);
   await completeInterview(deps, {

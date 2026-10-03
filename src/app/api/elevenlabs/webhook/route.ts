@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { isVoiceSessionDebugEnabled } from "@/lib/debug";
 import { getEmailClient } from "@/lib/email";
-import { verifyWebhookSignature } from "@/lib/elevenlabs/client";
+import { deleteConversation, verifyWebhookSignature } from "@/lib/elevenlabs/client";
 import { getCompletionWebhookClient } from "@/lib/webhook";
 import { getLLMProvider } from "@/llm";
 import { getInterviewRepository } from "@/repositories/get-interview-repository";
@@ -62,6 +62,7 @@ export async function POST(request: Request) {
         llm: getLLMProvider(),
         emailClient: getEmailClient(),
         webhookClient: getCompletionWebhookClient(),
+        providerCleanup: { deleteElevenLabsConversation: deleteConversation },
       },
       body,
     );

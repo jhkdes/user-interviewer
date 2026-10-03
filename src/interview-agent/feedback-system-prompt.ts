@@ -1,4 +1,9 @@
-import { INTERVIEWER_NAME, RESPONSE_CONTRACT, interpolate } from "./shared-prompt-parts";
+import {
+  INTERVIEWER_NAME,
+  RESPONSE_CONTRACT,
+  TEXT_RESPONSE_CONTRACT,
+  interpolate,
+} from "./shared-prompt-parts";
 import { FEEDBACK_TARGET_MINUTES } from "./termination";
 
 export interface FeedbackPromptContext {
@@ -28,7 +33,52 @@ export interface FeedbackPromptContext {
    * can be trusted with the actual decision.
    */
   isClosingTurn: boolean;
+  /**
+   * How the participant is taking the interview. Defaults to `"voice"`, which
+   * produces exactly the prompt voice interviews have always used. `"text"`
+   * (a written chat — see TEXT_INTERVIEW_MODE.md) adds TEXT_CHANNEL_GUIDANCE
+   * and swaps in the written-chat response contract.
+   */
+  channel?: "voice" | "text";
+  /**
+   * Text channel only: the time cap has already passed when this turn is
+   * generated. Drives TEXT_TIME_UP_GUIDANCE so the model's reply doesn't end
+   * on a question right before the system appends its fixed closing line
+   * (see feedback-agent.ts's TEXT_TIME_CAP_UTTERANCE).
+   */
+  timeUp?: boolean;
 }
+
+/**
+ * Appended after the generated template (and after a study's custom prompt,
+ * which is usually written for voice) when the participant is taking the
+ * interview by typing. Everything above it that mentions a call, speaking, or
+ * hearing is meant for this written chat instead — hence the first line.
+ */
+export const TEXT_CHANNEL_GUIDANCE = `## This is a written chat
+Everything above that mentions a call, speaking, or hearing applies to a written chat instead: the participant is reading your messages and typing their replies. Casual spoken rapport doesn't carry over to typing, so write for someone reading on a screen:
+
+- Keep every message short: one question per message, usually one to three short sentences, well under about 40 words.
+- Skip small talk and rapport openers like "How's your week?" or "How are you doing today?". A friendly one-line greeting by first name is fine, then go straight to a concrete question about the session.
+- Ask questions that are easy to answer in a sentence or two. Prefer a specific moment ("What's one thing from today that stood out?") over a broad or abstract prompt. If a question has two parts, ask one at a time.
+- No long preambles and no stacked acknowledgments ("Great, thanks so much for that, that's really helpful, and I appreciate you sharing…"). One short acknowledgment at most, then the next question.
+- Plain text only: no bullet lists, headings, bold, or emoji.
+- No spoken-style filler, and don't refer to talking, hearing, or listening ("thanks for sharing that" is fine; "I hear you" is not).
+- If the participant gives a short answer, accept it and move on, or ask one small follow-up. Don't pad.
+- If the participant says they need to go or want to stop, honour it straight away with a short, friendly goodbye. Don't ask another question or try to keep them.`;
+
+/**
+ * Prepended, same positioning rationale as CLOSING_GUIDANCE. Used only on the
+ * text channel when the time cap has already passed: the system appends its
+ * own fixed "we're out of time" line after whatever the model says, so the
+ * model's part must be a brief acknowledgment with no question.
+ */
+const TEXT_TIME_UP_GUIDANCE = `## Time is up
+The time for this feedback chat has run out. Do not ask another question, however interesting the participant's last message was, and do not say goodbye — the system adds the closing line right after your message. Reply with a single short acknowledgment of what they just said (for example "Thanks, that's helpful to know.").
+
+---
+
+`;
 
 /**
  * Prepended — not appended — once `isClosingTurn` is true, same positioning
@@ -79,14 +129,20 @@ export function buildFeedbackSystemPrompt(context: FeedbackPromptContext): strin
     feedbackQuestions,
     customPrompt,
     isClosingTurn,
+    channel = "voice",
+    timeUp = false,
   } = context;
-  const closingGuidance = isClosingTurn ? CLOSING_GUIDANCE : "";
+  const isText = channel === "text";
+  const closingGuidance =
+    (isText && timeUp ? TEXT_TIME_UP_GUIDANCE : "") + (isClosingTurn ? CLOSING_GUIDANCE : "");
+  const channelGuidance = isText ? `${TEXT_CHANNEL_GUIDANCE}\n\n` : "";
+  const responseContract = isText ? TEXT_RESPONSE_CONTRACT : RESPONSE_CONTRACT;
 
   if (customPrompt) {
     const interpolated = interpolate(customPrompt, {
       participant_name: participantFirstName,
     });
-    return `${closingGuidance}${interpolated}\n\n${RESPONSE_CONTRACT}`;
+    return `${closingGuidance}${interpolated}\n\n${channelGuidance}${responseContract}`;
   }
 
   const questionsList = feedbackQuestions.map((q) => `- ${q}`).join("\n");
@@ -101,5 +157,5 @@ ${QUESTION_TECHNIQUE_GUIDANCE}
 ## Tone
 Warm, brief, conversational — this is a quick check-in, not a formal interview. Keep your own turns short: one question at a time, no long monologues.
 
-${RESPONSE_CONTRACT}`;
+${channelGuidance}${responseContract}`;
 }

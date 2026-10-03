@@ -4,6 +4,7 @@ import { getInterviewRepository } from "@/repositories/get-interview-repository"
 import { getStudyRepository } from "@/repositories/get-study-repository";
 import { getStudyReportRepository } from "@/repositories/get-study-report-repository";
 import { getLinkExpiryInfo } from "@/study-service";
+import { InterviewModeBadge } from "../../interview-mode-badge";
 import { StudyLink } from "../../study-link";
 import { CopyParticipantEmailsButton } from "./copy-participant-emails-button";
 import { ExtendLinkButton } from "./extend-link-button";
@@ -147,6 +148,7 @@ export default async function StudyDetailPage({ params }: { params: { studyId: s
                     )}
                   </div>
                   <div className="flex items-center gap-3 text-sm">
+                    <InterviewModeBadge interview={interview} />
                     <span
                       className={`rounded-full px-2 py-0.5 ${STATUS_STYLES[interview.status] ?? ""}`}
                     >

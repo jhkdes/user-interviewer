@@ -22,4 +22,6 @@ export interface NormalizedCallEndedEvent {
   elevenLabsConversationId?: string;
   /** The call's real end time, when the provider's webhook reports one more precisely than "whenever the webhook happened to arrive" — see ElevenLabs' `handleTranscription`, which derives it from `start_time_unix_secs + call_duration_secs`. Falls back to `deps.now ?? new Date()` when omitted. */
   completedAt?: Date;
+  /** Names where a non-provider completion came from (e.g. `"text-turn"`, `"idle-sweep"`), for the duplicate-completion warning. Voice webhooks identify themselves through `vapiCallId`/`elevenLabsConversationId` instead and leave this unset. */
+  source?: string;
 }

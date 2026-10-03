@@ -2,6 +2,9 @@ import type { VoiceProvider } from "./study";
 
 export type InterviewStatus = "pending" | "in-progress" | "completed" | "expired";
 
+/** How the participant is taking the interview. `"text"` (typing in a chat window) is only offered for feedback-type studies — see TEXT_INTERVIEW_MODE.md. */
+export type InterviewMode = "voice" | "text";
+
 export interface TranscriptEntry {
   speaker: "interviewer" | "participant";
   text: string;
@@ -66,4 +69,25 @@ export interface Interview {
   redactedTranscript: TranscriptEntry[] | null;
   /** When the redacted transcript was last saved. `null` until then. */
   redactedAt: Date | null;
+  /** `"voice"` for every existing interview and the default. `"text"` for a feedback-type interview taken by typing — those have no `vapiCallId`/`elevenLabsConversationId`/`recordingUrl`. */
+  mode: InterviewMode;
+  /** Text mode only. The most recent of: the interviewer finishing a reply, the participant sending a message, or a typing signal. Drives the idle nudge and auto-complete. `null` for voice interviews and until the first activity. */
+  lastActivityAt: Date | null;
+  /** Text mode only. When the scripted "are you still there?" nudge was inserted, so it is sent at most once. `null` until then. */
+  idleNudgeSentAt: Date | null;
+  /** Set when a participant restarted a started voice interview as a typing interview (the voice segment is discarded). `null` otherwise. */
+  switchedToTextAt: Date | null;
+}
+
+/** One message of an in-progress text interview, stored while the interview runs and deleted once it has been written into `Interview.transcript`. */
+export interface InterviewMessage {
+  id: string;
+  interviewId: string;
+  /** 1-based position within the interview. Unique per interview, so concurrent writers cannot both claim the same slot. */
+  seq: number;
+  speaker: TranscriptEntry["speaker"];
+  text: string;
+  /** Client-generated id making a retried participant message idempotent. `null` for interviewer messages. */
+  clientMessageId: string | null;
+  createdAt: Date;
 }

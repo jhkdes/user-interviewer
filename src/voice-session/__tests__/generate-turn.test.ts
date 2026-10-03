@@ -9,7 +9,7 @@ import { FakeLLMProvider } from "@/llm";
 import { InMemoryInterviewRepository } from "@/repositories/in-memory/in-memory-interview-repository";
 import { InMemoryStudyRepository } from "@/repositories/in-memory/in-memory-study-repository";
 import { InterviewNotFoundError, StudyNotFoundError } from "../errors";
-import { generateTurn } from "../generate-turn";
+import { generateTurn, generateTurnStreaming } from "../generate-turn";
 import type { OpenAIChatMessage } from "../types";
 
 async function setup() {
@@ -289,6 +289,106 @@ describe("generateTurn", () => {
       );
 
       expect(llm.calls.generateInterviewerTurn).toHaveLength(1);
+    });
+  });
+});
+
+describe("generateTurnStreaming for feedback interviews", () => {
+  async function setupFeedback(mode: "voice" | "text") {
+    const studyRepo = new InMemoryStudyRepository();
+    const interviewRepo = new InMemoryInterviewRepository();
+    const llm = new FakeLLMProvider();
+    const study = await studyRepo.create({
+      type: "feedback",
+      title: "Post-webinar feedback",
+      description: "quick check-in after today's session",
+      preInterviewQuestions: [],
+      feedbackQuestions: ["What stood out?"],
+      linkToken: "feedback-token",
+    });
+    const interview = await interviewRepo.create({
+      studyId: study.id,
+      firstName: "Sam",
+      email: "sam@example.com",
+      mode,
+    });
+    const now = new Date("2026-08-19T12:01:00.000Z");
+    await interviewRepo.update(interview.id, { startedAt: now });
+    const deps = {
+      interviewAgent: new InterviewAgent(llm),
+      feedbackAgent: new FeedbackAgent(llm),
+      interviewRepo,
+      studyRepo,
+      now,
+    };
+    return { deps, llm, interview };
+  }
+
+  async function run(deps: Awaited<ReturnType<typeof setupFeedback>>["deps"], interviewId: string) {
+    const events = [];
+    for await (const event of generateTurnStreaming(
+      deps,
+      inputFor(interviewId, [{ role: "user", content: "It was fine." }]),
+    )) {
+      events.push(event);
+    }
+    return events;
+  }
+
+  it("uses the written-chat prompt for a text-mode interview", async () => {
+    const { deps, llm, interview } = await setupFeedback("text");
+    llm.scriptInterviewerTurnStreams([
+      { textChunks: ["Tell me more."], shouldEndInterview: false },
+    ]);
+
+    await run(deps, interview.id);
+
+    expect(llm.calls.generateInterviewerTurnStreaming[0].systemPrompt).toContain(
+      "## This is a written chat",
+    );
+  });
+
+  it("keeps the spoken prompt for a voice-mode interview", async () => {
+    const { deps, llm, interview } = await setupFeedback("voice");
+    llm.scriptInterviewerTurnStreams([
+      { textChunks: ["Tell me more."], shouldEndInterview: false },
+    ]);
+
+    await run(deps, interview.id);
+
+    expect(llm.calls.generateInterviewerTurnStreaming[0].systemPrompt).not.toContain(
+      "written chat",
+    );
+  });
+
+  it("reports why the interview ended on the done event", async () => {
+    const { deps, llm, interview } = await setupFeedback("text");
+    llm.scriptInterviewerTurnStreams([
+      { textChunks: ["Of course!"], shouldEndInterview: false, participantRequestedEnd: true },
+    ]);
+
+    const events = await run(deps, interview.id);
+
+    expect(events[events.length - 1]).toEqual({
+      type: "done",
+      utterance: "Of course!",
+      isInterviewOver: true,
+      terminationReason: "participant-requested",
+    });
+  });
+
+  it("reports no termination reason when the interview continues", async () => {
+    const { deps, llm, interview } = await setupFeedback("text");
+    llm.scriptInterviewerTurnStreams([
+      { textChunks: ["Tell me more."], shouldEndInterview: false },
+    ]);
+
+    const events = await run(deps, interview.id);
+
+    expect(events[events.length - 1]).toMatchObject({
+      type: "done",
+      isInterviewOver: false,
+      terminationReason: null,
     });
   });
 });

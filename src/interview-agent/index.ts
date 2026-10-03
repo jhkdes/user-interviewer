@@ -25,6 +25,7 @@ export {
 export {
   FeedbackAgent,
   OPEN_FLOOR_UTTERANCE,
+  TEXT_TIME_CAP_UTTERANCE,
   type FeedbackAgentStreamEvent,
   type FeedbackAgentTurnInput,
   type FeedbackAgentTurnOutput,

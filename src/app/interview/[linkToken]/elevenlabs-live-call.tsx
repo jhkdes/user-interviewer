@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Conversation } from "@elevenlabs/client";
 import type { StudyType } from "@/domain";
 import { CallShell, reportBackgrounded, requestWakeLock, type CallStatus } from "./call-shell";
+import { requestSwitchToText } from "./switch-to-text-client";
 
 /**
  * ElevenLabs counterpart to vapi-live-call.tsx — same overall lifecycle
@@ -24,11 +25,17 @@ export function ElevenLabsLiveCall({
   firstName,
   type,
   onEnded,
+  onSwitchedToTyping,
+  onRetry,
 }: {
   interviewId: string;
   firstName: string;
   type: StudyType;
   onEnded: () => void;
+  /** Present only when typing is offered: called after the interview was restarted as a typing interview and this call was stopped. */
+  onSwitchedToTyping?: () => void;
+  /** Present only when a retry is offered after an error before the call began. */
+  onRetry?: () => void;
 }) {
   const [status, setStatus] = useState<CallStatus>("connecting");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -38,6 +45,10 @@ export function ElevenLabsLiveCall({
   const callActiveRef = useRef(false);
   const wakeLockRef = useRef<WakeLockSentinel | null>(null);
   const hasStartedSpeakingRef = useRef(false);
+  // Set while the participant restarts as a typing interview — see
+  // vapi-live-call.tsx.
+  const switchingRef = useRef(false);
+  const [canRetry, setCanRetry] = useState(false);
 
   useEffect(() => {
     // Same StrictMode-double-invoke guard as vapi-live-call.tsx — starting a
@@ -122,6 +133,7 @@ export function ElevenLabsLiveCall({
             callActiveRef.current = false;
             releaseWakeLock();
             if (elapsedIntervalId) clearInterval(elapsedIntervalId);
+            if (switchingRef.current) return;
             setStatus("ended");
             onEnded();
           },
@@ -129,8 +141,10 @@ export function ElevenLabsLiveCall({
             callActiveRef.current = false;
             releaseWakeLock();
             if (elapsedIntervalId) clearInterval(elapsedIntervalId);
+            if (switchingRef.current) return;
             setStatus("error");
             setErrorMessage(message || "Call error");
+            setCanRetry(!hasStartedSpeakingRef.current);
           },
         });
       } catch (error) {
@@ -142,6 +156,7 @@ export function ElevenLabsLiveCall({
         console.error("Failed to start the ElevenLabs conversation:", error);
         setStatus("error");
         setErrorMessage(error instanceof Error ? error.message : "Call error");
+        setCanRetry(true);
         return;
       }
 
@@ -152,6 +167,7 @@ export function ElevenLabsLiveCall({
       console.error("Failed to start the ElevenLabs call:", error);
       setStatus("error");
       setErrorMessage(error instanceof Error ? error.message : "Call error");
+      setCanRetry(true);
     });
 
     // Deliberately no cancellation/`conversation.endSession()` here, and no
@@ -174,12 +190,30 @@ export function ElevenLabsLiveCall({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- start the call exactly once per mount
   }, []);
 
+  // The server must confirm the restart before the call is stopped — see
+  // vapi-live-call.tsx.
+  const restartWithTyping = onSwitchedToTyping
+    ? async () => {
+        if (!(await requestSwitchToText(interviewId))) return false;
+        switchingRef.current = true;
+        try {
+          await conversationRef.current?.endSession();
+        } catch {
+          // Nothing to end if the session never connected.
+        }
+        onSwitchedToTyping();
+        return true;
+      }
+    : undefined;
+
   return (
     <CallShell
       status={status}
       errorMessage={errorMessage}
       elapsedSeconds={elapsedSeconds}
       type={type}
+      onRestartWithTyping={restartWithTyping}
+      onRetry={canRetry ? onRetry : undefined}
     />
   );
 }

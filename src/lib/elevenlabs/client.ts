@@ -120,3 +120,32 @@ export async function fetchConversationAudio(conversationId: string): Promise<Bu
     return null;
   }
 }
+
+/**
+ * Deletes an ElevenLabs conversation and its audio. Used when a participant
+ * restarts as a typing interview and the voice call they began is discarded
+ * (see TEXT_INTERVIEW_MODE.md). Best-effort: returns whether it worked and
+ * never throws, because a failed delete must not break webhook handling.
+ */
+export async function deleteConversation(conversationId: string): Promise<boolean> {
+  const apiKey = process.env.ELEVENLABS_API_KEY;
+  if (!apiKey) {
+    console.error("Missing required environment variable: ELEVENLABS_API_KEY");
+    return false;
+  }
+
+  try {
+    const res = await fetch(
+      `https://api.elevenlabs.io/v1/convai/conversations/${encodeURIComponent(conversationId)}`,
+      { method: "DELETE", headers: { "xi-api-key": apiKey }, cache: "no-store" },
+    );
+    if (!res.ok) {
+      console.error(`ElevenLabs conversation delete failed for ${conversationId}: ${res.status}`);
+      return false;
+    }
+    return true;
+  } catch (error) {
+    console.error(`Failed to delete ElevenLabs conversation ${conversationId}:`, error);
+    return false;
+  }
+}

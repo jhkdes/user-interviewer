@@ -16,6 +16,7 @@ export async function GET(_request: Request, { params }: { params: { id: string 
   const interview = await getInterviewRepository().getById(params.id);
   if (
     !interview ||
+    interview.mode === "text" ||
     interview.voiceProvider !== "elevenlabs" ||
     !interview.elevenLabsConversationId
   ) {
