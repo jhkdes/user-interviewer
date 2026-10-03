@@ -1,6 +1,7 @@
 import type { Interview, Study } from "@/domain";
 import type { FeedbackAgent } from "@/interview-agent/feedback-agent";
 import type { InterviewAgent } from "@/interview-agent/interview-agent";
+import type { TerminationReason } from "@/interview-agent/termination";
 import type { InterviewTurn } from "@/llm";
 import type { InterviewRepository } from "@/repositories/interview-repository";
 import type { StudyRepository } from "@/repositories/study-repository";
@@ -50,7 +51,13 @@ export interface GenerateTurnOutput {
 
 export type GenerateTurnStreamEvent =
   | { type: "text-delta"; text: string }
-  | { type: "done"; utterance: string; isInterviewOver: boolean };
+  | {
+      type: "done";
+      utterance: string;
+      isInterviewOver: boolean;
+      /** Why the interview ended, when `isInterviewOver` — lets the text-mode caller record a specific `endedReason`. `null` when it didn't end. */
+      terminationReason: TerminationReason;
+    };
 
 /** Resolves the Interview + Study behind `interviewId`, shared by `generateTurn` and `generateTurnStreaming`. */
 export async function loadInterviewAndStudy(
@@ -102,6 +109,9 @@ function buildFeedbackAgentInput(
       studyDescription: study.description,
       feedbackQuestions: study.feedbackQuestions,
       customPrompt: study.customPrompt,
+      // Voice interviews keep today's spoken prompt; text-mode interviews get
+      // the written-chat variant (see feedback-system-prompt.ts).
+      channel: interview.mode,
     },
     conversationHistory: toConversationHistory(messages),
     interviewStartedAt: interview.startedAt ?? interview.createdAt,
@@ -185,7 +195,13 @@ export async function* generateTurnStreaming(
     input.preloaded ?? (await loadInterviewAndStudy(deps, input.interviewId));
   const now = deps.now ?? new Date();
 
-  let final: (TurnSideEffects & { utterance: string; isInterviewOver: boolean }) | undefined;
+  let final:
+    | (TurnSideEffects & {
+        utterance: string;
+        isInterviewOver: boolean;
+        terminationReason: TerminationReason;
+      })
+    | undefined;
 
   if (study.type === "feedback") {
     for await (const event of deps.feedbackAgent.generateNextTurnStreaming(
@@ -215,5 +231,10 @@ export async function* generateTurnStreaming(
 
   await persistTurnSideEffects(deps, input.interviewId, now, final);
 
-  yield { type: "done", utterance: final.utterance, isInterviewOver: final.isInterviewOver };
+  yield {
+    type: "done",
+    utterance: final.utterance,
+    isInterviewOver: final.isInterviewOver,
+    terminationReason: final.terminationReason,
+  };
 }

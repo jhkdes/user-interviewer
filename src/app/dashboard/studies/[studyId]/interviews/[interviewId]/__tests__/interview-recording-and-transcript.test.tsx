@@ -56,6 +56,36 @@ describe("InterviewRecordingAndTranscript", () => {
     expect(screen.getByText("1:05")).toBeInTheDocument();
   });
 
+  it("leaves out the Recording section entirely for a typed interview, still showing the transcript", () => {
+    render(
+      <InterviewRecordingAndTranscript
+        recordingUrl={null}
+        showRecording={false}
+        transcript={transcript}
+        participantName="Jordan"
+      />,
+    );
+
+    expect(screen.queryByText("Recording")).not.toBeInTheDocument();
+    expect(screen.queryByText("No recording available.")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+    expect(screen.getByText("Transcript")).toBeInTheDocument();
+    expect(screen.getByText("It was a busy one.")).toBeInTheDocument();
+    expect(screen.getByText("1:05")).toBeInTheDocument();
+  });
+
+  it("still shows the Recording section by default", () => {
+    render(
+      <InterviewRecordingAndTranscript
+        recordingUrl={null}
+        transcript={transcript}
+        participantName="Jordan"
+      />,
+    );
+
+    expect(screen.getByText("Recording")).toBeInTheDocument();
+  });
+
   it("renders timestamps as plain text (not clickable) when there's no recording", () => {
     render(
       <InterviewRecordingAndTranscript

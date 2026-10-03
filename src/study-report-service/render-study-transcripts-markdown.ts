@@ -48,6 +48,12 @@ export function renderStudyTranscriptsMarkdown(study: Study, interviews: Intervi
 
     lines.push("---", "", `## Participant ${index + 1}: ${interview.firstName}${roleSuffix}`, "");
 
+    // Written answers read differently from spoken ones (shorter, no filler),
+    // which matters when this is fed to an LLM for analysis.
+    if (interview.mode === "text") {
+      lines.push("_Interview mode: typed (written chat), not voice._", "");
+    }
+
     const answers = resolveScreenerAnswers(study, interview);
     if (answers.length > 0) {
       lines.push("### Pre-interview questionnaire", "");

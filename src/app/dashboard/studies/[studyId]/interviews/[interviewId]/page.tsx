@@ -4,8 +4,11 @@ import { fetchFreshRecordingUrl } from "@/lib/vapi/client";
 import { formatDuration } from "@/lib/format-duration";
 import { getInterviewRepository } from "@/repositories/get-interview-repository";
 import { getSummaryRepository } from "@/repositories/get-summary-repository";
+import { InterviewModeBadge } from "@/app/dashboard/interview-mode-badge";
 import { SummarySections } from "@/app/dashboard/summary-sections";
+import { describeTextEndedReason } from "./ended-reason-label";
 import { InterviewRecordingAndTranscript } from "./interview-recording-and-transcript";
+import { getPlayableRecordingUrl } from "./playable-recording-url";
 import { RemoveInterviewButton } from "./remove-interview-button";
 
 /** Interview detail (T10.4): transcript, individual summary, audio player. */
@@ -20,21 +23,11 @@ export default async function InterviewDetailPage({
   if (!interview || interview.studyId !== params.studyId) notFound();
 
   const summary = await getSummaryRepository().getByInterviewId(interview.id);
-  // Vapi's presigned recording URL expires ~33 min after the call, so a
-  // fresh one is fetched on every view rather than relying on anything
-  // stored. ElevenLabs recordings are fetched on demand too, via a proxy
-  // route (see src/app/api/interviews/[id]/recording/route.ts) rather than
-  // a direct URL, since ElevenLabs' audio API needs a server-side API key
-  // header a plain `<audio src>` can't attach. `recordingUrl` remains as a
-  // fallback for interviews recorded before `vapiCallId` was captured.
-  const playableRecordingUrl =
-    interview.voiceProvider === "elevenlabs"
-      ? interview.elevenLabsConversationId
-        ? `/api/interviews/${interview.id}/recording`
-        : null
-      : interview.vapiCallId
-        ? await fetchFreshRecordingUrl(interview.vapiCallId)
-        : interview.recordingUrl;
+  // A typed interview has no audio, so this never reaches a voice provider
+  // for one — see getPlayableRecordingUrl.
+  const isTyped = interview.mode === "text";
+  const playableRecordingUrl = await getPlayableRecordingUrl(interview, fetchFreshRecordingUrl);
+  const typedEndReason = isTyped ? describeTextEndedReason(interview.endedReason) : null;
 
   const durationSeconds =
     interview.startedAt && interview.completedAt
@@ -50,7 +43,12 @@ export default async function InterviewDetailPage({
         ← Back to study
       </Link>
 
-      <h1 className="mt-2 text-xl font-semibold">{interview.firstName}</h1>
+      <div className="mt-2 flex items-center gap-2">
+        <h1 className="text-xl font-semibold">{interview.firstName}</h1>
+        <span className="text-sm">
+          <InterviewModeBadge interview={interview} />
+        </span>
+      </div>
       <p className="text-sm text-neutral-500 dark:text-neutral-400">
         {interview.email}
         {interview.roleDescription && ` · ${interview.roleDescription}`}
@@ -60,10 +58,12 @@ export default async function InterviewDetailPage({
         Status: {interview.status}
         {durationSeconds !== null && ` · duration ${formatDuration(durationSeconds)}`}
         {interview.completedAt && ` · completed ${interview.completedAt.toLocaleString()}`}
+        {typedEndReason && ` · ended: ${typedEndReason}`}
       </p>
 
       <InterviewRecordingAndTranscript
         recordingUrl={playableRecordingUrl}
+        showRecording={!isTyped}
         transcript={interview.transcript}
         participantName={interview.firstName}
       />

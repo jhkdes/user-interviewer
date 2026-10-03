@@ -22,8 +22,18 @@ export const OPEN_FLOOR_UTTERANCE =
 
 const OPEN_FLOOR_FRAGMENTS = ["anything else on your mind", "today's session"];
 
+/**
+ * Text channel only. Appended to the model's reply on the turn the time cap
+ * ends the interview, so a written chat doesn't just stop after a reply that
+ * may look like an unanswered question. Same append-not-substitute approach
+ * as OPEN_FLOOR_UTTERANCE, so the streaming and non-streaming paths behave
+ * identically. Voice interviews are unaffected.
+ */
+export const TEXT_TIME_CAP_UTTERANCE =
+  "We're out of time, so we'll wrap up here. Thank you for your feedback!";
+
 export interface FeedbackAgentTurnInput {
-  context: Omit<FeedbackPromptContext, "isClosingTurn">;
+  context: Omit<FeedbackPromptContext, "isClosingTurn" | "timeUp">;
   conversationHistory: InterviewTurn[];
   interviewStartedAt: Date;
   /** Defaults to `new Date()` — overridable so tests can simulate elapsed time deterministically. */
@@ -77,10 +87,19 @@ function lastInterviewerUtteranceMatches(history: InterviewTurn[], fragments: st
 export class FeedbackAgent {
   constructor(private readonly llm: LLMProviderAdapter) {}
 
+  /** Text channel only: true once the hard cap has already passed when the turn starts — see FeedbackPromptContext.timeUp. */
+  private isTimeUp(input: FeedbackAgentTurnInput, now: Date): boolean {
+    return (
+      input.context.channel === "text" &&
+      now.getTime() - input.interviewStartedAt.getTime() >= FEEDBACK_HARD_CAP_MS
+    );
+  }
+
   private finalizeTurn(
     history: InterviewTurn[],
     interviewStartedAt: Date,
     now: Date,
+    channel: "voice" | "text",
     isClosingTurn: boolean,
     openFloorAsked: boolean,
     llmOutput: {
@@ -105,7 +124,10 @@ export class FeedbackAgent {
     });
     if (timeCapReason !== null) {
       return {
-        utterance,
+        utterance:
+          timeCapReason === "time-cap" && channel === "text"
+            ? `${utterance} ${TEXT_TIME_CAP_UTTERANCE}`
+            : utterance,
         isInterviewOver: true,
         terminationReason: timeCapReason,
         openFloorJustAsked: false,
@@ -154,7 +176,11 @@ export class FeedbackAgent {
     const isClosingTurn =
       openFloorAsked && lastInterviewerUtteranceMatches(history, OPEN_FLOOR_FRAGMENTS);
 
-    const systemPrompt = buildFeedbackSystemPrompt({ ...input.context, isClosingTurn });
+    const systemPrompt = buildFeedbackSystemPrompt({
+      ...input.context,
+      isClosingTurn,
+      timeUp: this.isTimeUp(input, now),
+    });
     const llmOutput = await this.llm.generateInterviewerTurn({
       systemPrompt,
       conversationHistory: history,
@@ -164,6 +190,7 @@ export class FeedbackAgent {
       history,
       input.interviewStartedAt,
       now,
+      input.context.channel ?? "voice",
       isClosingTurn,
       openFloorAsked,
       llmOutput,
@@ -189,7 +216,11 @@ export class FeedbackAgent {
     const isClosingTurn =
       openFloorAsked && lastInterviewerUtteranceMatches(history, OPEN_FLOOR_FRAGMENTS);
 
-    const systemPrompt = buildFeedbackSystemPrompt({ ...input.context, isClosingTurn });
+    const systemPrompt = buildFeedbackSystemPrompt({
+      ...input.context,
+      isClosingTurn,
+      timeUp: this.isTimeUp(input, now),
+    });
 
     let llmOutput: Extract<InterviewerTurnStreamEvent, { type: "done" }> | undefined;
     for await (const event of this.llm.generateInterviewerTurnStreaming({
@@ -206,16 +237,21 @@ export class FeedbackAgent {
       throw new Error("generateNextTurnStreaming: LLM stream ended without a done event");
     }
 
+    const channel = input.context.channel ?? "voice";
     const result = this.finalizeTurn(
       history,
       input.interviewStartedAt,
       now,
+      channel,
       isClosingTurn,
       openFloorAsked,
       llmOutput,
     );
     if (result.openFloorJustAsked) {
       yield { type: "text-delta", text: ` ${OPEN_FLOOR_UTTERANCE}` };
+    }
+    if (channel === "text" && result.terminationReason === "time-cap") {
+      yield { type: "text-delta", text: ` ${TEXT_TIME_CAP_UTTERANCE}` };
     }
 
     yield { type: "done", result };

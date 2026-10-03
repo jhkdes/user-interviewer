@@ -15,10 +15,13 @@ export function InterviewRecordingAndTranscript({
   recordingUrl,
   transcript,
   participantName,
+  showRecording = true,
 }: {
   recordingUrl: string | null;
   transcript: TranscriptEntry[] | null;
   participantName: string;
+  /** False for a typed interview, which has no audio: the Recording section is left out entirely rather than saying "No recording available". */
+  showRecording?: boolean;
 }) {
   const audioRef = useRef<HTMLAudioElement>(null);
 
@@ -35,16 +38,18 @@ export function InterviewRecordingAndTranscript({
 
   return (
     <>
-      <section className="mt-6">
-        <h2 className="font-semibold">Recording</h2>
-        {recordingUrl ? (
-          <audio ref={audioRef} controls src={recordingUrl} className="mt-2 w-full" />
-        ) : (
-          <p className="mt-2 text-sm text-neutral-500 dark:text-neutral-400">
-            No recording available.
-          </p>
-        )}
-      </section>
+      {showRecording && (
+        <section className="mt-6">
+          <h2 className="font-semibold">Recording</h2>
+          {recordingUrl ? (
+            <audio ref={audioRef} controls src={recordingUrl} className="mt-2 w-full" />
+          ) : (
+            <p className="mt-2 text-sm text-neutral-500 dark:text-neutral-400">
+              No recording available.
+            </p>
+          )}
+        </section>
+      )}
 
       <section className="mt-6">
         <h2 className="font-semibold">Transcript</h2>

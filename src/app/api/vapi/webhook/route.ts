@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getEmailClient } from "@/lib/email";
+import { deleteVapiCall } from "@/lib/vapi/client";
 import { getCompletionWebhookClient } from "@/lib/webhook";
 import { getLLMProvider } from "@/llm";
 import { getInterviewRepository } from "@/repositories/get-interview-repository";
@@ -24,6 +25,7 @@ export async function POST(request: Request) {
         llm: getLLMProvider(),
         emailClient: getEmailClient(),
         webhookClient: getCompletionWebhookClient(),
+        providerCleanup: { deleteVapiCall },
       },
       body.message,
     );

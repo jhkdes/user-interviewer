@@ -1,5 +1,5 @@
-import { generateTurn, type GenerateTurnDeps } from "../generate-turn";
-import { MissingInterviewIdError } from "../errors";
+import { generateTurn, loadInterviewAndStudy, type GenerateTurnDeps } from "../generate-turn";
+import { InterviewNotVoiceError, MissingInterviewIdError } from "../errors";
 import { buildStreamingCompletionBody } from "../openai-response";
 import type { VapiCustomLlmChatCompletionRequest } from "./types";
 
@@ -58,9 +58,16 @@ export async function handleVapiCustomLlmRequest(
     request.metadata?.interviewId ?? request.call?.assistantOverrides?.metadata?.interviewId;
   if (!interviewId) throw new MissingInterviewIdError("Vapi custom-llm chat completion request");
 
+  // Loaded here (and handed to generateTurn so it isn't read twice) to turn
+  // away a late request from a voice call whose interview was restarted as a
+  // typing interview — nothing may be generated or written for it.
+  const loaded = await loadInterviewAndStudy(deps, interviewId);
+  if (loaded.interview.mode === "text") throw new InterviewNotVoiceError(interviewId);
+
   const { utterance, isInterviewOver } = await generateTurn(deps, {
     interviewId,
     messages: request.messages,
+    preloaded: loaded,
   });
 
   const finalUtterance = isInterviewOver

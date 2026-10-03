@@ -48,6 +48,73 @@ export function runInterviewRepositoryContractTests(
       expect(interview.trackingId).toBeNull();
       expect(interview.redactedTranscript).toBeNull();
       expect(interview.redactedAt).toBeNull();
+      expect(interview.mode).toBe("voice");
+      expect(interview.lastActivityAt).toBeNull();
+      expect(interview.idleNudgeSentAt).toBeNull();
+      expect(interview.switchedToTextAt).toBeNull();
+    });
+
+    it("creates an interview with an explicit text mode", async () => {
+      const repo = await makeRepository();
+      const interview = await repo.create({
+        studyId: getStudyId(),
+        firstName: "Alex",
+        email: "alex@example.com",
+        mode: "text",
+      });
+
+      expect(interview.mode).toBe("text");
+      expect((await repo.getById(interview.id))?.mode).toBe("text");
+    });
+
+    it("update can set and round-trip mode, lastActivityAt, idleNudgeSentAt, and switchedToTextAt", async () => {
+      const repo = await makeRepository();
+      const created = await repo.create({
+        studyId: getStudyId(),
+        firstName: "Sam",
+        email: "sam@example.com",
+      });
+      const lastActivityAt = new Date("2026-01-01T00:03:00.000Z");
+      const idleNudgeSentAt = new Date("2026-01-01T00:06:00.000Z");
+      const switchedToTextAt = new Date("2026-01-01T00:00:20.000Z");
+
+      const updated = await repo.update(created.id, {
+        mode: "text",
+        lastActivityAt,
+        idleNudgeSentAt,
+        switchedToTextAt,
+      });
+
+      expect(updated.mode).toBe("text");
+      expect(updated.lastActivityAt).toEqual(lastActivityAt);
+      expect(updated.idleNudgeSentAt).toEqual(idleNudgeSentAt);
+      expect(updated.switchedToTextAt).toEqual(switchedToTextAt);
+      const reloaded = await repo.getById(created.id);
+      expect(reloaded?.mode).toBe("text");
+      expect(reloaded?.lastActivityAt).toEqual(lastActivityAt);
+      expect(reloaded?.idleNudgeSentAt).toEqual(idleNudgeSentAt);
+      expect(reloaded?.switchedToTextAt).toEqual(switchedToTextAt);
+    });
+
+    it("update can clear lastActivityAt and idleNudgeSentAt back to null", async () => {
+      const repo = await makeRepository();
+      const created = await repo.create({
+        studyId: getStudyId(),
+        firstName: "Sam",
+        email: "sam@example.com",
+      });
+      await repo.update(created.id, {
+        lastActivityAt: new Date("2026-01-01T00:03:00.000Z"),
+        idleNudgeSentAt: new Date("2026-01-01T00:06:00.000Z"),
+      });
+
+      const updated = await repo.update(created.id, {
+        lastActivityAt: null,
+        idleNudgeSentAt: null,
+      });
+
+      expect(updated.lastActivityAt).toBeNull();
+      expect(updated.idleNudgeSentAt).toBeNull();
     });
 
     it("creates an interview with a tracking id when provided", async () => {
@@ -146,6 +213,53 @@ export function runInterviewRepositoryContractTests(
       const interviews = await repo.listByStudyId(studyId);
       expect(interviews).toHaveLength(2);
       expect(interviews.every((i) => i.studyId === studyId)).toBe(true);
+    });
+
+    it("listActiveTextInterviews returns only in-progress text interviews, oldest first", async () => {
+      const repo = await makeRepository();
+      const studyId = getStudyId();
+      const first = await repo.create({
+        studyId,
+        firstName: "A",
+        email: "a@example.com",
+        mode: "text",
+      });
+      const second = await repo.create({
+        studyId,
+        firstName: "B",
+        email: "b@example.com",
+        mode: "text",
+      });
+      const pendingText = await repo.create({
+        studyId,
+        firstName: "C",
+        email: "c@example.com",
+        mode: "text",
+      });
+      const completedText = await repo.create({
+        studyId,
+        firstName: "D",
+        email: "d@example.com",
+        mode: "text",
+      });
+      const voice = await repo.create({ studyId, firstName: "E", email: "e@example.com" });
+      await repo.update(first.id, { status: "in-progress" });
+      await repo.update(second.id, { status: "in-progress" });
+      await repo.update(completedText.id, { status: "completed" });
+      await repo.update(voice.id, { status: "in-progress" });
+
+      const active = await repo.listActiveTextInterviews();
+
+      expect(active.map((i) => i.id)).toEqual([first.id, second.id]);
+      expect(active.every((i) => i.mode === "text" && i.status === "in-progress")).toBe(true);
+      expect(active.map((i) => i.id)).not.toContain(pendingText.id);
+    });
+
+    it("listActiveTextInterviews is empty when there are none", async () => {
+      const repo = await makeRepository();
+      await repo.create({ studyId: getStudyId(), firstName: "A", email: "a@example.com" });
+
+      expect(await repo.listActiveTextInterviews()).toEqual([]);
     });
 
     it("update patches only the given fields and persists them", async () => {
@@ -301,6 +415,97 @@ export function runInterviewRepositoryContractTests(
       const reloaded = await repo.getById(created.id);
       expect(reloaded?.redactedTranscript).toEqual(redactedTranscript);
       expect(reloaded?.redactedAt).toEqual(redactedAt);
+    });
+
+    describe("updateIfNotCompleted", () => {
+      it("applies the patch and returns the updated interview when it is not completed", async () => {
+        const repo = await makeRepository();
+        const created = await repo.create({
+          studyId: getStudyId(),
+          firstName: "Sam",
+          email: "sam@example.com",
+        });
+        await repo.update(created.id, { status: "in-progress" });
+        const completedAt = new Date("2026-01-01T00:10:00.000Z");
+
+        const result = await repo.updateIfNotCompleted(created.id, {
+          status: "completed",
+          completedAt,
+          endedReason: "assistant-said-end-call-phrase",
+        });
+
+        expect(result?.status).toBe("completed");
+        expect(result?.completedAt).toEqual(completedAt);
+        expect(result?.endedReason).toBe("assistant-said-end-call-phrase");
+        const reloaded = await repo.getById(created.id);
+        expect(reloaded?.status).toBe("completed");
+        expect(reloaded?.endedReason).toBe("assistant-said-end-call-phrase");
+      });
+
+      it("also applies to a pending interview (completion can arrive before a start event)", async () => {
+        const repo = await makeRepository();
+        const created = await repo.create({
+          studyId: getStudyId(),
+          firstName: "Sam",
+          email: "sam@example.com",
+        });
+
+        const result = await repo.updateIfNotCompleted(created.id, { status: "completed" });
+
+        expect(result?.status).toBe("completed");
+      });
+
+      it("returns null and changes nothing when the interview is already completed", async () => {
+        const repo = await makeRepository();
+        const created = await repo.create({
+          studyId: getStudyId(),
+          firstName: "Sam",
+          email: "sam@example.com",
+        });
+        const firstTranscript = [{ speaker: "interviewer" as const, text: "Hi.", timestampMs: 0 }];
+        await repo.updateIfNotCompleted(created.id, {
+          status: "completed",
+          transcript: firstTranscript,
+          endedReason: "first",
+        });
+
+        const result = await repo.updateIfNotCompleted(created.id, {
+          status: "completed",
+          transcript: [{ speaker: "interviewer" as const, text: "Overwritten.", timestampMs: 0 }],
+          endedReason: "second",
+        });
+
+        expect(result).toBeNull();
+        const reloaded = await repo.getById(created.id);
+        expect(reloaded?.transcript).toEqual(firstTranscript);
+        expect(reloaded?.endedReason).toBe("first");
+      });
+
+      it("lets only one of two concurrent completions win", async () => {
+        const repo = await makeRepository();
+        const created = await repo.create({
+          studyId: getStudyId(),
+          firstName: "Sam",
+          email: "sam@example.com",
+        });
+        await repo.update(created.id, { status: "in-progress" });
+
+        const results = await Promise.all([
+          repo.updateIfNotCompleted(created.id, { status: "completed", endedReason: "a" }),
+          repo.updateIfNotCompleted(created.id, { status: "completed", endedReason: "b" }),
+        ]);
+
+        expect(results.filter((r) => r !== null)).toHaveLength(1);
+        const winner = results.find((r) => r !== null);
+        expect((await repo.getById(created.id))?.endedReason).toBe(winner?.endedReason);
+      });
+
+      it("rejects an unknown id", async () => {
+        const repo = await makeRepository();
+        await expect(
+          repo.updateIfNotCompleted(NONEXISTENT_ID, { status: "completed" }),
+        ).rejects.toThrow();
+      });
     });
 
     it("delete removes the interview (#5)", async () => {

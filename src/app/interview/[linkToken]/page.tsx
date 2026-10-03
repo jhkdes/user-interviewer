@@ -1,3 +1,4 @@
+import { isTextInterviewModeEnabled } from "@/lib/feature-flags";
 import { getStudyRepository } from "@/repositories/get-study-repository";
 import { checkLinkValidity } from "@/study-service/link-validity";
 import { InterviewFlow } from "./interview-flow";
@@ -37,6 +38,7 @@ export default async function InterviewPage({
       title={study.title}
       description={study.description}
       questions={study.preInterviewQuestions}
+      textModeEnabled={isTextInterviewModeEnabled()}
     />
   );
 }

@@ -7,6 +7,7 @@ import { getStudyRepository } from "@/repositories/get-study-repository";
 import {
   handleVapiCustomLlmRequest,
   type VapiCustomLlmChatCompletionRequest,
+  InterviewNotVoiceError,
 } from "@/voice-session";
 
 export const dynamic = "force-dynamic";
@@ -55,6 +56,13 @@ export async function POST(request: Request) {
       },
     });
   } catch (error) {
+    if (error instanceof InterviewNotVoiceError) {
+      console.log(error.message);
+      return NextResponse.json(
+        { error: "This interview is no longer a voice interview" },
+        { status: 409 },
+      );
+    }
     console.error("Failed to generate the next interview turn:", error);
     return NextResponse.json({ error: "Failed to generate the next turn" }, { status: 500 });
   }

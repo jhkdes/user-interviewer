@@ -45,6 +45,20 @@ export interface InterviewRow {
   tracking_id: string | null;
   redacted_transcript: unknown;
   redacted_at: string | null;
+  mode: string;
+  last_activity_at: string | null;
+  idle_nudge_sent_at: string | null;
+  switched_to_text_at: string | null;
+}
+
+export interface InterviewMessageRow {
+  id: string;
+  interview_id: string;
+  seq: number;
+  speaker: string;
+  text: string;
+  client_message_id: string | null;
+  created_at: string;
 }
 
 export interface SummaryRow {

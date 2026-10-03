@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { FakeLLMProvider } from "@/llm";
-import { FeedbackAgent, OPEN_FLOOR_UTTERANCE } from "../feedback-agent";
+import { FeedbackAgent, OPEN_FLOOR_UTTERANCE, TEXT_TIME_CAP_UTTERANCE } from "../feedback-agent";
 import { FEEDBACK_HARD_CAP_MS } from "../termination";
 
 const context = {
@@ -319,5 +319,136 @@ describe("FeedbackAgent.generateNextTurnStreaming", () => {
         terminationReason: "time-cap",
       },
     });
+  });
+});
+
+describe("FeedbackAgent text channel", () => {
+  const textContext = { ...context, channel: "text" as const };
+  const afterCap = new Date(START.getTime() + FEEDBACK_HARD_CAP_MS);
+
+  it("uses the written-chat prompt", async () => {
+    const llm = new FakeLLMProvider();
+    llm.scriptInterviewerTurns([{ utterance: "Hi Sam!", shouldEndInterview: false }]);
+
+    await new FeedbackAgent(llm).generateNextTurn({
+      context: textContext,
+      conversationHistory: [],
+      interviewStartedAt: START,
+      now: START,
+    });
+
+    expect(llm.calls.generateInterviewerTurn[0].systemPrompt).toContain(
+      "## This is a written chat",
+    );
+  });
+
+  it("appends the fixed closing line when the time cap ends the interview", async () => {
+    const llm = new FakeLLMProvider();
+    llm.scriptInterviewerTurns([{ utterance: "Thanks, that helps.", shouldEndInterview: false }]);
+
+    const result = await new FeedbackAgent(llm).generateNextTurn({
+      context: textContext,
+      conversationHistory: [{ speaker: "participant", text: "It was fine." }],
+      interviewStartedAt: START,
+      now: afterCap,
+    });
+
+    expect(result).toMatchObject({
+      utterance: `Thanks, that helps. ${TEXT_TIME_CAP_UTTERANCE}`,
+      isInterviewOver: true,
+      terminationReason: "time-cap",
+      openFloorJustAsked: false,
+    });
+  });
+
+  it("asks the model for a question-free acknowledgment once the cap has passed", async () => {
+    const llm = new FakeLLMProvider();
+    llm.scriptInterviewerTurns([{ utterance: "Thanks.", shouldEndInterview: false }]);
+
+    await new FeedbackAgent(llm).generateNextTurn({
+      context: textContext,
+      conversationHistory: [{ speaker: "participant", text: "It was fine." }],
+      interviewStartedAt: START,
+      now: afterCap,
+    });
+
+    expect(llm.calls.generateInterviewerTurn[0].systemPrompt).toContain("## Time is up");
+  });
+
+  it("does not ask for the time-up acknowledgment before the cap", async () => {
+    const llm = new FakeLLMProvider();
+    llm.scriptInterviewerTurns([{ utterance: "Tell me more.", shouldEndInterview: false }]);
+
+    await new FeedbackAgent(llm).generateNextTurn({
+      context: textContext,
+      conversationHistory: [{ speaker: "participant", text: "It was fine." }],
+      interviewStartedAt: START,
+      now: new Date(afterCap.getTime() - 1),
+    });
+
+    expect(llm.calls.generateInterviewerTurn[0].systemPrompt).not.toContain("## Time is up");
+  });
+
+  it("does not add the closing line when the participant asks to leave before the cap", async () => {
+    const llm = new FakeLLMProvider();
+    llm.scriptInterviewerTurns([
+      { utterance: "Of course, thanks!", shouldEndInterview: false, participantRequestedEnd: true },
+    ]);
+
+    const result = await new FeedbackAgent(llm).generateNextTurn({
+      context: textContext,
+      conversationHistory: [{ speaker: "participant", text: "I need to go." }],
+      interviewStartedAt: START,
+      now: new Date(START.getTime() + 60_000),
+    });
+
+    expect(result).toMatchObject({
+      utterance: "Of course, thanks!",
+      isInterviewOver: true,
+      terminationReason: "participant-requested",
+    });
+  });
+
+  it("streams the closing line as a final text delta on the time cap", async () => {
+    const llm = new FakeLLMProvider();
+    llm.scriptInterviewerTurnStreams([
+      { textChunks: ["Thanks, ", "that helps."], shouldEndInterview: false },
+    ]);
+
+    const events = [];
+    for await (const event of new FeedbackAgent(llm).generateNextTurnStreaming({
+      context: textContext,
+      conversationHistory: [{ speaker: "participant", text: "It was fine." }],
+      interviewStartedAt: START,
+      now: afterCap,
+    })) {
+      events.push(event);
+    }
+
+    const deltas = events.flatMap((e) => (e.type === "text-delta" ? [e.text] : []));
+    expect(deltas.join("")).toBe(`Thanks, that helps. ${TEXT_TIME_CAP_UTTERANCE}`);
+    expect(events[events.length - 1]).toMatchObject({
+      type: "done",
+      result: {
+        utterance: `Thanks, that helps. ${TEXT_TIME_CAP_UTTERANCE}`,
+        isInterviewOver: true,
+        terminationReason: "time-cap",
+      },
+    });
+  });
+
+  it("leaves voice behaviour on the time cap unchanged", async () => {
+    const llm = new FakeLLMProvider();
+    llm.scriptInterviewerTurns([{ utterance: "One more thing...", shouldEndInterview: false }]);
+
+    const result = await new FeedbackAgent(llm).generateNextTurn({
+      context,
+      conversationHistory: [{ speaker: "participant", text: "..." }],
+      interviewStartedAt: START,
+      now: afterCap,
+    });
+
+    expect(result.utterance).toBe("One more thing...");
+    expect(llm.calls.generateInterviewerTurn[0].systemPrompt).not.toContain("## Time is up");
   });
 });

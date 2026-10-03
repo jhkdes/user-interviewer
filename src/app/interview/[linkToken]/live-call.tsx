@@ -18,12 +18,18 @@ export function LiveCall({
   voiceProvider,
   type,
   onEnded,
+  onSwitchedToTyping,
+  onRetry,
 }: {
   interviewId: string;
   firstName: string;
   voiceProvider: VoiceProvider;
   type: StudyType;
   onEnded: () => void;
+  /** Typing is offered (feedback studies with text mode on): called once the interview was restarted as a typing interview. */
+  onSwitchedToTyping?: () => void;
+  /** A retry is offered after an error before the call began. */
+  onRetry?: () => void;
 }) {
   return voiceProvider === "elevenlabs" ? (
     <ElevenLabsLiveCall
@@ -31,8 +37,16 @@ export function LiveCall({
       firstName={firstName}
       type={type}
       onEnded={onEnded}
+      onSwitchedToTyping={onSwitchedToTyping}
+      onRetry={onRetry}
     />
   ) : (
-    <VapiLiveCall interviewId={interviewId} type={type} onEnded={onEnded} />
+    <VapiLiveCall
+      interviewId={interviewId}
+      type={type}
+      onEnded={onEnded}
+      onSwitchedToTyping={onSwitchedToTyping}
+      onRetry={onRetry}
+    />
   );
 }

@@ -46,3 +46,33 @@ export async function fetchFreshRecordingUrl(vapiCallId: string): Promise<string
     return null;
   }
 }
+
+/**
+ * Deletes a Vapi call and its recording. Used when a participant restarts as
+ * a typing interview and the voice call they began is discarded (see
+ * TEXT_INTERVIEW_MODE.md). Best-effort: returns whether it worked and never
+ * throws, because a failed delete must not break webhook handling.
+ */
+export async function deleteVapiCall(vapiCallId: string): Promise<boolean> {
+  const apiKey = process.env.VAPI_API_KEY;
+  if (!apiKey) {
+    console.error("Missing required environment variable: VAPI_API_KEY");
+    return false;
+  }
+
+  try {
+    const res = await fetch(`https://api.vapi.ai/call/${encodeURIComponent(vapiCallId)}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${apiKey}` },
+      cache: "no-store",
+    });
+    if (!res.ok) {
+      console.error(`Vapi call delete failed for ${vapiCallId}: ${res.status}`);
+      return false;
+    }
+    return true;
+  } catch (error) {
+    console.error(`Failed to delete Vapi call ${vapiCallId}:`, error);
+    return false;
+  }
+}

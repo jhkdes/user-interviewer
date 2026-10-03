@@ -55,6 +55,10 @@ function makeInterview(overrides: Partial<Interview> = {}): Interview {
     trackingId: null,
     redactedTranscript: null,
     redactedAt: null,
+    mode: "voice",
+    lastActivityAt: null,
+    idleNudgeSentAt: null,
+    switchedToTextAt: null,
     ...overrides,
   };
 }
@@ -140,6 +144,74 @@ describe("renderStudyTranscriptsMarkdown", () => {
     expect(markdown.indexOf("Participant 1: Priya")).toBeLessThan(
       markdown.indexOf("Participant 2: Alex"),
     );
+  });
+
+  describe("typed interviews", () => {
+    const typedTranscript = [
+      { speaker: "interviewer" as const, text: "Hi Sam, what stood out?", timestampMs: 2_000 },
+      { speaker: "participant" as const, text: "The live demo.", timestampMs: 71_000 },
+    ];
+
+    it("includes a typed interview's transcript with its timestamps, and says it was typed", () => {
+      const typed = makeInterview({
+        firstName: "Sam",
+        mode: "text",
+        transcript: typedTranscript,
+      });
+
+      const markdown = renderStudyTranscriptsMarkdown(discoveryStudy, [typed]);
+
+      expect(markdown).toContain("## Participant 1: Sam");
+      expect(markdown).toContain("_Interview mode: typed (written chat), not voice._");
+      expect(markdown).toContain("[0:02] Interviewer: Hi Sam, what stood out?");
+      expect(markdown).toContain("[1:11] Sam: The live demo.");
+    });
+
+    it("leaves voice interviews' output exactly as before, with no mode line", () => {
+      const voice = makeInterview({ firstName: "Alex" });
+
+      const markdown = renderStudyTranscriptsMarkdown(discoveryStudy, [voice]);
+
+      expect(markdown).not.toContain("Interview mode");
+      expect(markdown).not.toContain("typed");
+    });
+
+    it("labels only the typed interview in a study that mixes voice and typed", () => {
+      const voice = makeInterview({
+        id: "i1",
+        firstName: "Alex",
+        createdAt: new Date("2026-08-01T00:00:00Z"),
+      });
+      const typed = makeInterview({
+        id: "i2",
+        firstName: "Sam",
+        mode: "text",
+        transcript: typedTranscript,
+        createdAt: new Date("2026-08-02T00:00:00Z"),
+      });
+
+      const markdown = renderStudyTranscriptsMarkdown(discoveryStudy, [typed, voice]);
+
+      expect(markdown.match(/Interview mode: typed/g)).toHaveLength(1);
+      expect(markdown.indexOf("Alex")).toBeLessThan(markdown.indexOf("Interview mode: typed"));
+      expect(markdown.indexOf("Interview mode: typed")).toBeLessThan(
+        markdown.indexOf("## Participant 2: Sam") + 100,
+      );
+    });
+
+    it("leaves out a typed interview still in progress, which has no transcript yet", () => {
+      const inProgress = makeInterview({
+        firstName: "Sam",
+        mode: "text",
+        status: "in-progress",
+        transcript: null,
+      });
+
+      const markdown = renderStudyTranscriptsMarkdown(discoveryStudy, [inProgress]);
+
+      expect(markdown).not.toContain("Sam");
+      expect(markdown).toContain("No interviews with a transcript yet.");
+    });
   });
 
   it("skips interviews with no transcript", () => {

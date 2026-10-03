@@ -38,6 +38,10 @@ export class InMemoryInterviewRepository implements InterviewRepository {
       trackingId: input.trackingId ?? null,
       redactedTranscript: null,
       redactedAt: null,
+      mode: input.mode ?? "voice",
+      lastActivityAt: null,
+      idleNudgeSentAt: null,
+      switchedToTextAt: null,
     };
     this.interviews.set(interview.id, interview);
     return { ...interview };
@@ -46,6 +50,13 @@ export class InMemoryInterviewRepository implements InterviewRepository {
   async getById(id: string): Promise<Interview | null> {
     const interview = this.interviews.get(id);
     return interview ? { ...interview } : null;
+  }
+
+  async listActiveTextInterviews(): Promise<Interview[]> {
+    return [...this.interviews.values()]
+      .filter((i) => i.mode === "text" && i.status === "in-progress")
+      .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
+      .map((i) => ({ ...i }));
   }
 
   async listByStudyId(studyId: string): Promise<Interview[]> {
@@ -60,6 +71,13 @@ export class InMemoryInterviewRepository implements InterviewRepository {
     const updated: Interview = { ...interview, ...patch };
     this.interviews.set(id, updated);
     return { ...updated };
+  }
+
+  async updateIfNotCompleted(id: string, patch: InterviewUpdate): Promise<Interview | null> {
+    const interview = this.interviews.get(id);
+    if (!interview) throw new Error(`Interview not found: ${id}`);
+    if (interview.status === "completed") return null;
+    return this.update(id, patch);
   }
 
   async delete(id: string): Promise<void> {

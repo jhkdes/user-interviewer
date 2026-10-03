@@ -57,6 +57,10 @@ const baseInterview: Interview = {
   trackingId: null,
   redactedTranscript: null,
   redactedAt: null,
+  mode: "voice",
+  lastActivityAt: null,
+  idleNudgeSentAt: null,
+  switchedToTextAt: null,
 };
 
 describe("resolveScreenerAnswers", () => {
