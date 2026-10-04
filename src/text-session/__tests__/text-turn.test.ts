@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { OPEN_FLOOR_UTTERANCE, TEXT_TIME_CAP_UTTERANCE } from "@/interview-agent";
-import { FEEDBACK_HARD_CAP_MS } from "@/interview-agent/termination";
+import { FEEDBACK_HARD_CAP_MS, FEEDBACK_TEXT_HARD_CAP_MS } from "@/interview-agent/termination";
 import {
   IDLE_NUDGE_TEXT,
   MAX_MESSAGE_CHARS,
@@ -709,7 +709,7 @@ describe("startTextTurn", () => {
       const { deps, interview, startedWith, llm, interviewRepo } = await setupTextSession();
       await startedWith(
         [{ speaker: "interviewer", text: "Hi Sam!" }],
-        new Date(Date.now() - FEEDBACK_HARD_CAP_MS - 60_000),
+        new Date(Date.now() - FEEDBACK_TEXT_HARD_CAP_MS - 60_000),
       );
       llm.scriptInterviewerTurnStreams([reply("Thanks, that helps.")]);
 
@@ -731,6 +731,33 @@ describe("startTextTurn", () => {
       });
       expect((await interviewRepo.getById(interview.id))?.endedReason).toBe("time-cap");
       expect(llm.calls.generateInterviewerTurnStreaming[0].systemPrompt).toContain("## Time is up");
+    });
+
+    it("keeps going past the spoken seven-minute limit, since a typed interview has 15 minutes", async () => {
+      const { deps, interview, startedWith, llm, interviewRepo } = await setupTextSession();
+      await startedWith(
+        [{ speaker: "interviewer", text: "Hi Sam!" }],
+        new Date(Date.now() - FEEDBACK_HARD_CAP_MS - 60_000),
+      );
+      llm.scriptInterviewerTurnStreams([reply("And the pacing?")]);
+
+      const events = await drain(
+        await startTextTurn(deps, {
+          interviewId: interview.id,
+          clientMessageId: "m-1",
+          message: "Sorry, I was multitasking.",
+        }),
+      );
+
+      expect(events[events.length - 1]).toMatchObject({
+        type: "done",
+        message: { text: "And the pacing?" },
+        interviewOver: false,
+      });
+      expect((await interviewRepo.getById(interview.id))?.status).toBe("in-progress");
+      expect(llm.calls.generateInterviewerTurnStreaming[0].systemPrompt).not.toContain(
+        "## Time is up",
+      );
     });
 
     it("asks the open-floor question when the model thinks it is done, then closes on the next reply", async () => {

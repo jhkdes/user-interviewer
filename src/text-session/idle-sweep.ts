@@ -1,5 +1,5 @@
 import type { Interview } from "@/domain";
-import { FEEDBACK_HARD_CAP_MS } from "@/interview-agent/termination";
+import { FEEDBACK_TEXT_HARD_CAP_MS } from "@/interview-agent/termination";
 import { completeTextInterview } from "./complete-text-interview";
 import {
   IDLE_END_AFTER_MS,
@@ -34,20 +34,17 @@ type IdleDecision =
  * "Active" means the participant sent a message or was typing, or the
  * interviewer just finished a reply (`lastActivityAt`). In priority order:
  *   1. Older than the absolute backstop: end it, however active it looks.
- *   2. No activity for 7 minutes: end it.
- *   3. No activity for 3 minutes and the time cap has already passed: end it
- *      without a nudge, since a nudge would only invite a reply that ends the
- *      interview anyway.
- *   4. No activity for 3 minutes, not nudged yet, and the participant has
- *      something to answer: send the nudge.
+ *   2. No activity for IDLE_END_AFTER_MS (10 minutes): end it.
+ *   3. No activity for IDLE_NUDGE_AFTER_MS (5 minutes) and the time cap
+ *      (15 minutes) has already passed: end it without a nudge, since a nudge
+ *      would only invite a reply that ends the interview anyway.
+ *   4. No activity for IDLE_NUDGE_AFTER_MS, not nudged yet, and the
+ *      participant has something to answer: send the nudge.
  *
  * Every ending decided here is `participant-inactive`, so the participant
  * sees the "ended due to inactivity" screen. An interview whose cap runs out
  * while the participant is still replying ends in the turn itself (with the
- * closing line and reason `time-cap`), never here. Because the cap (7
- * minutes) equals the inactivity limit, rules 2 and 3 overlap — anything idle
- * for 7 minutes is also past the cap — but both are kept so neither limit
- * silently depends on the other's value.
+ * closing line and reason `time-cap`), never here.
  */
 export function decideIdleAction(
   interview: Interview,
@@ -58,7 +55,7 @@ export function decideIdleAction(
   const lastActivity = interview.lastActivityAt ?? startedAt;
   const idleMs = now.getTime() - lastActivity.getTime();
   const ageMs = now.getTime() - startedAt.getTime();
-  const capPassed = ageMs >= FEEDBACK_HARD_CAP_MS;
+  const capPassed = ageMs >= FEEDBACK_TEXT_HARD_CAP_MS;
 
   if (ageMs >= MAX_INTERVIEW_AGE_MS) {
     return { action: "complete", endedReason: "participant-inactive" };

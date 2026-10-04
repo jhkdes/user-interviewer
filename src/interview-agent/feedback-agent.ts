@@ -1,6 +1,6 @@
 import type { InterviewerTurnStreamEvent, InterviewTurn, LLMProviderAdapter } from "@/llm";
 import { buildFeedbackSystemPrompt, type FeedbackPromptContext } from "./feedback-system-prompt";
-import { checkTermination, FEEDBACK_HARD_CAP_MS, type TerminationReason } from "./termination";
+import { checkTermination, feedbackHardCapMs, type TerminationReason } from "./termination";
 
 /**
  * Scripted, not LLM-generated — same rationale as discovery-type's
@@ -91,7 +91,7 @@ export class FeedbackAgent {
   private isTimeUp(input: FeedbackAgentTurnInput, now: Date): boolean {
     return (
       input.context.channel === "text" &&
-      now.getTime() - input.interviewStartedAt.getTime() >= FEEDBACK_HARD_CAP_MS
+      now.getTime() - input.interviewStartedAt.getTime() >= feedbackHardCapMs("text")
     );
   }
 
@@ -119,7 +119,7 @@ export class FeedbackAgent {
       now,
       llmSuggestsEnd: false,
       participantRequestedEnd: participantRequestedEnd ?? false,
-      hardCapMs: FEEDBACK_HARD_CAP_MS,
+      hardCapMs: feedbackHardCapMs(channel),
       minParticipantTurnsBeforeLlmCanEnd: 0,
     });
     if (timeCapReason !== null) {

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { FakeLLMProvider } from "@/llm";
 import { FeedbackAgent, OPEN_FLOOR_UTTERANCE, TEXT_TIME_CAP_UTTERANCE } from "../feedback-agent";
-import { FEEDBACK_HARD_CAP_MS } from "../termination";
+import { FEEDBACK_HARD_CAP_MS, FEEDBACK_TEXT_HARD_CAP_MS } from "../termination";
 
 const context = {
   participantFirstName: "Sam",
@@ -324,7 +324,7 @@ describe("FeedbackAgent.generateNextTurnStreaming", () => {
 
 describe("FeedbackAgent text channel", () => {
   const textContext = { ...context, channel: "text" as const };
-  const afterCap = new Date(START.getTime() + FEEDBACK_HARD_CAP_MS);
+  const afterCap = new Date(START.getTime() + FEEDBACK_TEXT_HARD_CAP_MS);
 
   it("uses the written-chat prompt", async () => {
     const llm = new FakeLLMProvider();
@@ -437,7 +437,42 @@ describe("FeedbackAgent text channel", () => {
     });
   });
 
-  it("leaves voice behaviour on the time cap unchanged", async () => {
+  it("does not cap a typed interview at the spoken limit", async () => {
+    const llm = new FakeLLMProvider();
+    llm.scriptInterviewerTurns([{ utterance: "Tell me more.", shouldEndInterview: false }]);
+
+    const result = await new FeedbackAgent(llm).generateNextTurn({
+      context: textContext,
+      conversationHistory: [{ speaker: "participant", text: "It was fine." }],
+      interviewStartedAt: START,
+      now: new Date(START.getTime() + FEEDBACK_HARD_CAP_MS + 60_000),
+    });
+
+    expect(result).toMatchObject({
+      utterance: "Tell me more.",
+      isInterviewOver: false,
+      terminationReason: null,
+    });
+    expect(llm.calls.generateInterviewerTurn[0].systemPrompt).not.toContain("## Time is up");
+  });
+
+  it("caps a typed interview at 15 minutes, not a moment before", async () => {
+    const run = async (offsetMs: number) => {
+      const llm = new FakeLLMProvider();
+      llm.scriptInterviewerTurns([{ utterance: "Thanks.", shouldEndInterview: false }]);
+      return new FeedbackAgent(llm).generateNextTurn({
+        context: textContext,
+        conversationHistory: [{ speaker: "participant", text: "It was fine." }],
+        interviewStartedAt: START,
+        now: new Date(START.getTime() + 15 * 60_000 + offsetMs),
+      });
+    };
+
+    expect((await run(-1)).isInterviewOver).toBe(false);
+    expect(await run(0)).toMatchObject({ isInterviewOver: true, terminationReason: "time-cap" });
+  });
+
+  it("leaves voice behaviour on the time cap unchanged, at the spoken limit", async () => {
     const llm = new FakeLLMProvider();
     llm.scriptInterviewerTurns([{ utterance: "One more thing...", shouldEndInterview: false }]);
 
@@ -445,10 +480,14 @@ describe("FeedbackAgent text channel", () => {
       context,
       conversationHistory: [{ speaker: "participant", text: "..." }],
       interviewStartedAt: START,
-      now: afterCap,
+      now: new Date(START.getTime() + FEEDBACK_HARD_CAP_MS),
     });
 
-    expect(result.utterance).toBe("One more thing...");
+    expect(result).toMatchObject({
+      utterance: "One more thing...",
+      isInterviewOver: true,
+      terminationReason: "time-cap",
+    });
     expect(llm.calls.generateInterviewerTurn[0].systemPrompt).not.toContain("## Time is up");
   });
 });
