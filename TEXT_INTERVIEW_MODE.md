@@ -6,6 +6,8 @@ Let a participant in a **feedback** study take the interview by typing in a chat
 
 **Discovery studies stay voice-only.** Nothing about the discovery flow changes: no mode-select step, no countdown, no typing option, no restart link. This is enforced on the server as well as hidden in the UI.
 
+**Status:** merged to `main` and deployed to Production (PR #40) with the feature **off**. To turn it on, follow [Rollout and enabling](#rollout-and-enabling).
+
 ## Decisions (agreed)
 
 | Topic                               | Decision                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
@@ -325,6 +327,79 @@ Delivered as six phases, each its own PR. The text UI sits behind a feature flag
      - **Webhooks and turns.** The Vapi and ElevenLabs webhook handlers ignore call-started and call-ended events for an interview in text mode. The Vapi and ElevenLabs custom-LLM endpoints answer 409 for one before generating or writing anything. A Vapi turn now loads the interview itself and hands it to the turn generator, so there is no extra database read.
      - **Discarded recording.** Deleted from the provider when the discarded call's end-of-call webhook arrives (`deleteVapiCall`, `deleteConversation`), not at switch time, because the server doesn't know the call's id until that webhook. Best-effort: a failure is logged and the webhook still succeeds. **The delete endpoints (`DELETE /call/{id}` on Vapi, `DELETE /v1/convai/conversations/{id}` on ElevenLabs) are unverified against the real APIs.**
      - **Retry** (not in the original plan): a "Try again" button on the error screen when the call failed before the interviewer ever spoke, for feedback studies with text mode on only. It starts a fresh call for the same interview.
+
+## Rollout and enabling
+
+The code is deployed to Production with the feature switched off: without `TEXT_INTERVIEW_MODE_ENABLED=true` every study behaves exactly as it did before, and the new typing routes refuse. Turning it on is a configuration change plus a redeploy, in this order. The order matters: the scheduler must exist before the flag, or abandoned typed interviews stay "in progress" forever.
+
+### Before you start
+
+- **Migration `0020_add_text_interview_mode.sql` is applied** to the Supabase project the target environment uses. It adds the `mode`, `last_activity_at`, `idle_nudge_sent_at`, and `switched_to_text_at` columns, the `interview_messages` table, and the `append_interview_message` function. Production and Preview use the same project (checked 2026-10-04: the Production `NEXT_PUBLIC_SUPABASE_URL` matches the project the migration was applied to; the server-side `SUPABASE_URL` is a hidden secret and could not be compared directly). If you ever point an environment at a different project, apply the migration there first or intake fails on the new `mode` column.
+- **You know your Vercel plan.** A once-a-minute cron needs a plan that allows it. On the free Hobby plan, cron jobs may run at most once a day, and a more frequent schedule in `vercel.json` makes the deploy fail.
+- **The manual end-to-end pass is done on Preview** (steps below).
+
+### Enabling it in Production
+
+1. **Choose the scheduler.** Either Vercel Cron (below) or any other scheduler that can call `GET`/`POST /api/internal/text-idle-sweep` every minute with `Authorization: Bearer <CRON_SECRET>`.
+2. **Set `CRON_SECRET` in Production** (any long random string). Vercel Cron sends it automatically as the bearer token when a variable of that name exists. The sweep refuses to run, with a 500, when it is unset.
+3. **Add the cron to `vercel.json`** and deploy it:
+   ```json
+   { "crons": [{ "path": "/api/internal/text-idle-sweep", "schedule": "* * * * *" }] }
+   ```
+   There is no `vercel.json` in the repo today. Check the project's Cron Jobs page in Vercel shows the job after the deploy.
+4. **Check the sweep works before enabling anything.** Run it once by hand and expect HTTP 200 with a body like `{"checked":0,"nudged":[],"completed":[],"deferred":0,"cleanedUp":[]}`:
+   ```bash
+   curl -s -X POST https://user-interviewer.vercel.app/api/internal/text-idle-sweep \
+     -H "Authorization: Bearer $CRON_SECRET"
+   ```
+   Without the header it must answer 401, and the Vercel logs should then show a "Text idle sweep: checked …" line roughly every minute.
+5. **Set `TEXT_INTERVIEW_MODE_ENABLED=true` in Production.**
+6. **Redeploy Production.** Environment variables only apply to new builds, so setting a variable alone changes nothing. Redeploy the latest production deployment from the Vercel dashboard, or push a commit.
+7. **Smoke test on Production** with a real feedback study you control (use your own email, because completing an interview sends the summary email there):
+   - The feedback intro mentions typing, and after intake a 10-second countdown appears with "Switch to typing" as a discreet link.
+   - Switch to typing, answer a few messages, then say you need to go. The thank-you screen shows, the interview is completed with a transcript, the summary exists, and the email arrived.
+   - A discovery study still shows the old intro and goes straight to the voice call.
+   - One normal voice interview on a feedback study still completes.
+
+The flag is deploy-wide. There is no per-study setting, so once it is on, every feedback study offers typing (discovery studies never do). That was a deliberate decision, not an oversight.
+
+### Manual end-to-end pass (on Preview, before Production)
+
+Preview already has `TEXT_INTERVIEW_MODE_ENABLED` and `CRON_SECRET` set. Follow [PREVIEW_TESTING.md](PREVIEW_TESTING.md) to deploy: merge the branch into `preview` and push, then use `https://user-interviewer-git-preview-df-dc33.vercel.app`. Vercel Cron only calls Production deployments (check Vercel's current documentation), so on Preview run the sweep by hand with the same `curl`, using Preview's `CRON_SECRET`.
+
+1. **Typed interview.** Switch to typing at the countdown, answer a few messages, refresh mid-chat (the chat comes back), then end it by saying you need to go. Check the transcript, the summary, the email, and that `interview_messages` is empty for it afterwards.
+2. **Idle behavior.** Shift timestamps in SQL instead of waiting: set `last_activity_at` to 6 minutes ago and `started_at` to 8 minutes ago, run the sweep (expect the nudge to appear in the open chat within about 20 seconds); set `last_activity_at` to 11 minutes ago and run it again (expect "ended due to inactivity"). Typing in the box without sending should stop a nudge.
+3. **Time cap.** With `started_at` 16 minutes ago, send a message. The reply ends with "We're out of time…" and the thank-you follows.
+4. **Restart from voice** (needs the provider webhooks to reach the Preview alias, which the dedicated preview assistant and agent do). Start a voice call and restart as typing at about 5 seconds and at about 29 seconds; the link disappears after 30 seconds. Deny the microphone and restart from the error screen. No summary email should arrive for the discarded call, and the interview must not be completed by its webhook. Check whether the discarded recording was deleted at the provider.
+5. **Nothing else changed.** Feedback study with the flag off, a discovery study with the flag on, and a phone (still blocked).
+6. **Dashboard.** "Typed" and "Typed · switched from voice" badges, no Recording section, the end reason, and the transcripts download marking typed interviews.
+
+### Known gaps to close or accept
+
+- The provider delete endpoints for discarded recordings (`DELETE /call/{id}` on Vapi, `DELETE /v1/convai/conversations/{id}` on ElevenLabs) are unverified. If one is wrong, the failure is logged and the recording remains.
+- For ElevenLabs, the 30-second restart window is enforced only by the browser (the server learns the call's start time only after the call ends).
+- A typed interview in progress shows "No transcript available yet" on the dashboard until it completes.
+- The Supabase integration tests are skipped without credentials. Run them once against a real project: `npx vitest run src/repositories/supabase` with `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` set.
+
+### Tuning the timings
+
+All typed-interview timings are constants, so changing one means a code change and a deploy:
+
+| What                      | Value                     | Where                                                                  |
+| ------------------------- | ------------------------- | ---------------------------------------------------------------------- |
+| Hard cap                  | 15 min                    | `FEEDBACK_TEXT_HARD_CAP_MINUTES`, `src/interview-agent/termination.ts` |
+| Nudge after no activity   | 5 min                     | `IDLE_NUDGE_AFTER_MS`, `src/text-session/constants.ts`                 |
+| End after no activity     | 10 min                    | `IDLE_END_AFTER_MS`, same file                                         |
+| Absolute backstop         | 30 min                    | `MAX_INTERVIEW_AGE_MS`, same file                                      |
+| Message length / count    | 2,000 characters / 50     | `MAX_MESSAGE_CHARS`, `MAX_PARTICIPANT_MESSAGES`, same file             |
+| Restart-from-voice window | 30 s (+15 s server grace) | `SWITCH_TO_TEXT_WINDOW_MS`, `SWITCH_TO_TEXT_GRACE_MS`, same file       |
+
+The prompt's "aim to wrap up in about 5 minutes" hint (`FEEDBACK_TARGET_MINUTES`) is shared with spoken interviews and was not changed for typed ones.
+
+### Turning it off or rolling back
+
+- **Switch off (fastest).** Remove or set `TEXT_INTERVIEW_MODE_ENABLED` to anything other than `true` and redeploy. New participants get the voice-only flow, and `start-text` and `switch-to-text` refuse. Leave the cron and `CRON_SECRET` in place so typed interviews already in progress still get nudged and ended. A participant mid-chat who refreshes after the flag is off lands on the intro instead of resuming, and their half-finished interview is ended by the sweep.
+- **Full rollback.** Revert the merge commit of PR #40 on `main` and redeploy. Migration 0020 is additive (new nullable columns, a column that defaults to `voice`, and a new table), so it can stay in the database. Do not drop `interview_messages` while any typed interview is in progress.
 
 ## Risks
 
