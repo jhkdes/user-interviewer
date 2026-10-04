@@ -29,10 +29,10 @@ export const STALE_REPLY_MS = 60_000;
 export const IDLE_NUDGE_TEXT = "Are you still there? Take your time — reply whenever you're ready.";
 
 /** No activity (message or typing) for this long: send the one-time nudge. */
-export const IDLE_NUDGE_AFTER_MS = 3 * 60_000;
+export const IDLE_NUDGE_AFTER_MS = 5 * 60_000;
 
 /** No activity for this long: end the interview as `participant-inactive`. */
-export const IDLE_END_AFTER_MS = 7 * 60_000;
+export const IDLE_END_AFTER_MS = 10 * 60_000;
 
 /** Backstop: an interview older than this is ended whatever its activity, so typing signals can't keep one open forever. */
 export const MAX_INTERVIEW_AGE_MS = 30 * 60_000;

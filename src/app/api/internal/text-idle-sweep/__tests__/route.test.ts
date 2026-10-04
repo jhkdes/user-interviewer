@@ -22,15 +22,15 @@ function request(method: "GET" | "POST", authorization?: string) {
   });
 }
 
-/** A running text interview that has been quiet for four minutes, so the sweep nudges it. */
+/** A running text interview that has been quiet for six minutes, so the sweep nudges it. */
 async function quietInterview() {
   const s = await setupTextSession();
   await s.startedWith(
     [{ speaker: "interviewer", text: "Hi Sam!" }],
-    new Date(Date.now() - 5 * 60_000),
+    new Date(Date.now() - 8 * 60_000),
   );
   await s.interviewRepo.update(s.interview.id, {
-    lastActivityAt: new Date(Date.now() - 4 * 60_000),
+    lastActivityAt: new Date(Date.now() - 6 * 60_000),
   });
   getTextSessionDeps.mockReturnValue(s.deps);
   return s;

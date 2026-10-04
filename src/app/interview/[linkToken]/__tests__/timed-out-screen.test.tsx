@@ -11,7 +11,7 @@ describe("TimedOutScreen", () => {
     render(<TimedOutScreen />);
 
     expect(screen.getByRole("heading")).toHaveTextContent("This interview ended due to inactivity");
-    expect(screen.getByText(/didn't see any activity for 7 minutes/)).toBeInTheDocument();
+    expect(screen.getByText(/didn't see any activity for 10 minutes/)).toBeInTheDocument();
     expect(screen.getByText(/has been saved/)).toBeInTheDocument();
   });
 

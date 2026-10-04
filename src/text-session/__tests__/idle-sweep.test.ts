@@ -31,53 +31,65 @@ describe("decideIdleAction", () => {
   }
   const INACTIVE = { action: "complete", endedReason: "participant-inactive" };
 
-  it("does nothing while the participant has been active within three minutes", async () => {
-    const i = interviewWith(await base(), { ageMinutes: 5, idleMinutes: 2.9 });
+  it("does nothing while the participant has been active within five minutes", async () => {
+    const i = interviewWith(await base(), { ageMinutes: 8, idleMinutes: 4.9 });
     expect(decideIdleAction(i, "interviewer", NOW)).toEqual({ action: "none" });
   });
 
-  it("nudges after three minutes of no activity when the participant has something to answer", async () => {
-    const i = interviewWith(await base(), { ageMinutes: 5, idleMinutes: 3 });
+  it("nudges after five minutes of no activity when the participant has something to answer", async () => {
+    const i = interviewWith(await base(), { ageMinutes: 8, idleMinutes: 5 });
     expect(decideIdleAction(i, "interviewer", NOW)).toEqual({ action: "nudge" });
   });
 
   it("nudges only once", async () => {
-    const i = interviewWith(await base(), { ageMinutes: 5, idleMinutes: 4, nudged: true });
+    const i = interviewWith(await base(), { ageMinutes: 8, idleMinutes: 6, nudged: true });
     expect(decideIdleAction(i, "interviewer", NOW)).toEqual({ action: "none" });
   });
 
   it("does not nudge a participant who is waiting on a reply that never came", async () => {
-    const i = interviewWith(await base(), { ageMinutes: 5, idleMinutes: 4 });
+    const i = interviewWith(await base(), { ageMinutes: 8, idleMinutes: 6 });
     expect(decideIdleAction(i, "participant", NOW)).toEqual({ action: "none" });
   });
 
   it("does not nudge an interview with no messages at all", async () => {
-    const i = interviewWith(await base(), { ageMinutes: 5, idleMinutes: 4 });
+    const i = interviewWith(await base(), { ageMinutes: 8, idleMinutes: 6 });
     expect(decideIdleAction(i, null, NOW)).toEqual({ action: "none" });
   });
 
+  it("leaves a participant who takes up to four minutes per answer alone, however far along the interview is", async () => {
+    for (const ageMinutes of [4, 8, 12, 14]) {
+      const i = interviewWith(await base(), { ageMinutes, idleMinutes: Math.min(4, ageMinutes) });
+      expect(decideIdleAction(i, "interviewer", NOW)).toEqual({ action: "none" });
+    }
+  });
+
   it("measures idleness from the start when no activity has been recorded", async () => {
-    const i = interviewWith(await base(), { ageMinutes: 4, idleMinutes: null });
+    const i = interviewWith(await base(), { ageMinutes: 6, idleMinutes: null });
     expect(decideIdleAction(i, "interviewer", NOW)).toEqual({ action: "nudge" });
   });
 
-  it("ends the interview, without a nudge, once the cap has passed and three minutes are idle", async () => {
-    const i = interviewWith(await base(), { ageMinutes: 8, idleMinutes: 3 });
+  it("ends the interview, without a nudge, once the 15-minute cap has passed and five minutes are idle", async () => {
+    const i = interviewWith(await base(), { ageMinutes: 16, idleMinutes: 5 });
     expect(decideIdleAction(i, "interviewer", NOW)).toEqual(INACTIVE);
   });
 
-  it("waits past the cap while the participant has been active within three minutes", async () => {
-    const i = interviewWith(await base(), { ageMinutes: 8, idleMinutes: 2 });
+  it("nudges rather than ends at five idle minutes while the cap has not yet passed", async () => {
+    const i = interviewWith(await base(), { ageMinutes: 14.9, idleMinutes: 5 });
+    expect(decideIdleAction(i, "interviewer", NOW)).toEqual({ action: "nudge" });
+  });
+
+  it("waits past the cap while the participant has been active within five minutes", async () => {
+    const i = interviewWith(await base(), { ageMinutes: 16, idleMinutes: 4 });
     expect(decideIdleAction(i, "interviewer", NOW)).toEqual({ action: "none" });
   });
 
-  it("ends the interview after seven minutes with no activity", async () => {
-    const i = interviewWith(await base(), { ageMinutes: 12, idleMinutes: 7, nudged: true });
+  it("ends the interview after ten minutes with no activity, even before the cap", async () => {
+    const i = interviewWith(await base(), { ageMinutes: 12, idleMinutes: 10, nudged: true });
     expect(decideIdleAction(i, "interviewer", NOW)).toEqual(INACTIVE);
   });
 
-  it("does not end at six minutes idle when the cap has not been passed and a nudge was sent", async () => {
-    const i = interviewWith(await base(), { ageMinutes: 6, idleMinutes: 5, nudged: true });
+  it("does not end at nine minutes idle when the cap has not been passed and a nudge was sent", async () => {
+    const i = interviewWith(await base(), { ageMinutes: 12, idleMinutes: 9, nudged: true });
     expect(decideIdleAction(i, "interviewer", NOW)).toEqual({ action: "none" });
   });
 
@@ -120,6 +132,16 @@ describe("runTextIdleSweep", () => {
     return { ...s, seed, addInterview };
   }
 
+  it("leaves an interview alone while the participant is taking their time, four minutes into an answer", async () => {
+    const { deps, seed, messageRepo, interview } = await session();
+    await seed({ ageMinutes: 10, idleMinutes: 4 });
+
+    const result = await runTextIdleSweep(deps, NOW);
+
+    expect(result).toMatchObject({ nudged: [], completed: [], deferred: 0 });
+    expect(await messageRepo.listByInterviewId(interview.id)).toHaveLength(1);
+  });
+
   it("does nothing to an active interview", async () => {
     const { deps, seed, messageRepo, interview } = await session();
     await seed({ ageMinutes: 2, idleMinutes: 1 });
@@ -132,7 +154,7 @@ describe("runTextIdleSweep", () => {
 
   it("appends the nudge as an interviewer message and records it, without counting it as activity", async () => {
     const { deps, seed, messageRepo, interview, interviewRepo } = await session();
-    await seed({ ageMinutes: 5, idleMinutes: 3 });
+    await seed({ ageMinutes: 8, idleMinutes: 5 });
 
     const result = await runTextIdleSweep(deps, NOW);
 
@@ -144,12 +166,12 @@ describe("runTextIdleSweep", () => {
     ]);
     const reloaded = await interviewRepo.getById(interview.id);
     expect(reloaded?.idleNudgeSentAt).toEqual(NOW);
-    expect(reloaded?.lastActivityAt).toEqual(minutesAgo(3));
+    expect(reloaded?.lastActivityAt).toEqual(minutesAgo(5));
   });
 
   it("nudges only once across sweeps", async () => {
     const { deps, seed, messageRepo, interview } = await session();
-    await seed({ ageMinutes: 5, idleMinutes: 3 });
+    await seed({ ageMinutes: 8, idleMinutes: 5 });
 
     await runTextIdleSweep(deps, NOW);
     const second = await runTextIdleSweep(deps, new Date(NOW.getTime() + 60_000));
@@ -160,7 +182,7 @@ describe("runTextIdleSweep", () => {
 
   it("drops the nudge when a participant message landed after the sweep looked", async () => {
     const { deps, seed, messageRepo, interview, interviewRepo } = await session();
-    await seed({ ageMinutes: 5, idleMinutes: 3 });
+    await seed({ ageMinutes: 8, idleMinutes: 5 });
     const realAppend = messageRepo.append.bind(messageRepo);
     vi.spyOn(messageRepo, "append").mockImplementation(async (input) => {
       // The participant replies between the sweep's read and its write.
@@ -183,7 +205,7 @@ describe("runTextIdleSweep", () => {
 
   it("ends an interview that stayed quiet after the nudge, writing the transcript and deleting the raw messages", async () => {
     const { deps, seed, messageRepo, interview, interviewRepo, emailClient } = await session();
-    await seed({ ageMinutes: 9, idleMinutes: 7, nudged: true }, [
+    await seed({ ageMinutes: 12, idleMinutes: 10, nudged: true }, [
       { speaker: "interviewer", text: "Hi Sam!" },
       { speaker: "participant", text: "Hello." },
       { speaker: "interviewer", text: IDLE_NUDGE_TEXT },
@@ -206,9 +228,9 @@ describe("runTextIdleSweep", () => {
     expect(emailClient.sent).toHaveLength(1);
   });
 
-  it("ends the interview without a nudge when the cap has passed and three minutes are idle", async () => {
+  it("ends the interview without a nudge when the cap has passed and five minutes are idle", async () => {
     const { deps, seed, messageRepo, interview, interviewRepo } = await session();
-    await seed({ ageMinutes: 9, idleMinutes: 3 });
+    await seed({ ageMinutes: 16, idleMinutes: 5 });
 
     const result = await runTextIdleSweep(deps, NOW);
 

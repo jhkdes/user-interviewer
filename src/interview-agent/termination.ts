@@ -53,6 +53,20 @@ export const FEEDBACK_TARGET_MINUTES = 5;
 export const FEEDBACK_HARD_CAP_MINUTES = 7;
 export const FEEDBACK_HARD_CAP_MS = FEEDBACK_HARD_CAP_MINUTES * 60 * 1000;
 
+/**
+ * Feedback interviews taken by typing get a longer hard cap than spoken ones:
+ * participants compose answers more carefully and often multitask, so the
+ * same wall-clock limit fits far fewer exchanges (see TEXT_INTERVIEW_MODE.md).
+ * Spoken feedback interviews keep FEEDBACK_HARD_CAP_MS.
+ */
+export const FEEDBACK_TEXT_HARD_CAP_MINUTES = 15;
+export const FEEDBACK_TEXT_HARD_CAP_MS = FEEDBACK_TEXT_HARD_CAP_MINUTES * 60 * 1000;
+
+/** The hard cap for a feedback interview taken over the given channel. */
+export function feedbackHardCapMs(channel: "voice" | "text"): number {
+  return channel === "text" ? FEEDBACK_TEXT_HARD_CAP_MS : FEEDBACK_HARD_CAP_MS;
+}
+
 export type TerminationReason = "time-cap" | "participant-requested" | "llm-self-assessed" | null;
 
 export interface TerminationCheckInput {
