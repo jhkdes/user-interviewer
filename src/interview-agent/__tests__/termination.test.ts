@@ -2,7 +2,11 @@ import { describe, expect, it } from "vitest";
 import type { InterviewTurn } from "@/llm";
 import {
   checkTermination,
+  FEEDBACK_HARD_CAP_MINUTES,
   FEEDBACK_HARD_CAP_MS,
+  FEEDBACK_TEXT_HARD_CAP_MINUTES,
+  FEEDBACK_TEXT_HARD_CAP_MS,
+  feedbackHardCapMs,
   HARD_CAP_MS,
   isApproachingTimeLimit,
   MIN_PARTICIPANT_TURNS_BEFORE_LLM_CAN_END,
@@ -213,5 +217,15 @@ describe("isApproachingTimeLimit", () => {
 
   it("leaves a buffer before the hard cap, not right up against it", () => {
     expect(SOFT_CAP_MS).toBeLessThan(HARD_CAP_MS);
+  });
+});
+
+describe("feedback hard caps", () => {
+  it("gives spoken feedback interviews 7 minutes and typed ones 15", () => {
+    expect(FEEDBACK_HARD_CAP_MINUTES).toBe(7);
+    expect(FEEDBACK_TEXT_HARD_CAP_MINUTES).toBe(15);
+    expect(FEEDBACK_TEXT_HARD_CAP_MS).toBe(15 * 60 * 1000);
+    expect(feedbackHardCapMs("voice")).toBe(FEEDBACK_HARD_CAP_MS);
+    expect(feedbackHardCapMs("text")).toBe(FEEDBACK_TEXT_HARD_CAP_MS);
   });
 });

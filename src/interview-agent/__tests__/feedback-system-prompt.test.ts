@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { buildFeedbackSystemPrompt } from "../feedback-system-prompt";
+import { buildFeedbackSystemPrompt, TEXT_CHANNEL_GUIDANCE } from "../feedback-system-prompt";
+import { RESPONSE_CONTRACT, TEXT_RESPONSE_CONTRACT } from "../shared-prompt-parts";
 import { FEEDBACK_TARGET_MINUTES } from "../termination";
 
 const context = {
@@ -126,6 +127,105 @@ describe("buildFeedbackSystemPrompt", () => {
     it("is a pure function of its input", () => {
       const input = { ...context, customPrompt };
       expect(buildFeedbackSystemPrompt(input)).toBe(buildFeedbackSystemPrompt(input));
+    });
+  });
+
+  describe("channel", () => {
+    const customPrompt = "Be {{participant_name}}'s friendly guide.";
+
+    it("produces the spoken prompt when no channel is given or when channel is voice", () => {
+      const defaultPrompt = buildFeedbackSystemPrompt(context);
+      expect(buildFeedbackSystemPrompt({ ...context, channel: "voice" })).toBe(defaultPrompt);
+      expect(defaultPrompt).toContain(RESPONSE_CONTRACT);
+      expect(defaultPrompt).not.toContain(TEXT_CHANNEL_GUIDANCE);
+      expect(defaultPrompt).not.toContain("written chat");
+    });
+
+    it("leaves voice custom prompts and closing guidance untouched too", () => {
+      const withVoice = buildFeedbackSystemPrompt({
+        ...context,
+        customPrompt,
+        isClosingTurn: true,
+        channel: "voice",
+      });
+      const withDefault = buildFeedbackSystemPrompt({
+        ...context,
+        customPrompt,
+        isClosingTurn: true,
+      });
+      expect(withVoice).toBe(withDefault);
+      expect(withVoice.endsWith(RESPONSE_CONTRACT)).toBe(true);
+    });
+
+    describe("text", () => {
+      it("adds the written-chat guidance and ends with the text response contract", () => {
+        const prompt = buildFeedbackSystemPrompt({ ...context, channel: "text" });
+
+        expect(prompt).toContain(TEXT_CHANNEL_GUIDANCE);
+        expect(prompt.endsWith(TEXT_RESPONSE_CONTRACT)).toBe(true);
+        expect(prompt).not.toContain(RESPONSE_CONTRACT);
+        // The study content is still there.
+        expect(prompt).toContain("What did you think of the content and pacing?");
+        expect(prompt).toContain("Sam");
+      });
+
+      it("tells the model to keep messages short, skip small talk, and honour a request to leave", () => {
+        expect(TEXT_CHANNEL_GUIDANCE).toMatch(/well under about 40 words/);
+        expect(TEXT_CHANNEL_GUIDANCE).toContain("How's your week?");
+        expect(TEXT_CHANNEL_GUIDANCE).toMatch(/Skip small talk/);
+        expect(TEXT_CHANNEL_GUIDANCE).toMatch(/Plain text only/);
+        expect(TEXT_CHANNEL_GUIDANCE).toMatch(/need to go/);
+      });
+
+      it("appends the guidance after a custom prompt, before the response contract", () => {
+        const prompt = buildFeedbackSystemPrompt({ ...context, customPrompt, channel: "text" });
+
+        expect(prompt).toContain("Be Sam's friendly guide.");
+        expect(prompt.indexOf("Be Sam's friendly guide.")).toBeLessThan(
+          prompt.indexOf(TEXT_CHANNEL_GUIDANCE),
+        );
+        expect(prompt.indexOf(TEXT_CHANNEL_GUIDANCE)).toBeLessThan(
+          prompt.indexOf(TEXT_RESPONSE_CONTRACT),
+        );
+        expect(prompt).not.toMatch(/## Priorities to cover/);
+      });
+
+      it("still prepends the closing guidance", () => {
+        const prompt = buildFeedbackSystemPrompt({
+          ...context,
+          channel: "text",
+          isClosingTurn: true,
+        });
+        expect(prompt.indexOf("## Closing")).toBe(0);
+      });
+
+      it("prepends the time-is-up guidance only when timeUp is set", () => {
+        const timeUp = buildFeedbackSystemPrompt({ ...context, channel: "text", timeUp: true });
+        const notTimeUp = buildFeedbackSystemPrompt({ ...context, channel: "text" });
+
+        expect(timeUp.indexOf("## Time is up")).toBe(0);
+        expect(timeUp).toMatch(/Do not ask another question/);
+        expect(notTimeUp).not.toContain("## Time is up");
+      });
+
+      it("ignores timeUp on the voice channel", () => {
+        const voiceTimeUp = buildFeedbackSystemPrompt({
+          ...context,
+          channel: "voice",
+          timeUp: true,
+        });
+        expect(voiceTimeUp).toBe(buildFeedbackSystemPrompt(context));
+      });
+    });
+  });
+
+  describe("TEXT_RESPONSE_CONTRACT", () => {
+    it("drops the spoken wording but keeps the decision signals", () => {
+      expect(TEXT_RESPONSE_CONTRACT).not.toMatch(/out loud/);
+      expect(TEXT_RESPONSE_CONTRACT).not.toMatch(/aloud/);
+      expect(TEXT_RESPONSE_CONTRACT).toContain("shouldEndInterview");
+      expect(TEXT_RESPONSE_CONTRACT).toContain("participantRequestedEnd");
+      expect(TEXT_RESPONSE_CONTRACT).toContain("in the chat");
     });
   });
 });

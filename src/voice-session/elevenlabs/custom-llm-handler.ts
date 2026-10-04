@@ -5,7 +5,7 @@ import {
   loadInterviewAndStudy,
   type GenerateTurnDeps,
 } from "../generate-turn";
-import { MissingInterviewIdError } from "../errors";
+import { InterviewNotVoiceError, MissingInterviewIdError } from "../errors";
 import {
   buildContentDeltaChunk,
   buildEndCallToolCallChunk,
@@ -37,6 +37,9 @@ export async function resolveElevenLabsStreamContext(
   }
 
   const { interview, study } = await loadInterviewAndStudy(deps, interviewId);
+  // A late request from a voice call whose interview was restarted as a
+  // typing interview: refuse before any stream opens or anything is written.
+  if (interview.mode === "text") throw new InterviewNotVoiceError(interviewId);
   return { interviewId, interview, study };
 }
 

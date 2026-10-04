@@ -1,5 +1,11 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Interview, InterviewStatus, TranscriptEntry, VoiceProvider } from "@/domain";
+import type {
+  Interview,
+  InterviewMode,
+  InterviewStatus,
+  TranscriptEntry,
+  VoiceProvider,
+} from "@/domain";
 import type {
   CreateInterviewInput,
   InterviewRepository,
@@ -38,6 +44,10 @@ function toInterview(row: InterviewRow): Interview {
     trackingId: row.tracking_id,
     redactedTranscript: (row.redacted_transcript as TranscriptEntry[] | null) ?? null,
     redactedAt: row.redacted_at ? new Date(row.redacted_at) : null,
+    mode: row.mode as InterviewMode,
+    lastActivityAt: row.last_activity_at ? new Date(row.last_activity_at) : null,
+    idleNudgeSentAt: row.idle_nudge_sent_at ? new Date(row.idle_nudge_sent_at) : null,
+    switchedToTextAt: row.switched_to_text_at ? new Date(row.switched_to_text_at) : null,
   };
 }
 
@@ -85,6 +95,16 @@ function toUpdateRow(patch: InterviewUpdate): Record<string, unknown> {
   if (patch.redactedAt !== undefined) {
     row.redacted_at = patch.redactedAt ? patch.redactedAt.toISOString() : null;
   }
+  if (patch.mode !== undefined) row.mode = patch.mode;
+  if (patch.lastActivityAt !== undefined) {
+    row.last_activity_at = patch.lastActivityAt ? patch.lastActivityAt.toISOString() : null;
+  }
+  if (patch.idleNudgeSentAt !== undefined) {
+    row.idle_nudge_sent_at = patch.idleNudgeSentAt ? patch.idleNudgeSentAt.toISOString() : null;
+  }
+  if (patch.switchedToTextAt !== undefined) {
+    row.switched_to_text_at = patch.switchedToTextAt ? patch.switchedToTextAt.toISOString() : null;
+  }
   return row;
 }
 
@@ -103,6 +123,7 @@ export class SupabaseInterviewRepository implements InterviewRepository {
         screener_answers: input.screenerAnswers ?? null,
         voice_provider: input.voiceProvider ?? "vapi",
         tracking_id: input.trackingId ?? null,
+        mode: input.mode ?? "voice",
       })
       .select()
       .single();
@@ -120,6 +141,18 @@ export class SupabaseInterviewRepository implements InterviewRepository {
 
     if (error) throw new Error(`Failed to fetch interview: ${error.message}`);
     return data ? toInterview(data as InterviewRow) : null;
+  }
+
+  async listActiveTextInterviews(): Promise<Interview[]> {
+    const { data, error } = await this.client
+      .from("interviews")
+      .select()
+      .eq("mode", "text")
+      .eq("status", "in-progress")
+      .order("created_at", { ascending: true });
+
+    if (error) throw new Error(`Failed to list active text interviews: ${error.message}`);
+    return (data as InterviewRow[]).map(toInterview);
   }
 
   async listByStudyId(studyId: string): Promise<Interview[]> {
@@ -144,6 +177,26 @@ export class SupabaseInterviewRepository implements InterviewRepository {
     if (error) throw new Error(`Failed to update interview: ${error.message}`);
     if (!data) throw new Error(`Interview not found: ${id}`);
     return toInterview(data as InterviewRow);
+  }
+
+  async updateIfNotCompleted(id: string, patch: InterviewUpdate): Promise<Interview | null> {
+    // One conditional UPDATE: Postgres re-checks the `status <> 'completed'`
+    // filter against the latest committed row after waiting on any concurrent
+    // writer's row lock, so only one of two racing callers can match.
+    const { data, error } = await this.client
+      .from("interviews")
+      .update(toUpdateRow(patch))
+      .eq("id", id)
+      .neq("status", "completed")
+      .select()
+      .maybeSingle();
+
+    if (error) throw new Error(`Failed to update interview: ${error.message}`);
+    if (data) return toInterview(data as InterviewRow);
+
+    // No row matched: either it is already completed, or it doesn't exist.
+    if (!(await this.getById(id))) throw new Error(`Interview not found: ${id}`);
+    return null;
   }
 
   async delete(id: string): Promise<void> {

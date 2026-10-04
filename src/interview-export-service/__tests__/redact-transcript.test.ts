@@ -74,6 +74,18 @@ describe("autoRedactTranscript", () => {
     expect(transcript).toEqual(original);
   });
 
+  it("redacts a typed message the same way: multi-line, with emoji, name and email mid-text", () => {
+    const [entry] = autoRedactTranscript(
+      [turn("participant", "Thanks 😀\nreach me at jae@example.com\n— Jae")],
+      "Jae",
+    );
+
+    expect(entry.text).not.toContain("jae@example.com");
+    expect(entry.text).not.toMatch(/\bJae\b/);
+    expect(entry.text).toContain("Thanks 😀");
+    expect(entry.text.split("\n")).toHaveLength(3);
+  });
+
   it("returns an empty array for an empty transcript", () => {
     expect(autoRedactTranscript([], "Jae")).toEqual([]);
   });

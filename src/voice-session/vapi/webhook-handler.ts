@@ -1,5 +1,10 @@
 import type { TranscriptEntry } from "@/domain";
-import { completeInterview, startInterview, type CallLifecycleDeps } from "../call-lifecycle";
+import {
+  completeInterview,
+  shouldIgnoreEventForTypingInterview,
+  startInterview,
+  type CallLifecycleDeps,
+} from "../call-lifecycle";
 import { MissingInterviewIdError } from "../errors";
 import type {
   VapiArtifactMessage,
@@ -65,6 +70,7 @@ export async function handleVapiWebhookMessage(
     if (statusMessage.status !== "in-progress") return; // "ended" is handled by end-of-call-report, others are non-actionable
     const interviewId = statusMessage.call?.assistantOverrides?.metadata?.interviewId;
     if (!interviewId) throw new MissingInterviewIdError(`Vapi "${message.type}" event`);
+    if (await shouldIgnoreEventForTypingInterview(deps, interviewId)) return;
     await startInterview(deps, interviewId);
     return;
   }
@@ -73,6 +79,13 @@ export async function handleVapiWebhookMessage(
     const reportMessage = message as VapiEndOfCallReportMessage;
     const interviewId = reportMessage.call?.assistantOverrides?.metadata?.interviewId;
     if (!interviewId) throw new MissingInterviewIdError(`Vapi "${message.type}" event`);
+    if (
+      await shouldIgnoreEventForTypingInterview(deps, interviewId, {
+        vapiCallId: reportMessage.call.id,
+      })
+    ) {
+      return;
+    }
     await completeInterview(deps, {
       interviewId,
       transcript: toTranscriptEntries(reportMessage),

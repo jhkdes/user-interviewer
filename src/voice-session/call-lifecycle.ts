@@ -8,6 +8,17 @@ import type { SummaryRepository } from "@/repositories/summary-repository";
 import { generateIndividualSummary } from "@/summary-service";
 import type { NormalizedCallEndedEvent } from "./types";
 
+/**
+ * Best-effort deletion of a voice call's recording at the provider. Used only
+ * for a call whose interview was restarted as a typing interview, so the
+ * discarded audio doesn't linger. Optional: omitted in tests and anywhere
+ * that doesn't care, in which case nothing is deleted.
+ */
+export interface ProviderRecordingCleanup {
+  deleteVapiCall?: (vapiCallId: string) => Promise<boolean>;
+  deleteElevenLabsConversation?: (conversationId: string) => Promise<boolean>;
+}
+
 export interface CallLifecycleDeps {
   interviewRepo: InterviewRepository;
   studyRepo: StudyRepository;
@@ -18,6 +29,60 @@ export interface CallLifecycleDeps {
   webhookClient?: CompletionWebhookClient;
   /** Defaults to `new Date()` — overridable so tests can assert on exact timestamps. */
   now?: Date;
+  /** See `ProviderRecordingCleanup`. */
+  providerCleanup?: ProviderRecordingCleanup;
+}
+
+/**
+ * Called by each provider's webhook handler before it touches an interview.
+ * Returns true — "ignore this event" — when the interview has been restarted
+ * as a typing interview: the event belongs to the voice call that was
+ * discarded, and letting it through would start or complete the new typing
+ * interview with the old call's data (and send a summary email for it).
+ *
+ * Events for unknown interviews and for voice interviews return false, so
+ * their existing handling (including its errors) is untouched.
+ *
+ * For the end-of-call events, which carry the provider's call id, this also
+ * deletes the discarded call's recording at the provider, best-effort: a
+ * failure is logged and never fails the webhook.
+ */
+export async function shouldIgnoreEventForTypingInterview(
+  deps: CallLifecycleDeps,
+  interviewId: string,
+  call: { vapiCallId?: string; elevenLabsConversationId?: string } = {},
+): Promise<boolean> {
+  const interview = await deps.interviewRepo.getById(interviewId);
+  if (!interview || interview.mode !== "text") return false;
+
+  const callDescription =
+    call.vapiCallId !== undefined
+      ? `Vapi call ${call.vapiCallId}`
+      : call.elevenLabsConversationId !== undefined
+        ? `ElevenLabs conversation ${call.elevenLabsConversationId}`
+        : "a voice event";
+  console.log(
+    `Ignoring ${callDescription} for interview ${interviewId}: it was restarted as a typing interview.`,
+  );
+
+  // Only a call the participant actually discarded (switchedToTextAt is set
+  // when they restarted from voice) is ours to delete.
+  if (interview.switchedToTextAt) {
+    try {
+      if (call.vapiCallId !== undefined) {
+        await deps.providerCleanup?.deleteVapiCall?.(call.vapiCallId);
+      }
+      if (call.elevenLabsConversationId !== undefined) {
+        await deps.providerCleanup?.deleteElevenLabsConversation?.(call.elevenLabsConversationId);
+      }
+    } catch (error) {
+      console.error(
+        `Failed to delete the discarded recording for interview ${interviewId}:`,
+        error,
+      );
+    }
+  }
+  return true;
 }
 
 /**
@@ -51,17 +116,34 @@ export async function startInterview(
   });
 }
 
+/** Names where a completion event came from, for the duplicate-completion warning. */
+function describeCompletionSource(event: NormalizedCallEndedEvent): string {
+  if (event.source !== undefined) return event.source;
+  if (event.vapiCallId !== undefined) return `vapi call ${event.vapiCallId}`;
+  if (event.elevenLabsConversationId !== undefined) {
+    return `elevenlabs conversation ${event.elevenLabsConversationId}`;
+  }
+  return "an unidentified source";
+}
+
 /**
  * in-progress -> completed transition, plus the individual-summary and
  * summary-email side effects (T7.3, #6) — shared by every provider's webhook
  * handler once it has normalized its own payload shape into a
  * NormalizedCallEndedEvent.
+ *
+ * Idempotent: the transition is one atomic "update unless already completed"
+ * (`updateIfNotCompleted`). If the interview was already completed — a
+ * provider re-delivering the same webhook, or two completion paths racing —
+ * this logs a warning and returns `false` without rewriting the transcript or
+ * re-running the summary, email, and completion webhook. Returns `true` when
+ * this call is the one that completed the interview.
  */
 export async function completeInterview(
   deps: CallLifecycleDeps,
   event: NormalizedCallEndedEvent,
-): Promise<void> {
-  await deps.interviewRepo.update(event.interviewId, {
+): Promise<boolean> {
+  const completed = await deps.interviewRepo.updateIfNotCompleted(event.interviewId, {
     status: "completed",
     transcript: event.transcript,
     recordingUrl: event.recordingUrl,
@@ -72,6 +154,19 @@ export async function completeInterview(
     completedAt: event.completedAt ?? deps.now ?? new Date(),
     endedReason: event.endedReason,
   });
+
+  if (!completed) {
+    const existing = await deps.interviewRepo.getById(event.interviewId);
+    console.warn(
+      `Ignoring duplicate completion for interview ${event.interviewId}: it is already completed ` +
+        `(completedAt=${existing?.completedAt?.toISOString() ?? "unknown"}, ` +
+        `original endedReason=${existing?.endedReason ?? "none"}). ` +
+        `Incoming event from ${describeCompletionSource(event)}: ` +
+        `endedReason=${event.endedReason ?? "none"}. ` +
+        `No transcript was written and no summary, email, or completion webhook was triggered.`,
+    );
+    return false;
+  }
 
   // T7.3: trigger the individual summary automatically on completion. Not
   // fatal to the webhook if it fails — the interview is already correctly
@@ -123,4 +218,6 @@ export async function completeInterview(
       `Skipped completion webhook for interview ${event.interviewId}: no client wired up`,
     );
   }
+
+  return true;
 }

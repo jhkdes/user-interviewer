@@ -18,3 +18,16 @@ export class StudyNotFoundError extends Error {
     this.name = "StudyNotFoundError";
   }
 }
+
+/**
+ * A voice turn arrived for an interview that is no longer a voice interview
+ * — the participant restarted it as a typing interview, and this is a late
+ * request from the discarded call. Routes answer it with a 409 so nothing is
+ * generated or written.
+ */
+export class InterviewNotVoiceError extends Error {
+  constructor(interviewId: string) {
+    super(`Interview ${interviewId} is a typing interview; its voice call was discarded`);
+    this.name = "InterviewNotVoiceError";
+  }
+}
