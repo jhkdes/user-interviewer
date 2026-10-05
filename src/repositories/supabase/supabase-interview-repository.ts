@@ -143,6 +143,22 @@ export class SupabaseInterviewRepository implements InterviewRepository {
     return data ? toInterview(data as InterviewRow) : null;
   }
 
+  async countCompletedWithTranscript(studyId: string): Promise<number> {
+    // A head request with an exact count: the database counts, no rows come
+    // back. `transcript` is jsonb, so "not null and not the empty array" is
+    // "has at least one turn".
+    const { count, error } = await this.client
+      .from("interviews")
+      .select("id", { count: "exact", head: true })
+      .eq("study_id", studyId)
+      .eq("status", "completed")
+      .not("transcript", "is", null)
+      .neq("transcript", "[]");
+
+    if (error) throw new Error(`Failed to count completed interviews: ${error.message}`);
+    return count ?? 0;
+  }
+
   async listActiveTextInterviews(): Promise<Interview[]> {
     const { data, error } = await this.client
       .from("interviews")
