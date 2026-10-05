@@ -215,6 +215,75 @@ export function runInterviewRepositoryContractTests(
       expect(interviews.every((i) => i.studyId === studyId)).toBe(true);
     });
 
+    describe("countCompletedWithTranscript", () => {
+      const turn = { speaker: "interviewer" as const, text: "Hi.", timestampMs: 0 };
+
+      async function interviewWith(
+        repo: InterviewRepository,
+        name: string,
+        patch: Parameters<InterviewRepository["update"]>[1],
+      ) {
+        const created = await repo.create({
+          studyId: getStudyId(),
+          firstName: name,
+          email: `${name.toLowerCase()}@example.com`,
+        });
+        return repo.update(created.id, patch);
+      }
+
+      it("is zero for a study with no interviews", async () => {
+        const repo = await makeRepository();
+
+        expect(await repo.countCompletedWithTranscript(getStudyId())).toBe(0);
+      });
+
+      it("counts completed interviews that have a transcript", async () => {
+        const repo = await makeRepository();
+        await interviewWith(repo, "A", { status: "completed", transcript: [turn] });
+        await interviewWith(repo, "B", { status: "completed", transcript: [turn, turn] });
+
+        expect(await repo.countCompletedWithTranscript(getStudyId())).toBe(2);
+      });
+
+      it("does not count interviews that are not completed, even with a transcript", async () => {
+        const repo = await makeRepository();
+        await interviewWith(repo, "Pending", { status: "pending", transcript: [turn] });
+        await interviewWith(repo, "Running", { status: "in-progress", transcript: [turn] });
+        await interviewWith(repo, "Expired", { status: "expired", transcript: [turn] });
+        await interviewWith(repo, "Done", { status: "completed", transcript: [turn] });
+
+        expect(await repo.countCompletedWithTranscript(getStudyId())).toBe(1);
+      });
+
+      it("does not count a completed interview with no transcript or an empty one", async () => {
+        const repo = await makeRepository();
+        await interviewWith(repo, "NoTranscript", { status: "completed" });
+        await interviewWith(repo, "EmptyTranscript", { status: "completed", transcript: [] });
+        await interviewWith(repo, "Done", { status: "completed", transcript: [turn] });
+
+        expect(await repo.countCompletedWithTranscript(getStudyId())).toBe(1);
+      });
+
+      it("counts typed and voice interviews alike", async () => {
+        const repo = await makeRepository();
+        await interviewWith(repo, "Voice", { status: "completed", transcript: [turn] });
+        await interviewWith(repo, "Typed", {
+          mode: "text",
+          status: "completed",
+          transcript: [turn],
+        });
+
+        expect(await repo.countCompletedWithTranscript(getStudyId())).toBe(2);
+      });
+
+      it("is zero for a study that doesn't exist", async () => {
+        const repo = await makeRepository();
+        await interviewWith(repo, "Done", { status: "completed", transcript: [turn] });
+
+        expect(await repo.countCompletedWithTranscript(NONEXISTENT_ID)).toBe(0);
+      });
+    });
+
     it("listActiveTextInterviews returns only in-progress text interviews, oldest first", async () => {
       const repo = await makeRepository();
       const studyId = getStudyId();

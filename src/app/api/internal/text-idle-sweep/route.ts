@@ -1,18 +1,11 @@
-import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
+import { hasValidBearerToken } from "@/lib/bearer-auth";
 import { runTextIdleSweep } from "@/text-session";
 import { getTextSessionDeps } from "@/text-session/get-text-session-deps";
 
 export const dynamic = "force-dynamic";
 /** Ending an interview runs a summary and an email, so a sweep can take a while. */
 export const maxDuration = 60;
-
-function isAuthorized(request: Request, secret: string): boolean {
-  const header = request.headers.get("authorization") ?? "";
-  const expected = Buffer.from(`Bearer ${secret}`);
-  const actual = Buffer.from(header);
-  return actual.length === expected.length && timingSafeEqual(actual, expected);
-}
 
 async function handle(request: Request) {
   const secret = process.env.CRON_SECRET;
@@ -21,7 +14,7 @@ async function handle(request: Request) {
     console.error("Missing required environment variable: CRON_SECRET");
     return NextResponse.json({ error: "Sweep not configured" }, { status: 500 });
   }
-  if (!isAuthorized(request, secret)) {
+  if (!hasValidBearerToken(request, secret)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

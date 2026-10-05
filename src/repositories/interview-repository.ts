@@ -51,6 +51,13 @@ export interface InterviewRepository {
   create(input: CreateInterviewInput): Promise<Interview>;
   getById(id: string): Promise<Interview | null>;
   listByStudyId(studyId: string): Promise<Interview[]>;
+  /**
+   * How many of the study's interviews are completed *and* have a transcript
+   * with at least one turn. A completed interview with no transcript (e.g. a
+   * typed interview that timed out before anything was said) is not counted:
+   * there is nothing to analyse in it. Zero for an unknown study.
+   */
+  countCompletedWithTranscript(studyId: string): Promise<number>;
   /** Every text-mode interview that is currently `in-progress`, across all studies — what the idle sweep walks. Oldest first. */
   listActiveTextInterviews(): Promise<Interview[]>;
   update(id: string, patch: InterviewUpdate): Promise<Interview>;
