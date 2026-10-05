@@ -52,6 +52,16 @@ export class InMemoryInterviewRepository implements InterviewRepository {
     return interview ? { ...interview } : null;
   }
 
+  async countCompletedWithTranscript(studyId: string): Promise<number> {
+    return [...this.interviews.values()].filter(
+      (i) =>
+        i.studyId === studyId &&
+        i.status === "completed" &&
+        i.transcript !== null &&
+        i.transcript.length > 0,
+    ).length;
+  }
+
   async listActiveTextInterviews(): Promise<Interview[]> {
     return [...this.interviews.values()]
       .filter((i) => i.mode === "text" && i.status === "in-progress")
