@@ -7,3 +7,4 @@ export * from "./extend-link";
 export * from "./draft-pre-interview-questions";
 export * from "./update-study-questions";
 export * from "./count-completed-interviews";
+export * from "./completed-count-cache";

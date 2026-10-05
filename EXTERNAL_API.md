@@ -66,3 +66,59 @@ The number is read fresh on every call (`Cache-Control: no-store`).
 | `401`  | Missing or wrong key. Carries `WWW-Authenticate: Bearer`.                        |
 | `404`  | No study with that id. Anything that isn't a well-formed id gets the same `404`. |
 | `500`  | `EXTERNAL_API_KEY` isn't configured on the deployment, or the count failed.      |
+
+## Showing the count on a public website
+
+**Don't call the endpoint above from a web page.** It needs `EXTERNAL_API_KEY`,
+and a key in a page's JavaScript is visible to every visitor. That key reads
+every study, so treat it as server-side only.
+
+For a page like the discoverFirst.co site, use the public endpoint instead. It
+needs no key because it exposes only one number for one study:
+
+```
+GET /api/public/completed-interviews-count
+```
+
+```js
+const res = await fetch(
+  "https://user-interviewer.vercel.app/api/public/completed-interviews-count",
+);
+const { completedInterviews } = await res.json();
+```
+
+```json
+{ "completedInterviews": 12 }
+```
+
+That is the whole response: no study id, no other fields.
+
+### What keeps it safe
+
+- **One study, chosen by the server.** `PUBLIC_COUNT_STUDY_ID` sets which study
+  it counts. The request can't name a study, so the endpoint can't be used to read
+  any other, and the id is never sent back.
+- **Cached.** Browsers and the CDN reuse an answer for 60 seconds, and the
+  server keeps its own 60-second copy, so page views don't each query the
+  database, even if someone adds random query strings to bypass the CDN.
+- **CORS.** Only pages served from the listed origins can read the response in
+  a browser. The default is `https://discoverfirst.co`; set
+  `PUBLIC_COUNT_ALLOWED_ORIGINS` (comma-separated, exact origins, replaces the
+  default) to add others, such as `https://www.discoverfirst.co`. This stops other
+  websites from embedding the number. It is not secrecy: anyone can still call
+  the URL directly, so only put data here that you are happy to make public.
+- **Counts the same things** as the endpoint above: completed interviews that
+  have a transcript.
+
+### Setting it up
+
+1. Set `PUBLIC_COUNT_STUDY_ID` to the study's id (the UUID in
+   `/dashboard/studies/{studyId}`) in the Vercel environment you want. Optionally
+   set `PUBLIC_COUNT_ALLOWED_ORIGINS`.
+2. Redeploy, since environment variables only apply to new builds.
+3. Point the page at the URL above.
+
+The endpoint answers `503` with `{ "error": "Unavailable" }`, uncached, when
+`PUBLIC_COUNT_STUDY_ID` is unset or matches no study, or if the lookup fails.
+The page should treat any non-200 as "no number to show" and fall back to its
+default message.
