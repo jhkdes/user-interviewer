@@ -31,6 +31,11 @@ export interface CallLifecycleDeps {
   now?: Date;
   /** See `ProviderRecordingCleanup`. */
   providerCleanup?: ProviderRecordingCleanup;
+  /**
+   * Called once when an interview in a study with a report pipeline completes,
+   * to start that pipeline. Optional and non-fatal, like the other side effects.
+   */
+  onReportPipelineInterviewCompleted?: (interviewId: string) => Promise<void>;
 }
 
 /**
@@ -188,11 +193,36 @@ export async function completeInterview(
   // it exists. A separate try/catch from the summary generation above, on
   // the same non-fatal principle — a failed send shouldn't erase the fact
   // that the summary itself was generated successfully, or fail the webhook.
-  if (summary) {
+  // Studies with a report pipeline send the participant their report instead,
+  // so the generic summary email is skipped for them.
+  let reportPipeline = false;
+  try {
+    const interview = await deps.interviewRepo.getById(event.interviewId);
+    const study = interview ? await deps.studyRepo.getById(interview.studyId) : null;
+    reportPipeline = Boolean(study?.reportPipeline);
+  } catch (error) {
+    console.error(
+      `Failed to look up the report pipeline for interview ${event.interviewId}:`,
+      error,
+    );
+  }
+
+  if (summary && !reportPipeline) {
     try {
       await sendInterviewSummaryEmail(deps, event.interviewId, summary);
     } catch (error) {
       console.error(`Failed to send summary email for interview ${event.interviewId}:`, error);
+    }
+  }
+
+  if (reportPipeline && deps.onReportPipelineInterviewCompleted) {
+    try {
+      await deps.onReportPipelineInterviewCompleted(event.interviewId);
+    } catch (error) {
+      console.error(
+        `Failed to start the report pipeline for interview ${event.interviewId}:`,
+        error,
+      );
     }
   }
 

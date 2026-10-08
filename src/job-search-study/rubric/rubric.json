@@ -1,0 +1,409 @@
+{
+  "version": "0.3.1",
+  "description": "Machine-readable rubric for the job-search study. Source of truth for the extraction prompt and the scoring code. JOB_SEARCH_SCORING_MODEL.md is the human-readable spec; src/job-search-study/__tests__/rubric.test.ts checks weights and tiers match it.",
+  "scale": {
+    "min": 0,
+    "max": 4
+  },
+  "evidenceBases": {
+    "concrete_example": {
+      "strength": "strong",
+      "maxScore": 4,
+      "meaning": "A concrete recent example, specific numbers, or the participant's direct first-hand statement of the thing itself (for example, the target they describe). Evaluative self-claims such as 'I am selective' do not count"
+    },
+    "estimated_pattern": {
+      "strength": "partial",
+      "maxScore": 3,
+      "meaning": "An estimated pattern ('about 15 of 20', 'usually 20 to 30 minutes')"
+    },
+    "general_description": {
+      "strength": "partial",
+      "maxScore": 3,
+      "meaning": "A general description of usual behavior with no specific instance"
+    },
+    "self_rating": {
+      "strength": "partial",
+      "maxScore": 2,
+      "meaning": "A self-rating or vague claim ('I'm pretty selective')"
+    }
+  },
+  "rated": {
+    "minRatedWeightShare": 0.5,
+    "requireMustHaves": true
+  },
+  "bands": [
+    {
+      "id": "strong",
+      "label": "Strong",
+      "minScore": 70
+    },
+    {
+      "id": "developing",
+      "label": "Developing",
+      "minScore": 45
+    },
+    {
+      "id": "opportunity",
+      "label": "Opportunity",
+      "minScore": 0
+    }
+  ],
+  "behaviorLabels": [
+    {
+      "id": "doing_well",
+      "label": "Doing well",
+      "minScore": 3
+    },
+    {
+      "id": "developing",
+      "label": "Developing",
+      "minScore": 2
+    },
+    {
+      "id": "opportunity",
+      "label": "Opportunity",
+      "minScore": 0
+    }
+  ],
+  "dimensions": [
+    {
+      "id": "focus",
+      "name": "Focus",
+      "question": "Am I finding and going after the right jobs?"
+    },
+    {
+      "id": "pitch",
+      "name": "Pitch",
+      "question": "Do my applications make the case for interviewing me?"
+    },
+    {
+      "id": "reach",
+      "name": "Reach",
+      "question": "Am I getting in front of people, not just job boards?"
+    },
+    {
+      "id": "learn",
+      "name": "Learn",
+      "question": "Am I adjusting based on what is working?"
+    }
+  ],
+  "behaviors": [
+    {
+      "id": "F1",
+      "dimension": "focus",
+      "name": "Has a defined target",
+      "weight": 25,
+      "tier": "standard",
+      "subSignals": [
+        "target role/function",
+        "level/scope",
+        "industry/domain",
+        "company profile",
+        "location/work setting",
+        "compensation requirements",
+        "desired work or problem characteristics"
+      ],
+      "anchors": {
+        "0": "Cannot describe a target beyond \"something in my field\" or \"anything\"; no stated criteria",
+        "1": "Names a broad function or title only; most other criteria are undecided and have not been thought through",
+        "2": "Specific on two or three dimensions (usually role plus one or two others); the rest undecided without having been considered",
+        "3": "Specific or deliberately flexible on most dimensions (about five of seven), including role and level; can say what matters most",
+        "4": "Specific or deliberately flexible on all or nearly all dimensions, with reasoned priorities (must-haves versus nice-to-haves, trade-offs they would make)"
+      },
+      "notes": [
+        "Deliberate flexibility scores the same as specificity. A narrower target is not better.",
+        "Code a sub-signal as undecided only if the participant said so; if it never came up, it was not discussed.",
+        "Compensation is often not volunteered. Do not let it alone lower the score."
+      ],
+      "notApplicable": null
+    },
+    {
+      "id": "F2",
+      "dimension": "focus",
+      "name": "Chooses roles on purpose",
+      "weight": 45,
+      "tier": "must_have",
+      "evidenceCapOverrides": {
+        "estimated_pattern": 4,
+        "general_description": 4
+      },
+      "subSignals": [
+        "match rate across roughly the last 20 applications",
+        "adherence to stated must-haves",
+        "deviations deliberate versus drift, and whether the target loosened under pressure",
+        "reads and understands the role's requirements",
+        "assesses candidate-role fit (strengths and gaps)",
+        "asks whether they actually want the role, and looks at the company",
+        "willingness to pass on roles (go/no-go)"
+      ],
+      "anchors": {
+        "0": "Applies on title, keywords, or availability; reads little of the posting; under about 20% of recent applications match the stated target and no boundaries are kept; cannot recall passing on any role",
+        "1": "Notices broad overlap with little explicit evaluation; about 20-39% match, or mostly drift because criteria were dropped under urgency or discouragement; passes only on obvious mismatches (location, pay)",
+        "2": "Checks major requirements and sometimes fit, but inconsistently weighs gaps, desirability, or the company; about 40-59% match, with some exceptions deliberate and some drift; can give an occasional example of passing",
+        "3": "Usually identifies relevant strengths and meaningful gaps and considers whether they want the role and something about the company; about 60-79% match with must-haves kept and exceptions mostly deliberate; gives a concrete example of passing and why",
+        "4": "Systematic: explicit criteria for fit, competitiveness, and desirability; researches the company or team and uses that to decide whether and how much to invest; 80% or more match (or a lower rate fully explained by deliberate, bounded experiments) with must-haves kept under pressure; passes regularly"
+      },
+      "notes": [
+        "Judge both halves together: staying on target (match rate, must-haves, deliberate versus accidental exceptions) and deciding before applying (reading requirements, weighing strengths and gaps, asking whether they want the role, passing). If one half is strong and the other weak, score between them, closer to the weaker.",
+        "Adjustment: a low match rate made up of deliberate experiments can be raised one point; a high match rate with must-haves quietly dropped can be lowered one point.",
+        "A qualitative answer (\"most of them\", \"nearly all\") is accepted as evidence. Do not lower the score because no number was given; estimate the band from what the participant describes.",
+        "This scores the decision process, not whether the participant is objectively a fit. A well-qualified person who applies indiscriminately scores low. A person who correctly judges a role a stretch and passes scores high.",
+        "Do not treat broad applying as wrong. A deliberate, stated low-effort approach that still screens for must-haves can score 2.",
+        "Urgency, fatigue, and search duration are context, not penalties. Only whether the broadening was planned counts."
+      ],
+      "notApplicable": null
+    },
+    {
+      "id": "F3",
+      "dimension": "focus",
+      "name": "Finds the right openings early",
+      "weight": 30,
+      "tier": "standard",
+      "subSignals": [
+        "sources used to find openings (job boards, company career pages, alerts or saved searches, recruiters, network, communities, newsletters)",
+        "whether the sources suit their target (industry, title, location, level, pay)",
+        "uses alerts, saved searches, or a list of target companies to see new roles quickly",
+        "how old a posting usually is when they apply",
+        "knows which sources surface roles that fit"
+      ],
+      "anchors": {
+        "0": "Finds roles only by occasionally scrolling a feed or job board with no search set up; no sense of how old postings are when they apply",
+        "1": "Mostly generic job-board browsing with little targeting of sources; applies to whatever surfaces, often weeks after it was posted; no alerts",
+        "2": "Uses one or two sources with some saved searches or alerts; occasionally notices how old a posting is; coverage of target companies or niche sources is partial",
+        "3": "Uses several sources suited to their target (niche boards, company career pages, recruiters, network) with alerts or saved searches; usually applies within the first days, or can say how old postings are; knows which sources surface fitting roles",
+        "4": "A deliberate sourcing routine: sources chosen for their target (industry, title, location, level, pay), a list of target companies they follow, alerts tuned to the target, early applications to priority roles, and a regular look at which sources produce fitting roles"
+      },
+      "notes": [
+        "Do not penalize applying later to a role if the participant waited on purpose.",
+        "Posting age is the participant's estimate; an estimate supports an estimated-pattern basis at most.",
+        "Evidence comes from the screener's sources and alerts answer plus the interview's walkthrough: how they found the role and how old the posting was when they applied. Posting age is only asked in the interview.",
+        "A screener checklist of sources is a self-report and cannot support a score above 2 on its own.",
+        "If this was not discussed and the screener did not cover it, mark it insufficient evidence."
+      ],
+      "notApplicable": null
+    },
+    {
+      "id": "P1",
+      "dimension": "pitch",
+      "name": "Makes the case for you",
+      "weight": 40,
+      "tier": "must_have",
+      "subSignals": [
+        "can name two or three reasons they should be interviewed (why me)",
+        "selects relevant experience",
+        "clear narrative",
+        "evidence and measurable outcomes",
+        "tailors emphasis to the role",
+        "explains a career transition (not applicable if there is none)"
+      ],
+      "anchors": {
+        "0": "Sends the same generic materials everywhere; cannot say why they should be interviewed",
+        "1": "States a general strength (\"lots of experience\") that the materials do not show; tailoring limited to keywords or title swaps",
+        "2": "States one or two reasons; some tailoring (reordered bullets, new summary); evidence is mostly responsibilities rather than results",
+        "3": "States two or three role-specific reasons, makes them visible near the top of the resume or application, and supports them with concrete accomplishments",
+        "4": "Reasons specific to the role and visible on the first screen; each backed by quantified or concrete outcomes; irrelevant material cut; any transition or gap addressed proactively"
+      },
+      "notes": [
+        "This is about how clearly the case is made, not whether the participant is qualified.",
+        "Score typical behavior, from the most recent application and the participant's description of usual practice. Record the successful opportunity separately."
+      ],
+      "notApplicable": null
+    },
+    {
+      "id": "P2",
+      "dimension": "pitch",
+      "name": "Matches effort to the opportunity",
+      "weight": 20,
+      "tier": "standard",
+      "subSignals": [
+        "more care on strong-fit or high-interest roles",
+        "time spent per application",
+        "drift toward automated or high-volume submission",
+        "how this changed over the search"
+      ],
+      "anchors": {
+        "0": "The same minimal effort for every application, or near-automatic submission with no tailoring at all",
+        "1": "Mostly uniform and fast; extra effort only by accident",
+        "2": "Some variation: extra care for roles they like, but inconsistent; volume pressure has reduced care on many applications",
+        "3": "Usually deliberate: clearly invests more in strong-fit roles and less in marginal ones, can describe the difference; autopilot limited",
+        "4": "Explicit effort tiers or rules, consistently applied and maintained over the search despite volume or fatigue"
+      },
+      "notes": [
+        "A fast application is not automatically low intentionality.",
+        "Volume is context, not a score. Only whether effort level is chosen counts."
+      ],
+      "notApplicable": null
+    },
+    {
+      "id": "P3",
+      "dimension": "pitch",
+      "name": "Reviews what goes out",
+      "weight": 20,
+      "tier": "standard",
+      "subSignals": [
+        "reads the final resume or application end to end",
+        "owns the positioning decisions",
+        "checks edits and AI output",
+        "verifies facts (nothing added or exaggerated)"
+      ],
+      "anchors": {
+        "0": "Submits without re-reading, or submits tool or AI output unchanged",
+        "1": "Skims or spot-checks; assumes the tool or AI got the facts right",
+        "2": "Reads most of it and fixes obvious errors but has no systematic fact check; positioning partly delegated",
+        "3": "Usually reads end-to-end, decides the positioning themselves, and checks changes for accuracy",
+        "4": "Always reviews the final version and has a specific verification habit (for example, checks every claim and number against the source resume); can describe catching and fixing something"
+      },
+      "notes": [
+        "For participants who do not use AI, score the review of their own edits. Only the AI-specific parts become not applicable.",
+        "Credit only review the participant described. Do not assume they read or check what they send because they did not say otherwise. If the only evidence is an automated tool whose output they never checked, score 0 or 1."
+      ],
+      "notApplicable": null
+    },
+    {
+      "id": "P4",
+      "dimension": "pitch",
+      "name": "Uses AI where it helps",
+      "weight": 20,
+      "tier": "standard",
+      "subSignals": [
+        "which tasks are delegated (drafting, tailoring, formatting)",
+        "uses AI to improve judgment (company and role research, fit assessment, interview prep, outreach drafts)",
+        "uses beyond writing",
+        "where human decisions remain",
+        "use of auto-apply tools"
+      ],
+      "anchors": {
+        "0": "AI replaces their judgment on what to apply to or what to claim (for example auto-apply tools or unreviewed full applications) with no human decision point",
+        "1": "Uses AI as a generic generator with little thought about which tasks it suits; delegates indiscriminately",
+        "2": "Uses AI sensibly for drafting or tailoring but is unsure where it helps and where it does not; retention of judgment inconsistent",
+        "3": "Delegates well-suited tasks (drafting, tailoring, formatting) and clearly keeps the decisions",
+        "4": "Deliberate division of labor: can state what AI does and what they decide; also uses AI to improve judgment (research, fit, positioning, prep) with explicit human decision points"
+      },
+      "notes": [
+        "Not applicable if the participant does not use AI. Do not score as 0.",
+        "Do not reward breadth of use for its own sake. A score of 4 needs retained judgment, not just many uses.",
+        "A past experiment with a tool the participant later dropped is still evidence about judgment.",
+        "The screener checklist of AI uses is self-report; it cannot support a score above 2 by itself."
+      ],
+      "notApplicable": "The participant has not used AI in their search"
+    },
+    {
+      "id": "R1",
+      "dimension": "reach",
+      "name": "Uses more than cold applications",
+      "weight": 50,
+      "tier": "must_have",
+      "subSignals": [
+        "channels in use (cold applications, referrals, recruiters, former colleagues, direct outreach, communities or events, content)",
+        "proactive direct outreach",
+        "referral requests",
+        "whether the channel mix is chosen deliberately"
+      ],
+      "anchors": {
+        "0": "Exclusively cold applications through job boards or portals; no other path tried",
+        "1": "Almost entirely cold applications; other paths are incidental (a recruiter happened to reach out)",
+        "2": "Deliberately uses one additional channel (for example, sometimes asks for a referral) but not routinely",
+        "3": "Regularly uses two or more non-cold channels, including at least one proactive path (direct outreach or a referral request)",
+        "4": "Chooses the channel per opportunity (for example, seeks a referral or direct contact for priority roles) and routinely uses several proactive channels"
+      },
+      "notes": [
+        "The goal is not maximum diversity. Someone whose recruiter pipeline works and who uses few other channels can reasonably score 3.",
+        "Capture counts and sources of recruiter conversations and interviews; they also feed L1 and L2."
+      ],
+      "notApplicable": null
+    },
+    {
+      "id": "R2",
+      "dimension": "reach",
+      "name": "Builds and uses relationships",
+      "weight": 50,
+      "tier": "standard",
+      "subSignals": [
+        "activates the existing network",
+        "creates new relationships",
+        "quality and personalization of outreach (what they asked for, why the person should engage)",
+        "offers value or context before asking",
+        "follow-up and staying in touch"
+      ],
+      "anchors": {
+        "0": "No relationship-based efforts, or only mass, generic asks",
+        "1": "Occasional generic asks (\"can you refer me?\", \"let me know if you hear anything\") to existing contacts; no follow-up",
+        "2": "Contacts some existing relationships with specific asks; little personalization; follow-up inconsistent; new relationships rare",
+        "3": "Personalized, specific outreach to existing contacts and some new ones; a clear reason for them to engage; follows up at least once",
+        "4": "Systematic: regularly activates the existing network and builds new relationships; offers value or context before asking; follows up and maintains contact beyond the first interaction"
+      },
+      "notes": [
+        "If the participant does not do relationship work, score 0 or 1. Only \"not discussed\" is insufficient evidence.",
+        "Score from one concrete recent example whenever possible."
+      ],
+      "notApplicable": null
+    },
+    {
+      "id": "L1",
+      "dimension": "learn",
+      "name": "Reads the results",
+      "weight": 30,
+      "tier": "must_have",
+      "subSignals": [
+        "tracks outcomes (applications, responses, conversations, interviews), ideally by source",
+        "recognizes patterns, including what differs between applications that went somewhere and those that did not",
+        "can say how they know what is working"
+      ],
+      "anchors": {
+        "0": "Does not track and has no sense of which approaches produce responses (\"I just keep applying\")",
+        "1": "Vague impressions without numbers (\"networking seems better\")",
+        "2": "Rough counts from memory; can name which source seems to work but has not compared it with their typical effort or approach",
+        "3": "Keeps a record or recalls accurately; states which sources produce interviews with approximate counts; notices differences between successful and typical applications",
+        "4": "Tracks outcomes by source or approach, compares effort with results, and states specific patterns with evidence"
+      },
+      "notes": [
+        "Being able to answer the interview-source question with counts is itself evidence. A tracker is not required."
+      ],
+      "notApplicable": null
+    },
+    {
+      "id": "L2",
+      "dimension": "learn",
+      "name": "Shifts effort to what works",
+      "weight": 40,
+      "tier": "standard",
+      "subSignals": [
+        "whether where effort goes matches where interviews come from",
+        "strategy changes made after seeing results"
+      ],
+      "anchors": {
+        "0": "Effort unchanged or moving away from what works; continues the same approach despite no results; cannot say where effort goes",
+        "1": "Knows what works but effort is still mostly elsewhere; no change made",
+        "2": "Some shift, small or recent (for example, a few referral asks started), but most effort remains in the lowest-yield channel",
+        "3": "A meaningful share of effort has shifted toward higher-yield approaches; can describe the change and its rough result",
+        "4": "Effort allocation clearly follows results and is adjusted regularly; the current effort split matches where interviews come from"
+      },
+      "notes": [
+        "Compare the effort split by channel with interviews by channel. A large mismatch with no change caps the score at 2.",
+        "If the participant has had no responses at all, score on whether they changed their approach in response to the silence (resume, targeting, channel, volume)."
+      ],
+      "notApplicable": null
+    },
+    {
+      "id": "L3",
+      "dimension": "learn",
+      "name": "Experiments and uses feedback",
+      "weight": 30,
+      "tier": "opportunistic",
+      "subSignals": [
+        "deliberate experiments (a change made on purpose, then checked)",
+        "incorporates feedback from recruiters, interviewers, coaches, or peers",
+        "learning visible in how the search changed over time"
+      ],
+      "anchors": {
+        "0": "No changes made and no feedback sought or used, or feedback is dismissed",
+        "1": "Changes are reactive or random (switching resume formats) with no check on whether they worked",
+        "2": "Has made changes from feedback or a hunch, with an informal check of the result",
+        "3": "Describes a specific, deliberate change (new resume version, new channel, narrowed target) and what happened; has used outside feedback at least once",
+        "4": "Runs deliberate experiments with a stated hypothesis and a check (for example, a batch of outreach messages with a new approach), and routinely seeks and acts on feedback"
+      },
+      "notes": ["Opportunistic: if it does not surface, mark insufficient evidence."],
+      "notApplicable": null
+    }
+  ]
+}

@@ -1,4 +1,11 @@
-import type { PreInterviewQuestion, Study, StudyStatus, StudyType, VoiceProvider } from "@/domain";
+import type {
+  PreInterviewQuestion,
+  ReportPipeline,
+  Study,
+  StudyStatus,
+  StudyType,
+  VoiceProvider,
+} from "@/domain";
 
 export interface CreateStudyInput {
   /** Defaults to `"discovery"` if omitted, matching the DB column default. Immutable after creation — never appears on UpdateStudyDetailsInput. */
@@ -11,6 +18,8 @@ export interface CreateStudyInput {
   feedbackQuestions?: string[];
   researchTopic?: string;
   customPrompt?: string;
+  /** Which post-interview report pipeline runs for this study. Omit for none. Immutable after creation. */
+  reportPipeline?: ReportPipeline;
   linkToken: string;
   /** Defaults to `"vapi"` if omitted, matching the DB column default. */
   voiceProvider?: VoiceProvider;

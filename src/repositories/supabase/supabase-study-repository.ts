@@ -1,5 +1,12 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { PreInterviewQuestion, Study, StudyStatus, StudyType, VoiceProvider } from "@/domain";
+import type {
+  PreInterviewQuestion,
+  ReportPipeline,
+  Study,
+  StudyStatus,
+  StudyType,
+  VoiceProvider,
+} from "@/domain";
 import type {
   CreateStudyInput,
   StudyRepository,
@@ -17,6 +24,7 @@ function toStudy(row: StudyRow): Study {
     feedbackQuestions: (row.feedback_questions as string[] | null) ?? [],
     researchTopic: row.research_topic,
     customPrompt: row.custom_prompt,
+    reportPipeline: (row.report_pipeline as ReportPipeline | null) ?? null,
     linkToken: row.link_token,
     status: row.status as StudyStatus,
     voiceProvider: row.voice_provider as VoiceProvider,
@@ -40,6 +48,7 @@ export class SupabaseStudyRepository implements StudyRepository {
         feedback_questions: input.feedbackQuestions ?? [],
         research_topic: input.researchTopic ?? null,
         custom_prompt: input.customPrompt ?? null,
+        report_pipeline: input.reportPipeline ?? null,
         link_token: input.linkToken,
         voice_provider: input.voiceProvider ?? "vapi",
       })
