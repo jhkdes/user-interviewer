@@ -1,0 +1,177 @@
+{
+  "version": "0.1.0",
+  "description": "Draft library of small experiments a participant can try, one or two per behavior. Written for the participant ('you'). Content for a researcher to review and edit; the selection code in experiments.ts picks from it.",
+  "experiments": [
+    {
+      "id": "f1-one-page-target",
+      "behavior": "F1",
+      "title": "Write your target on one page",
+      "why": "A target you have written down is easier to hold on to when a tempting but off-target role appears.",
+      "steps": [
+        "List the role, level, industry, type of company, location or work setting, pay, and the kind of work you want.",
+        "Mark each item Must-have or Flexible, and write one line on why.",
+        "Add two or three trade-offs you would make, such as accepting a different location for a bigger scope.",
+        "Keep the page where you search, and read it before you apply."
+      ],
+      "effort": "About 30 minutes, once",
+      "track": "Whether you can say in one sentence why each role you apply to fits your page."
+    },
+    {
+      "id": "f2-check-each-role",
+      "behavior": "F2",
+      "title": "Check each role against your target before you apply",
+      "why": "A quick, written check helps you spend effort on roles that fit what you want and where you can say why you are a credible candidate, and shows you early if you are drifting.",
+      "steps": [
+        "Label each role Strong match, Partial match, or Stretch against your one-page target.",
+        "Name one reason you are a credible candidate and one real gap, and ask whether you would want the job and the company.",
+        "Write one line: Apply or Pass, and why. Keep a short list of the roles you passed on.",
+        "Once a week, count how many are in each group and decide on purpose whether Stretch roles are an experiment you want to keep running."
+      ],
+      "effort": "One to two minutes per role, plus 5 minutes a week",
+      "track": "The share of roles that are a Strong match, and how many you passed on, week by week."
+    },
+    {
+      "id": "f3-build-a-sourcing-routine",
+      "behavior": "F3",
+      "title": "Build a routine for finding roles early",
+      "why": "Roles that match your target are often posted in a few specific places, and applying soon after they appear gives you a better chance of being seen.",
+      "steps": [
+        "Turn your target into search terms: titles, keywords, location, level, and pay if the site allows it.",
+        "Set up alerts or saved searches on two or three job sites, and add sources specific to your field, such as niche boards, newsletters, or communities.",
+        "List 15 to 20 companies you would like to work for and follow their career pages.",
+        "Check your alerts once a day, and apply to your strongest-fit roles within a couple of days of posting.",
+        "Each week, note which source surfaced your best-fit roles."
+      ],
+      "effort": "About 45 minutes to set up, then 10 minutes a day",
+      "track": "How old roles are when you apply, and which source surfaces the best-fit roles."
+    },
+    {
+      "id": "p1-lead-with-two-reasons",
+      "behavior": "P1",
+      "title": "Lead with two reasons to interview you",
+      "why": "A reader should be able to see why you fit within the first few seconds, without hunting for it.",
+      "steps": [
+        "For a priority role, write the two or three reasons the hiring team should interview you.",
+        "Put those reasons in the top third of your resume or in the first lines of your summary.",
+        "Attach one concrete result to each reason, such as a number, a scale, or an outcome.",
+        "Cut or shorten one thing that does not support those reasons."
+      ],
+      "effort": "20 to 30 minutes per priority role",
+      "track": "Whether tailored applications get more responses than ones you send unchanged."
+    },
+    {
+      "id": "p2-tier-your-effort",
+      "behavior": "P2",
+      "title": "Match your time to the opportunity",
+      "why": "Putting your best effort where it counts leaves you free to move quickly on roles that are less likely to lead anywhere.",
+      "steps": [
+        "Sort roles into A (strong fit and you want it), B (reasonable fit), and C (a stretch).",
+        "Give A roles your full effort, for example 45 to 60 minutes with tailoring and research.",
+        "Give B roles a lighter pass of 15 to 20 minutes, and either skip C roles or send them with minimal effort.",
+        "Keep the same tiers for two weeks before changing them."
+      ],
+      "effort": "Reshuffles your time rather than adding to it",
+      "track": "How many applications you send at each tier, and the responses from each."
+    },
+    {
+      "id": "p3-final-read",
+      "behavior": "P3",
+      "title": "Add a final-read checklist before you submit",
+      "why": "A short, repeatable check catches errors before an employer sees them, whether you or a tool wrote the text.",
+      "steps": [
+        "Read the whole application once, top to bottom.",
+        "Check every claim and number against your source resume.",
+        "If a tool or AI changed anything, check that it did not add or exaggerate.",
+        "Confirm the company name and role title are right."
+      ],
+      "effort": "About 5 minutes per application",
+      "track": "How often the check finds something to fix."
+    },
+    {
+      "id": "p4-ai-to-prepare",
+      "behavior": "P4",
+      "title": "Use AI to prepare, and keep the decisions yourself",
+      "why": "AI is useful for research and drafting while you stay in charge of what you apply to and what you claim.",
+      "steps": [
+        "Ask an AI tool for a one-page brief on the company and the role.",
+        "Paste in the posting and your resume and ask it to list the gaps.",
+        "Decide yourself which gaps matter and what to emphasize.",
+        "Do not let any tool submit applications for you."
+      ],
+      "effort": "About 10 minutes per priority role",
+      "track": "Whether the research changes what you decide to apply to or how you position yourself.",
+      "requires": "uses_ai"
+    },
+    {
+      "id": "r1-human-path",
+      "behavior": "R1",
+      "title": "Look for a human path before you apply to a priority role",
+      "why": "A role where someone knows who you are before or soon after you apply gives your application a better chance of being read.",
+      "steps": [
+        "Search for former colleagues, shared connections, or employees at the company.",
+        "Find the recruiter or hiring manager if you can.",
+        "Send a short, specific note about why the role interests you.",
+        "Apply either way."
+      ],
+      "effort": "10 to 15 minutes per priority role",
+      "track": "How many priority roles had a human contact, and how those responded compared with ones without."
+    },
+    {
+      "id": "r2-advice-before-asks",
+      "behavior": "R2",
+      "title": "Ask for advice first, not for a job",
+      "why": "Asking for a referral on a first call can feel transactional to both people. Asking for perspective is an easy yes, and it often leads naturally to introductions.",
+      "steps": [
+        "Pick three people connected to roles or companies you want.",
+        "Ask for 15 minutes to hear how their team works and what you should know.",
+        "Near the end, ask: who else should I talk to?",
+        "Within two days, send a short thank-you that mentions one thing you learned.",
+        "Only later, when it fits, mention a role you are considering."
+      ],
+      "effort": "About 15 minutes per conversation, three conversations",
+      "track": "Conversations held, introductions received, and follow-ups sent."
+    },
+    {
+      "id": "l1-simple-tracker",
+      "behavior": "L1",
+      "title": "Keep a simple tracker",
+      "why": "You cannot see what is working without a record of where each application came from and what happened.",
+      "steps": [
+        "Make a sheet with columns for date, role, source, time spent, response, and outcome.",
+        "Fill it in as you apply, in under a minute.",
+        "Once a week, spend 10 minutes counting responses and interviews by source."
+      ],
+      "effort": "About one minute per application, plus 10 minutes a week",
+      "track": "Interviews per 10 applications, by source."
+    },
+    {
+      "id": "l2-rebalance-the-week",
+      "behavior": "L2",
+      "title": "Move one block of time toward what is working",
+      "why": "If one path produces more conversations for you, giving it more of your time is a low-risk way to test whether that continues.",
+      "steps": [
+        "Look at where your responses and interviews have come from.",
+        "Pick one block of time each week, for example two hours, and move it to the source that works best.",
+        "Keep this up for two weeks.",
+        "Compare responses before and after."
+      ],
+      "effort": "Moves existing time; adds none",
+      "track": "Responses and conversations per week, before and after."
+    },
+    {
+      "id": "l3-two-week-experiment",
+      "behavior": "L3",
+      "title": "Run one two-week experiment",
+      "why": "Changing one thing at a time, and deciding in advance how you will judge it, tells you whether the change helped.",
+      "steps": [
+        "Pick one change, such as a new type of outreach message or a different resume top line.",
+        "Write down what you expect to happen and the number you will check.",
+        "Try it consistently for two weeks.",
+        "At the end, compare the result with your expectation, then keep it or drop it.",
+        "After any recruiter screen, ask for one piece of feedback."
+      ],
+      "effort": "A few minutes of planning, then your normal search",
+      "track": "The one number you chose in step 2."
+    }
+  ]
+}

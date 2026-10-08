@@ -59,7 +59,7 @@ export interface Interview {
   timeCheckAskedAt: Date | null;
   /** Whether the participant agreed (`true`) or declined (`false`) to extend the interview past the base 15-minute cap, decided on the turn immediately following the `timeCheckAskedAt` check-in — see InterviewAgent's TIME_CHECK_UTTERANCE decision turn. `null` until that turn resolves it, including for interviews that never reach the check-in at all. */
   extensionGranted: boolean | null;
-  /** When InterviewAgent deterministically injected the final "we're almost out of time" check-in — only asked for interviews where `extensionGranted` is true, once approaching the extended 25-minute cap (see termination.ts's EXTENDED_SOFT_CAP_MS). `null` until that turn happens. */
+  /** When InterviewAgent deterministically injected the final "we're almost out of time" check-in — only asked for interviews where `extensionGranted` is true, once approaching the extended cap (see termination.ts's EXTENDED_SOFT_CAP_MS). `null` until that turn happens. */
   secondTimeCheckAskedAt: Date | null;
   /** Feedback-type interviews only. When FeedbackAgent deterministically injected the guaranteed open-floor closing question (OPEN_FLOOR_UTTERANCE in feedback-agent.ts) — scripted rather than left to the LLM to remember, same rationale as `timeCheckAskedAt`. `null` until that turn happens; once set, the very next interviewer turn is forced to close regardless of what the model returns. */
   openFloorAskedAt: Date | null;

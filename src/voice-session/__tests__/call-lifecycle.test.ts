@@ -165,6 +165,70 @@ describe("completeInterview", () => {
     });
   });
 
+  describe("report-pipeline studies", () => {
+    async function pipelineSetup() {
+      const s = await setup();
+      const study = await s.studyRepo.create({
+        title: "How Job Seekers Get Interviews",
+        description: "how you search for your next job",
+        preInterviewQuestions: [],
+        linkToken: "job-token",
+        reportPipeline: "job-search",
+      });
+      const interview = await s.interviewRepo.create({
+        studyId: study.id,
+        firstName: "Sam",
+        email: "sam@example.com",
+      });
+      const started: string[] = [];
+      const deps = {
+        ...s.deps,
+        onReportPipelineInterviewCompleted: async (id: string) => void started.push(id),
+      };
+      return { ...s, deps, interview, started };
+    }
+
+    it("skips the generic summary email and starts the pipeline instead", async () => {
+      const { deps, interview, emailClient, started } = await pipelineSetup();
+
+      await completeInterview(deps, makeEvent(interview.id));
+
+      expect(emailClient.sent).toEqual([]);
+      expect(started).toEqual([interview.id]);
+    });
+
+    it("does not start the pipeline for an ordinary study, and still sends its summary email", async () => {
+      const { deps, interview, emailClient } = await setup();
+      const started = vi.fn();
+
+      await completeInterview(
+        { ...deps, onReportPipelineInterviewCompleted: started },
+        makeEvent(interview.id),
+      );
+
+      expect(emailClient.sent).toHaveLength(1);
+      expect(started).not.toHaveBeenCalled();
+    });
+
+    it("still completes the interview when starting the pipeline fails", async () => {
+      const { deps, interview, interviewRepo } = await pipelineSetup();
+      vi.spyOn(console, "error").mockImplementation(() => {});
+
+      const result = await completeInterview(
+        {
+          ...deps,
+          onReportPipelineInterviewCompleted: async () => {
+            throw new Error("down");
+          },
+        },
+        makeEvent(interview.id),
+      );
+
+      expect(result).toBe(true);
+      expect((await interviewRepo.getById(interview.id))?.status).toBe("completed");
+    });
+  });
+
   it("still rejects for an unknown interview id, as before", async () => {
     const { deps } = await setup();
 

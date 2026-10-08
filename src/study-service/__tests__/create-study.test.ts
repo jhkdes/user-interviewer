@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { InMemoryStudyRepository } from "@/repositories/in-memory/in-memory-study-repository";
+import { JOB_SEARCH_SCREENER } from "@/job-search-study/study-config";
 import { createStudy, InvalidStudyInputError } from "../create-study";
 
 const validInput = {
@@ -9,6 +10,21 @@ const validInput = {
 };
 
 describe("createStudy", () => {
+  it("uses the fixed job-search screener for the job-search report pipeline, whatever questions were submitted", async () => {
+    const repo = new InMemoryStudyRepository();
+    const study = await createStudy(repo, { ...validInput, reportPipeline: "job-search" });
+
+    expect(study.reportPipeline).toBe("job-search");
+    expect(study.preInterviewQuestions).toEqual(JOB_SEARCH_SCREENER);
+  });
+
+  it("leaves questions alone, and the pipeline unset, for an ordinary study", async () => {
+    const study = await createStudy(new InMemoryStudyRepository(), validInput);
+
+    expect(study.reportPipeline).toBeNull();
+    expect(study.preInterviewQuestions).toEqual([]);
+  });
+
   it("persists an open study with a generated link token", async () => {
     const repo = new InMemoryStudyRepository();
     const study = await createStudy(repo, validInput);

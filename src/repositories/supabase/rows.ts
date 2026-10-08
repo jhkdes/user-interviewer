@@ -9,6 +9,7 @@ export interface StudyRow {
   feedback_questions: unknown;
   research_topic: string | null;
   custom_prompt: string | null;
+  report_pipeline: string | null;
   link_token: string;
   status: string;
   voice_provider: string;

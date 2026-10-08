@@ -9,6 +9,8 @@ export interface StudyInput {
   preInterviewQuestions: PreInterviewQuestion[];
   /** Validated only for feedback-type input — ignored for discovery-type. */
   feedbackQuestions?: string[];
+  /** Optional post-interview report pipeline; only "job-search" exists, and only for discovery studies. */
+  reportPipeline?: string | null;
 }
 
 export interface StudyInputValidationResult {
@@ -29,6 +31,13 @@ export function validateStudyInput(input: StudyInput): StudyInputValidationResul
 
   if (!input.title?.trim()) errors.push("title is required");
   if (!input.description?.trim()) errors.push("description is required");
+
+  if (input.reportPipeline != null) {
+    if (input.reportPipeline !== "job-search")
+      errors.push('reportPipeline must be "job-search" or omitted');
+    else if (type === "feedback")
+      errors.push("a report pipeline is only available for discovery studies");
+  }
 
   if (type === "feedback") {
     const feedbackQuestions = input.feedbackQuestions ?? [];

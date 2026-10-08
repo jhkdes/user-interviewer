@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import type { PreInterviewQuestion, Study, StudyType } from "@/domain";
+import { JOB_SEARCH_SCREENER } from "@/job-search-study/study-config";
 import { FeedbackQuestionListEditor } from "../feedback-question-list-editor";
 import { QuestionEditor } from "../question-editor";
 import { StudyLink } from "../../study-link";
@@ -17,12 +18,15 @@ export function NewStudyForm() {
   const [researchTopic, setResearchTopic] = useState("");
   const [customPrompt, setCustomPrompt] = useState("");
   const [voiceProvider, setVoiceProvider] = useState<"vapi" | "elevenlabs">("vapi");
+  const [reportPipeline, setReportPipeline] = useState<"" | "job-search">("");
   const [questions, setQuestions] = useState<PreInterviewQuestion[]>([]);
   const [feedbackQuestions, setFeedbackQuestions] = useState<string[]>([""]);
   const [errors, setErrors] = useState<string[]>([]);
   const [generating, setGenerating] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [created, setCreated] = useState<Study | null>(null);
+
+  const usesJobSearchScreener = type === "discovery" && reportPipeline === "job-search";
 
   function handleChooseType(chosen: StudyType) {
     setType(chosen);
@@ -39,6 +43,14 @@ export function NewStudyForm() {
 
     if (type === "feedback") {
       setErrors([]);
+      setStep("questions");
+      return;
+    }
+
+    if (usesJobSearchScreener) {
+      // The job-search report reads screener answers by fixed question id, so these are used as they are.
+      setErrors([]);
+      setQuestions(JOB_SEARCH_SCREENER);
       setStep("questions");
       return;
     }
@@ -77,6 +89,7 @@ export function NewStudyForm() {
         ...(researchTopic.trim() ? { researchTopic: researchTopic.trim() } : {}),
         ...(customPrompt.trim() ? { customPrompt: customPrompt.trim() } : {}),
         voiceProvider,
+        ...(reportPipeline && type !== "feedback" ? { reportPipeline } : {}),
       }),
     });
     setSubmitting(false);
@@ -198,14 +211,41 @@ export function NewStudyForm() {
     return (
       <div>
         <h1 className="text-xl font-semibold">Pre-interview questions</h1>
-        <p className="mt-2 text-sm text-neutral-500 dark:text-neutral-400">
-          Drafted from your study details — edit, add, or remove questions before creating the
-          study.
-        </p>
+        {usesJobSearchScreener ? (
+          <>
+            <p
+              role="note"
+              className="mt-2 rounded bg-neutral-100 p-3 text-sm text-neutral-700 dark:bg-neutral-900 dark:text-neutral-300"
+            >
+              Pre-loaded job-search screener. The report pipeline reads these answers by question,
+              so they are fixed here and cannot be edited or regenerated. Remember to paste the
+              job-search interviewer prompt into &ldquo;Custom interview prompt&rdquo; on the
+              previous step.
+            </p>
+            <ol className="mt-6 list-decimal space-y-3 pl-5 text-sm">
+              {questions.map((question) => (
+                <li key={question.id}>
+                  <p className="font-medium">{question.label}</p>
+                  <p className="text-neutral-500 dark:text-neutral-400">
+                    {question.type === "multi" ? "Choose all that apply: " : "Choose one: "}
+                    {question.options.join(" · ")}
+                  </p>
+                </li>
+              ))}
+            </ol>
+          </>
+        ) : (
+          <>
+            <p className="mt-2 text-sm text-neutral-500 dark:text-neutral-400">
+              Drafted from your study details — edit, add, or remove questions before creating the
+              study.
+            </p>
 
-        <div className="mt-6">
-          <QuestionEditor questions={questions} onChange={setQuestions} />
-        </div>
+            <div className="mt-6">
+              <QuestionEditor questions={questions} onChange={setQuestions} />
+            </div>
+          </>
+        )}
 
         {errors.length > 0 && (
           <ul
@@ -226,14 +266,16 @@ export function NewStudyForm() {
           >
             Back
           </button>
-          <button
-            type="button"
-            onClick={handleGenerateQuestions}
-            disabled={generating}
-            className="rounded border border-neutral-300 px-4 py-1.5 text-sm hover:bg-neutral-50 dark:border-neutral-700 dark:hover:bg-neutral-900"
-          >
-            {generating ? "Regenerating…" : "Regenerate"}
-          </button>
+          {!usesJobSearchScreener && (
+            <button
+              type="button"
+              onClick={handleGenerateQuestions}
+              disabled={generating}
+              className="rounded border border-neutral-300 px-4 py-1.5 text-sm hover:bg-neutral-50 dark:border-neutral-700 dark:hover:bg-neutral-900"
+            >
+              {generating ? "Regenerating…" : "Regenerate"}
+            </button>
+          )}
           <button
             type="button"
             onClick={handleCreateStudy}
@@ -325,6 +367,29 @@ export function NewStudyForm() {
             <option value="elevenlabs">ElevenLabs</option>
           </select>
         </label>
+
+        {type !== "feedback" && (
+          <label className="block text-sm">
+            Participant report pipeline{" "}
+            <span className="text-neutral-400">(advanced, optional)</span>
+            <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
+              Turns each completed interview into a personalized report that you review and release
+              to the participant. Leave as &ldquo;None&rdquo; for an ordinary study. Choosing
+              &ldquo;Job search&rdquo; replaces the AI-drafted pre-interview questions with the
+              fixed job-search screener (the report reads its answers by question), and you should
+              paste the job-search interviewer prompt below. Cannot be changed after the study is
+              created.
+            </p>
+            <select
+              value={reportPipeline}
+              onChange={(e) => setReportPipeline(e.target.value as "" | "job-search")}
+              className="mt-1 block w-full rounded border border-neutral-300 px-3 py-1.5 dark:border-neutral-700 dark:bg-neutral-900"
+            >
+              <option value="">None</option>
+              <option value="job-search">Job search</option>
+            </select>
+          </label>
+        )}
 
         {errors.length > 0 && (
           <ul role="alert" className="list-inside list-disc text-sm text-red-600 dark:text-red-400">

@@ -21,6 +21,7 @@ const baseStudy: Study = {
   feedbackQuestions: [],
   researchTopic: null,
   customPrompt: null,
+  reportPipeline: null,
   linkToken: "token",
   status: "open",
   voiceProvider: "vapi",

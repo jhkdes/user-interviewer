@@ -46,6 +46,27 @@ export function runStudyRepositoryContractTests(
       expect(study.voiceProvider).toBe("vapi");
     });
 
+    it("defaults reportPipeline to null, and stores an explicit one", async () => {
+      const repo = await makeRepository();
+      const plain = await repo.create({
+        title: sampleTitle,
+        description: sampleDescription,
+        preInterviewQuestions: sampleQuestions,
+        linkToken: "token-no-pipeline",
+      });
+      const withPipeline = await repo.create({
+        title: sampleTitle,
+        description: sampleDescription,
+        preInterviewQuestions: sampleQuestions,
+        linkToken: "token-job-search-pipeline",
+        reportPipeline: "job-search",
+      });
+
+      expect(plain.reportPipeline).toBeNull();
+      expect(withPipeline.reportPipeline).toBe("job-search");
+      expect((await repo.getById(withPipeline.id))?.reportPipeline).toBe("job-search");
+    });
+
     it("defaults type to 'discovery' with empty feedbackQuestions when omitted", async () => {
       const repo = await makeRepository();
       const study = await repo.create({

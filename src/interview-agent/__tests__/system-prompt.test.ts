@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildInterviewSystemPrompt, INTERVIEWER_NAME } from "../system-prompt";
-import { HARD_CAP_MINUTES } from "../termination";
+import { INTERVIEW_LENGTH_MINUTES } from "../termination";
 
 const context = {
   participantFirstName: "Jordan",
@@ -44,7 +44,9 @@ describe("buildInterviewSystemPrompt", () => {
 
   it("instructs explicitly stating the interview will take about the hard-cap duration", () => {
     const prompt = buildInterviewSystemPrompt(context);
-    expect(prompt).toMatch(new RegExp(`mention it'll take about ${HARD_CAP_MINUTES} minutes`, "i"));
+    expect(prompt).toMatch(
+      new RegExp(`mention it'll take about ${INTERVIEW_LENGTH_MINUTES} minutes`, "i"),
+    );
     expect(prompt).toMatch(/the .*-minute figure should always be stated/i);
   });
 

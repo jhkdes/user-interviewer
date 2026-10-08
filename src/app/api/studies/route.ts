@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import type { PreInterviewQuestion, StudyType, VoiceProvider } from "@/domain";
+import type { PreInterviewQuestion, ReportPipeline, StudyType, VoiceProvider } from "@/domain";
 import { getStudyRepository } from "@/repositories/get-study-repository";
 import { createStudy, InvalidStudyInputError } from "@/study-service";
 
@@ -16,6 +16,7 @@ export async function POST(request: Request) {
     feedbackQuestions?: string[];
     researchTopic?: string;
     customPrompt?: string;
+    reportPipeline?: ReportPipeline;
     voiceProvider?: VoiceProvider;
   } | null;
 
@@ -32,6 +33,7 @@ export async function POST(request: Request) {
       feedbackQuestions: body.feedbackQuestions,
       researchTopic: body.researchTopic,
       customPrompt: body.customPrompt,
+      reportPipeline: body.reportPipeline,
       voiceProvider: body.voiceProvider,
     });
     return NextResponse.json(study, { status: 201 });

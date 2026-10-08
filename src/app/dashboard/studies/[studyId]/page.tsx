@@ -9,6 +9,7 @@ import { StudyLink } from "../../study-link";
 import { CopyParticipantEmailsButton } from "./copy-participant-emails-button";
 import { ExtendLinkButton } from "./extend-link-button";
 import { GenerateReportButton } from "./generate-report-button";
+import { JobSearchReportsSection } from "./job-search-reports/job-search-reports-section";
 import { RemoveStudyButton } from "./remove-study-button";
 import { StudyReportThemes } from "./study-report-themes";
 
@@ -164,6 +165,10 @@ export default async function StudyDetailPage({ params }: { params: { studyId: s
           </ul>
         )}
       </section>
+
+      {study.reportPipeline === "job-search" && (
+        <JobSearchReportsSection studyId={study.id} interviews={sortedInterviews} />
+      )}
 
       <section className="mt-8">
         <h2 className="font-semibold">Study report</h2>
