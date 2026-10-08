@@ -1,20 +1,35 @@
 import type { InterviewTurn } from "@/llm";
 
-export const HARD_CAP_MINUTES = 15;
-export const HARD_CAP_MS = HARD_CAP_MINUTES * 60 * 1000;
+/** The length participants are told ("a 15-minute interview"). The check-in below happens at this mark. */
+export const INTERVIEW_LENGTH_MINUTES = 15;
 
 /**
- * How long before the hard cap the interviewer gets warned it's running low
- * on time (see system-prompt.ts's "Time check" section). Without this
- * buffer, the hard cap forces `isInterviewOver` on whatever turn the LLM
+ * Minutes of buffer between a check-in and the mechanical cutoff that follows
+ * it. Without it, the cutoff forces `isInterviewOver` on whatever turn the LLM
  * happens to be mid-way through — including a brand-new question — and
  * custom-llm.ts bolts END_CALL_PHRASE onto it regardless, producing an
- * abrupt, incoherent close. The 3-minute window gives the LLM room to
- * acknowledge the time, ask the participant if they can continue, and close
- * gracefully on its own before the mechanical cutoff ever has to fire.
+ * abrupt, incoherent close. The window gives the LLM room to acknowledge the
+ * time, ask the participant if they can continue, and close gracefully on its
+ * own before the mechanical cutoff ever has to fire.
  */
-export const SOFT_CAP_MINUTES = HARD_CAP_MINUTES - 3;
+const CLOSE_OUT_BUFFER_MINUTES = 3;
+
+/**
+ * When the interviewer is warned it is out of time and asks the participant
+ * whether they can keep going (see system-prompt.ts's "Time check" section):
+ * at the advertised length, so participants get the full time they were promised.
+ */
+export const SOFT_CAP_MINUTES = INTERVIEW_LENGTH_MINUTES;
 export const SOFT_CAP_MS = SOFT_CAP_MINUTES * 60 * 1000;
+
+/**
+ * The mechanical cutoff for an interview whose participant did not agree to
+ * keep going: the close-out buffer after the check-in. Set the provider's own
+ * maximum call duration (Vapi `maxDurationSeconds`, ElevenLabs agent max
+ * duration) at or above EXTENDED_HARD_CAP_MINUTES, or the provider hangs up first.
+ */
+export const HARD_CAP_MINUTES = SOFT_CAP_MINUTES + CLOSE_OUT_BUFFER_MINUTES;
+export const HARD_CAP_MS = HARD_CAP_MINUTES * 60 * 1000;
 
 /**
  * The ceiling that applies once a participant has explicitly agreed, at the
@@ -24,12 +39,12 @@ export const SOFT_CAP_MS = SOFT_CAP_MINUTES * 60 * 1000;
  * reaches the check-in, or where the participant declines, is still capped
  * at HARD_CAP_MINUTES.
  */
-export const EXTENDED_HARD_CAP_MINUTES = 25;
-export const EXTENDED_HARD_CAP_MS = EXTENDED_HARD_CAP_MINUTES * 60 * 1000;
-
-/** Same rationale as SOFT_CAP_MINUTES, offset from the extended cap instead — see InterviewAgent's SECOND_TIME_CHECK_UTTERANCE. */
-export const EXTENDED_SOFT_CAP_MINUTES = EXTENDED_HARD_CAP_MINUTES - 3;
+/** Same rationale as SOFT_CAP_MINUTES, ten minutes later — see InterviewAgent's SECOND_TIME_CHECK_UTTERANCE. */
+export const EXTENDED_SOFT_CAP_MINUTES = SOFT_CAP_MINUTES + 10;
 export const EXTENDED_SOFT_CAP_MS = EXTENDED_SOFT_CAP_MINUTES * 60 * 1000;
+
+export const EXTENDED_HARD_CAP_MINUTES = EXTENDED_SOFT_CAP_MINUTES + CLOSE_OUT_BUFFER_MINUTES;
+export const EXTENDED_HARD_CAP_MS = EXTENDED_HARD_CAP_MINUTES * 60 * 1000;
 
 /**
  * The LLM's own self-assessment (shouldEndInterview) is only honored once
