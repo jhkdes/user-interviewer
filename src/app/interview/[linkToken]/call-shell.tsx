@@ -1,5 +1,5 @@
 import type { StudyType } from "@/domain";
-import { FEEDBACK_TARGET_MINUTES, HARD_CAP_MINUTES } from "@/interview-agent/termination";
+import { FEEDBACK_TARGET_MINUTES, INTERVIEW_LENGTH_MINUTES } from "@/interview-agent/termination";
 import { formatDuration } from "@/lib/format-duration";
 import { SWITCH_TO_TEXT_WINDOW_MS } from "@/text-session/constants";
 import { RestartWithTyping } from "./restart-with-typing";
@@ -86,7 +86,7 @@ export function CallShell({
     (status === "in-progress" && elapsedSeconds * 1000 < SWITCH_TO_TEXT_WINDOW_MS);
   const showRestart = onRestartWithTyping && (status === "error" || withinRestartWindow);
 
-  const targetMinutes = type === "feedback" ? FEEDBACK_TARGET_MINUTES : HARD_CAP_MINUTES;
+  const targetMinutes = type === "feedback" ? FEEDBACK_TARGET_MINUTES : INTERVIEW_LENGTH_MINUTES;
 
   return (
     <div className="text-center">

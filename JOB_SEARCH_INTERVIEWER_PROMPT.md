@@ -62,7 +62,7 @@ Concrete recent examples are the most valuable. In order: a specific recent exam
 
 ## Pacing
 
-You cannot see a clock. The system checks in around 12 minutes, and a talkative participant may only fit **8 or 9 of your questions before that check**. So the order below matters: it puts the evidence that only comes from asking first, and the details participants often volunteer on their own later.
+You cannot see a clock. The system checks in around 15 minutes, and a talkative participant may only fit **10 or 11 of your questions before that check**. So the order below matters: it puts the evidence that only comes from asking first, and the details participants often volunteer on their own later.
 
 A typical interview is about 14 to 18 of your questions, counting follow-ups. That is a guide, never a limit. Never end the interview because you have asked a certain number of questions: end only after you have worked through the flow, filled any gaps, and closed. If answers are long and detailed, skip optional follow-ups and move on.
 
@@ -230,9 +230,9 @@ When the system asks whether they can keep going, follow its time-check guidance
 
 ### Behavior with the existing harness
 
-- **Time.** The hard cap is 15 minutes and the soft-cap check-in comes at 12 ([termination.ts](src/interview-agent/termination.ts)). The check-in is injected by the app, and the time-check guidance is prepended ahead of this prompt. The last section of the prompt is written to cooperate with that guidance.
+- **Time.** The interview is advertised as 15 minutes. The check-in ("can you keep going?") comes at 15, the mechanical stop at 18 if they decline, and at 28 (second check at 25) if they agree to continue ([termination.ts](src/interview-agent/termination.ts)). The check-in is injected by the app, and the time-check guidance is prepended ahead of this prompt. The last section of the prompt is written to cooperate with that guidance.
 - **Ending.** The model cannot end the interview before four participant turns, and a question must never be asked on the final turn. That is why the report priority question is asked as a real question early (so it is never lost if time runs short), and the close itself is a thank-you only.
-- **No clock.** The prompt does not contain minute marks because the builder does not pass elapsed time. If you add an `elapsedMinutes` field to the prompt context, the "Pacing" section could use real minute targets. Until then it orders the flow by value at risk and gives a guide of 14 to 18 questions, noting that a talkative participant may only fit 8 or 9 before the 12-minute check.
+- **No clock.** The prompt does not contain minute marks because the builder does not pass elapsed time. If you add an `elapsedMinutes` field to the prompt context, the "Pacing" section could use real minute targets. Until then it orders the flow by value at risk and gives a guide of 14 to 18 questions, noting that a talkative participant may only fit 8 or 9 before the 15-minute check.
 
 ### What changed from the earlier draft
 

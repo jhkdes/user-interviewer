@@ -32,7 +32,7 @@ export interface InterviewAgentTurnInput {
   interviewStartedAt: Date;
   /**
    * Whether the participant has already agreed (`true`) or declined
-   * (`false`) to extend past the base HARD_CAP_MINUTES cap — decided on the
+   * (`false`) to extend past the base HARD_CAP_MINUTES cap (which follows the first check-in) — decided on the
    * turn immediately following TIME_CHECK_UTTERANCE and persisted by the
    * caller as `Interview.extensionGranted` (see `extensionDecision` on the
    * output). `null`/undefined before that decision turn resolves it.
