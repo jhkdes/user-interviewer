@@ -104,4 +104,29 @@ describe("validateStudyInput", () => {
       expect(result.valid).toBe(true);
     });
   });
+
+  describe("report pipeline", () => {
+    it("accepts no pipeline, null, or job-search", () => {
+      expect(validateStudyInput(validInput).valid).toBe(true);
+      expect(validateStudyInput({ ...validInput, reportPipeline: null }).valid).toBe(true);
+      expect(validateStudyInput({ ...validInput, reportPipeline: "job-search" }).valid).toBe(true);
+    });
+
+    it("rejects an unknown pipeline", () => {
+      const result = validateStudyInput({ ...validInput, reportPipeline: "other" });
+      expect(result.errors).toContain('reportPipeline must be "job-search" or omitted');
+    });
+
+    it("rejects a pipeline on a feedback study", () => {
+      const result = validateStudyInput({
+        title: "T",
+        description: "D",
+        type: "feedback",
+        feedbackQuestions: ["Q?"],
+        preInterviewQuestions: [],
+        reportPipeline: "job-search",
+      });
+      expect(result.errors).toContain("a report pipeline is only available for discovery studies");
+    });
+  });
 });

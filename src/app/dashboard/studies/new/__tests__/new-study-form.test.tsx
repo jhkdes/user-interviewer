@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { JOB_SEARCH_SCREENER } from "@/job-search-study/study-config";
 import "@testing-library/jest-dom/vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -197,6 +198,74 @@ describe("NewStudyForm", () => {
           voiceProvider: "vapi",
         }),
       }),
+    );
+  });
+
+  it("pre-loads the fixed job-search screener, skipping the AI draft, when that pipeline is chosen", async () => {
+    const fetchSpy = vi.fn();
+    vi.stubGlobal("fetch", fetchSpy);
+    const user = userEvent.setup();
+
+    render(<NewStudyForm />);
+    await chooseDiscovery(user);
+    await fillDetails(user);
+    const select = screen.getByLabelText(/Participant report pipeline/) as HTMLSelectElement;
+    expect(select.value).toBe("");
+    await user.selectOptions(select, "job-search");
+    await user.click(screen.getByRole("button", { name: "Generate questions" }));
+
+    await waitFor(() => expect(screen.getByText("Pre-interview questions")).toBeInTheDocument());
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(screen.getByRole("note")).toHaveTextContent(/Pre-loaded job-search screener/);
+    expect(screen.getByText(JOB_SEARCH_SCREENER[0].label)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Regenerate" })).not.toBeInTheDocument();
+
+    fetchSpy.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        id: "study-1",
+        type: "discovery",
+        linkToken: "abc123",
+        status: "open",
+        createdAt: new Date().toISOString(),
+        closedAt: null,
+      }),
+    });
+    await user.click(screen.getByRole("button", { name: "Create study" }));
+
+    await waitFor(() => expect(screen.getByText("Study created")).toBeInTheDocument());
+    const sent = JSON.parse(fetchSpy.mock.calls[0][1].body as string);
+    expect(sent.reportPipeline).toBe("job-search");
+    expect(sent.preInterviewQuestions).toEqual(JOB_SEARCH_SCREENER);
+  });
+
+  it("sends no report pipeline by default", async () => {
+    const fetchSpy = vi.fn();
+    vi.stubGlobal("fetch", fetchSpy);
+    const user = userEvent.setup();
+
+    render(<NewStudyForm />);
+    await chooseDiscovery(user);
+    fetchSpy.mockResolvedValueOnce({ ok: true, json: async () => sampleDraftQuestions });
+    await fillDetails(user);
+    await user.click(screen.getByRole("button", { name: "Generate questions" }));
+    await waitFor(() => expect(screen.getByText("Pre-interview questions")).toBeInTheDocument());
+    fetchSpy.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        id: "study-1",
+        type: "discovery",
+        linkToken: "abc123",
+        status: "open",
+        createdAt: new Date().toISOString(),
+        closedAt: null,
+      }),
+    });
+    await user.click(screen.getByRole("button", { name: "Create study" }));
+
+    await waitFor(() => expect(screen.getByText("Study created")).toBeInTheDocument());
+    expect(JSON.parse(fetchSpy.mock.calls[1][1].body as string)).not.toHaveProperty(
+      "reportPipeline",
     );
   });
 

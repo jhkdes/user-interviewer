@@ -46,3 +46,9 @@ next-env.d.ts
 
 # supabase CLI local cache
 supabase/.temp
+
+# simulated interview transcripts
+/simulation-output/
+
+# real participant data (never commit)
+/private-fixtures/

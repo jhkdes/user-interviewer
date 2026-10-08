@@ -3,6 +3,13 @@ export type StudyStatus = "open" | "closed";
 export type VoiceProvider = "vapi" | "elevenlabs";
 
 /**
+ * A post-interview pipeline that turns each completed interview into a
+ * participant report. `null` (the default) means the study only produces the
+ * usual summary. Set once at creation; see src/job-search-study.
+ */
+export type ReportPipeline = "job-search";
+
+/**
  * Set once at creation and never editable afterward — the prompt/timing
  * shape differs too much between types to safely switch later. See
  * GLOSSARY.md's "Study Type"/"Discovery"/"Feedback" entries and
@@ -68,6 +75,8 @@ export interface Study {
    */
   customPrompt: string | null;
   linkToken: string;
+  /** Which post-interview report pipeline, if any, runs for this study's interviews. */
+  reportPipeline: ReportPipeline | null;
   status: StudyStatus;
   /** Which voice platform runs this study's interview calls — set at creation by the researcher, lets whole studies be A/B tested against each other. */
   voiceProvider: VoiceProvider;

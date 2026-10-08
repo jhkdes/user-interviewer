@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { triggerReportSweep } from "@/job-search-study/pipeline/trigger";
 import { getEmailClient } from "@/lib/email";
 import { deleteVapiCall } from "@/lib/vapi/client";
 import { getCompletionWebhookClient } from "@/lib/webhook";
@@ -24,6 +25,7 @@ export async function POST(request: Request) {
         summaryRepo: getSummaryRepository(),
         llm: getLLMProvider(),
         emailClient: getEmailClient(),
+        onReportPipelineInterviewCompleted: triggerReportSweep,
         webhookClient: getCompletionWebhookClient(),
         providerCleanup: { deleteVapiCall },
       },
