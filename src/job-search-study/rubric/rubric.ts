@@ -9,7 +9,7 @@ import rubricJson from "./rubric.json";
 
 export type DimensionId = "focus" | "pitch" | "reach" | "learn";
 export type BehaviorId =
-  "F1" | "F2" | "F3" | "P1" | "P2" | "P3" | "P4" | "R1" | "R2" | "L1" | "L2" | "L3";
+  "F1" | "F2" | "F3" | "P1" | "P2" | "P3" | "P4" | "R1" | "R2" | "R3" | "L1" | "L2" | "L3";
 export type Tier = "must_have" | "standard" | "opportunistic";
 export type EvidenceBasis =
   "concrete_example" | "estimated_pattern" | "general_description" | "self_rating";

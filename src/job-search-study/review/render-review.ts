@@ -142,6 +142,9 @@ export function renderReview(input: {
   lines.push(
     `- Match rate: ${facts.matchRate.matched === null ? "no number given" : `${facts.matchRate.matched} of ${facts.matchRate.outOf ?? "?"}`}`,
   );
+  lines.push(
+    `- Support providers named: ${facts.supportProviders.length === 0 ? "none" : facts.supportProviders.join("; ")}`,
+  );
   lines.push(`- Total conversations or interviews: ${facts.totalConversations ?? "not stated"}`);
   lines.push(
     `- Sources: ${facts.sources.length === 0 ? "none captured" : facts.sources.map((s) => `${s.source} ${s.count ?? "?"}`).join(", ")}`,

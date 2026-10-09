@@ -3,6 +3,8 @@ import type { InterviewTurn } from "@/llm";
 import {
   estimateSpokenSeconds,
   askedPostingAge,
+  askedSupportProvider,
+  needsSupportProviderQuestion,
   findCoachingViolations,
   findEvaluativeAcknowledgments,
   findReportPriorityQuestion,
@@ -139,6 +141,58 @@ describe("askedPostingAge", () => {
   });
 });
 
+describe("support provider question", () => {
+  const outplacement = { search_support: ["Outplacement support paid for by a former employer"] };
+  const freeProgram = {
+    search_support: ["A free program (for example, a workforce, alumni, or community program)"],
+  };
+
+  it("is required for outplacement and free programs only", () => {
+    expect(needsSupportProviderQuestion(outplacement)).toBe(true);
+    expect(needsSupportProviderQuestion(freeProgram)).toBe(true);
+    expect(needsSupportProviderQuestion({ search_support: ["A paid career coach"] })).toBe(false);
+    expect(needsSupportProviderQuestion({ search_support: ["No support"] })).toBe(false);
+    expect(
+      needsSupportProviderQuestion({
+        search_support: "Outplacement support paid for by a former employer",
+      }),
+    ).toBe(true);
+    expect(needsSupportProviderQuestion(null)).toBe(false);
+    expect(needsSupportProviderQuestion({})).toBe(false);
+  });
+
+  it("recognizes the wording the prompt uses, and not unrelated questions", () => {
+    for (const text of [
+      "Which outplacement provider is that, if you are comfortable saying?",
+      "Which program is that, if you are comfortable saying?",
+      "Who is your coach, or what firm are they with, if you are comfortable saying?",
+      "Who is that with?",
+    ]) {
+      expect(askedSupportProvider([interviewer(text)]), text).toBe(true);
+    }
+    expect(askedSupportProvider([interviewer("Which roles did you apply to last week?")])).toBe(
+      false,
+    );
+    expect(askedSupportProvider([participant("My outplacement provider is Acme.")])).toBe(false);
+  });
+
+  it("is flagged missing only when required and never asked", () => {
+    const asked = [
+      interviewer("Which outplacement provider is that, if you are comfortable saying?"),
+    ];
+
+    expect(
+      runInterviewChecks([interviewer("Hello?")], 10, outplacement).supportProviderMissing,
+    ).toBe(true);
+    expect(runInterviewChecks(asked, 10, outplacement).supportProviderMissing).toBe(false);
+    expect(
+      runInterviewChecks([interviewer("Hello?")], 10, { search_support: ["No support"] })
+        .supportProviderMissing,
+    ).toBe(false);
+    expect(runInterviewChecks([interviewer("Hello?")], 10).supportProviderMissing).toBe(false);
+  });
+});
+
 describe("runInterviewChecks", () => {
   it("summarizes turns, duration, and closing shape", () => {
     const turns = [
@@ -157,6 +211,7 @@ describe("runInterviewChecks", () => {
       screenerReasks: [],
       reportPriority: null,
       postingAgeAsked: false,
+      supportProviderMissing: false,
     });
   });
 

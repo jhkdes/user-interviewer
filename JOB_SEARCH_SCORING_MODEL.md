@@ -1,6 +1,6 @@
 # Job Search Scoring Model (v0.1, draft)
 
-Replaces the earlier 9-dimension / 46-component model with **4 dimensions and 12 behaviors**, sized for a 15-minute interview and for a participant who has to read and act on the result.
+Replaces the earlier 9-dimension / 46-component model with **4 dimensions and 13 behaviors**, sized for a 15-minute interview and for a participant who has to read and act on the result.
 
 Everything marked **provisional** (weights, band cutoffs, evidence caps) should be recalibrated once real transcripts exist.
 
@@ -23,7 +23,7 @@ Everything marked **provisional** (weights, band cutoffs, evidence caps) should 
 | --------- | ----------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
 | **Focus** | Am I finding and going after the right jobs?          | F1 Has a defined target, F2 Chooses roles on purpose, F3 Finds the right openings early                              |
 | **Pitch** | Do my applications make the case for interviewing me? | P1 Makes the case for you, P2 Matches effort to the opportunity, P3 Reviews what goes out, P4 Uses AI where it helps |
-| **Reach** | Am I getting in front of people, not just job boards? | R1 Uses more than cold applications, R2 Builds and uses relationships                                                |
+| **Reach** | Am I getting in front of people, not just job boards? | R1 Uses more than cold applications, R2 Builds and uses relationships, R3 Makes you easy to find                     |
 | **Learn** | Am I adjusting based on what is working?              | L1 Reads the results, L2 Shifts effort to what works, L3 Experiments and uses feedback                               |
 
 The funnel the report uses ("qualified opportunities, applications and outreach, human responses, interviews") maps onto Focus, Pitch, Reach, and Learn.
@@ -39,8 +39,9 @@ The funnel the report uses ("qualified opportunities, applications and outreach,
 | Pitch     | P2 Matches effort to the opportunity |    20% | Standard                    |
 | Pitch     | P3 Reviews what goes out             |    20% | Standard                    |
 | Pitch     | P4 Uses AI where it helps            |    20% | Standard (N/A if no AI use) |
-| Reach     | R1 Uses more than cold applications  |    50% | **Must-have**               |
-| Reach     | R2 Builds and uses relationships     |    50% | Standard                    |
+| Reach     | R1 Uses more than cold applications  |    30% | **Must-have**               |
+| Reach     | R2 Builds and uses relationships     |    45% | Standard                    |
+| Reach     | R3 Makes you easy to find            |    25% | Standard                    |
 | Learn     | L1 Reads the results                 |    30% | **Must-have**               |
 | Learn     | L2 Shifts effort to what works       |    40% | Standard                    |
 | Learn     | L3 Experiments and uses feedback     |    30% | Opportunistic               |
@@ -306,6 +307,24 @@ If the participant does not do relationship work, score 0 or 1. Only "not discus
 
 **Notes:** score from one concrete recent example whenever possible ("what did you actually say or ask for? what happened next?").
 
+#### R3. Makes you easy to find
+
+**Looks for:** an online professional profile (such as LinkedIn) that is current and written for the target roles (headline, summary, skills, openness to recruiters); work samples, writing, or other visible activity aimed at the people who hire for those roles; checking how the profile appears to recruiters; noticing and acting on inbound contact.
+
+| Score | Anchor                                                                                                                                                                                                                            |
+| ----: | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|     0 | No online professional presence, or one untouched for a long time; nothing a recruiter could find                                                                                                                                 |
+|     1 | A profile exists but is outdated or generic, and not written for the target roles                                                                                                                                                 |
+|     2 | Profile recently updated and roughly matches the target; no further effort to be found                                                                                                                                            |
+|     3 | Profile current and written for the target (headline, summary, skills) and set up so recruiters can reach them, plus at least one more visible signal (work samples, writing, posts, or a portfolio)                              |
+|     4 | Deliberately visible: profile tuned to what recruiters search for and checked against how it appears; regular visible activity aimed at the people who hire for the target roles; notices inbound contact and adjusts based on it |
+
+**Notes:**
+
+- Score what they did to be found, not how many recruiters have reached out; the market drives that volume.
+- Someone searching quietly while employed may limit visible activity on purpose. Score the profile itself, do not count missing posts against them, and record the reason in the confidence note.
+- Capture inbound recruiter contacts and their sources; they are also counted for R1, L1, and L2.
+
 ### LEARN: Am I adjusting based on what is working?
 
 #### L1. Reads the results
@@ -367,6 +386,7 @@ Opportunistic: if it does not surface, mark Insufficient.
 | P4       | AI role question, "where else do you use AI"                                                                       |
 | R1       | Successful application, interview sources                                                                          |
 | R2       | Relationship example                                                                                               |
+| R3       | Profile question ("if a recruiter looked you up today, what would they find?")                                     |
 | L1       | Interview sources and effort, change question                                                                      |
 | L2       | Interview sources and effort, change question                                                                      |
 | L3       | Change-strategy question                                                                                           |
@@ -533,6 +553,33 @@ Order is deliberate: easy factual questions first.
   - I have not used AI in my search
 - Feeds: P4. The interviewer probes beyond the selected uses and asks about anything not selected that the participant mentions. "Applying to jobs automatically" prompts a follow-up on where the human decision point is. Selecting "I have not used AI" sets P4 to a likely N/A, to be confirmed in the interview.
 
+### Group E: Support and career change (research segmentation, never scored)
+
+These two questions are collected to compare interview rates by whether a participant has job-search support and whether they are changing careers. They are never scored and are not shown to the participant in the report.
+
+**S11. `search_support`**
+
+- Label: Are you getting any support with your job search? Select all that apply.
+- Type: **multi-select**. Allow "Other": yes.
+- Options:
+  - No support
+  - A paid career coach
+  - Outplacement support paid for by a former employer
+  - A free program (for example, a workforce, alumni, or community program)
+- Feeds: research segmentation. If outplacement or a free program is selected, the interviewer **must** ask which provider or program it is (in the People section, and again in the gap-fill step if missed); a paid coach is asked about once as well. The participant may decline. The answer is recorded in the ledger as `supportProviders`, and the simulation harness flags interviews where the required question was never asked. "No support" excludes the other options.
+
+**S12. `career_pivot`**
+
+- Label: Is the role or industry you are targeting different from your previous one?
+- Type: single-select. Allow "Other": no.
+- Options:
+  - No, a similar role in the same industry
+  - Yes, a different role in the same industry
+  - Yes, a similar role in a different industry
+  - Yes, a different role in a different industry
+  - Not sure
+- Feeds: research segmentation (any "Yes" counts as a pivot, and the options say whether the role, the industry, or both changed). A pivot also prompts the interviewer to ask how they explain the change to employers (see the positioning question).
+
 ### Screener answers and the pipeline
 
 | Answer                                                                                    | Effect                                                                                                                        |
@@ -543,6 +590,8 @@ Order is deliberate: easy factual questions first.
 | `channels_used` has no "Job alerts or saved searches" and no niche or career-page options | Does not by itself lower F3. The interviewer asks how they found the role from the walkthrough and how old the posting was    |
 | `target_level_vs_recent` is "A mix" or "Lower"                                            | Interviewer asks what is driving it                                                                                           |
 | `search_duration`, `time_since_full_time`, `target_level_vs_recent`                       | Context for the report's "what is affecting your search" section only                                                         |
+| `search_support` has any support selected                                                 | Interviewer asks once who it is with, if they are comfortable saying; recorded as `supportProviders`                          |
+| `career_pivot` is any "Yes"                                                               | Interviewer asks how they explain the change to employers (P1 positioning). Segmentation only, never scored                   |
 | Any answer conflicts with the interview                                                   | The interview answer (the concrete example) wins; the conflict is noted                                                       |
 
 ### Not in the screener (asked in the interview or dropped)
@@ -616,6 +665,7 @@ These explain behavior and must never raise or lower a score:
 | Human-Directed AI Use       | P3 (human ownership, reviewing and verifying AI output), P4 (delegation, research and preparation) |
 | Channel Strategy            | R1 (diversity, direct outreach, referrals); L1 (measurement); L2 (effort follows results)          |
 | Relationship Activation     | R2                                                                                                 |
+| (no counterpart)            | R3 Makes you easy to find, new in this version                                                     |
 | Learning and Adaptation     | L1 (tracking, patterns), L2 (strategy adjustment), L3 (experimentation, feedback)                  |
 | Search Intentionality Index | Dropped                                                                                            |
 

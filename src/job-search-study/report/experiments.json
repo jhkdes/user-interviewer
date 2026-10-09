@@ -132,6 +132,20 @@
       "track": "Conversations held, introductions received, and follow-ups sent."
     },
     {
+      "id": "r3-profile-for-the-role",
+      "behavior": "R3",
+      "title": "Rewrite your profile for the role you want",
+      "why": "Recruiters search by role and skills, then skim a headline and a few lines. A profile written for the role you want gets found and understood faster than one that lists every job you have had.",
+      "steps": [
+        "Write a headline that names the role you want, not your current title.",
+        "Rewrite the first lines of your summary around that role and two or three results you are proud of.",
+        "Match the skills list and location to the roles you are targeting, and turn on the setting that tells recruiters you are open to work if that fits your situation.",
+        "Ask one person who hires for that role to read it for 30 seconds and tell you what they took away."
+      ],
+      "effort": "About an hour, plus one short conversation",
+      "track": "Recruiter messages and profile views in the two weeks before and after the change."
+    },
+    {
       "id": "l1-simple-tracker",
       "behavior": "L1",
       "title": "Keep a simple tracker",

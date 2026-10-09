@@ -156,10 +156,10 @@ describe("selectExperiments", () => {
         },
       ],
     };
-    // F3 = 2 (need 60) would beat L2 = 2 (need 80)? L2 weight 40 -> 80 already; use R1 = 2 (need 100) vs F3 = 1 (need 90).
+    // F3 = 2 (need 60) would beat L2 = 2 (need 80)? L2 weight 40 -> 80 already; use R1 = 0 (need 120) vs F3 = 1 (need 90).
     const without = pick({
       F3: 1,
-      R1: 2,
+      R1: 0,
       L2: 4,
       P1: 4,
       P2: 4,
@@ -171,7 +171,7 @@ describe("selectExperiments", () => {
       L3: 4,
     });
     const withMismatch = pick(
-      { F3: 1, R1: 2, L2: 4, P1: 4, P2: 4, P3: 4, F1: 4, F2: 4, R2: 4, L1: 4, L3: 4 },
+      { F3: 1, R1: 0, L2: 4, P1: 4, P2: 4, P3: 4, F1: 4, F2: 4, R2: 4, L1: 4, L3: 4 },
       { channels: mismatch },
     );
 

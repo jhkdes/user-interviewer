@@ -20,7 +20,7 @@ describe("rubric config", () => {
     expect(validateRubric(rubric)).toEqual([]);
   });
 
-  it("defines four dimensions and twelve behaviors", () => {
+  it("defines four dimensions and thirteen behaviors", () => {
     expect(rubric.dimensions.map((d) => d.id)).toEqual(["focus", "pitch", "reach", "learn"]);
     expect(rubric.behaviors.map((b) => b.id)).toEqual([
       "F1",
@@ -32,6 +32,7 @@ describe("rubric config", () => {
       "P4",
       "R1",
       "R2",
+      "R3",
       "L1",
       "L2",
       "L3",
@@ -102,7 +103,7 @@ describe("rubric.json matches JOB_SEARCH_SCORING_MODEL.md", () => {
         /^\|\s*(Focus|Pitch|Reach|Learn)\s*\|\s*([FPRL]\d)\s[^|]+\|\s*(\d+)%\s*\|\s*([^|]+?)\s*\|$/gm,
       ),
     ];
-    expect(rows).toHaveLength(12);
+    expect(rows).toHaveLength(13);
     for (const [, , id, weight, tierCell] of rows) {
       const behavior = rubric.behaviors.find((b) => b.id === id);
       expect(behavior, id).toBeDefined();

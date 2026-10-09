@@ -146,6 +146,29 @@ export function askedPostingAge(turns: InterviewTurn[]): boolean {
   );
 }
 
+/** Support types where the interviewer must ask which provider or program it is (the answer is research data). */
+const PROVIDER_REQUIRED_SUPPORT = [/^outplacement/i, /^a free program/i];
+
+/** Whether the screener says the participant has outplacement or a free program, so the provider name must be asked for. */
+export function needsSupportProviderQuestion(
+  screenerAnswers: Record<string, string | string[]> | null | undefined,
+): boolean {
+  const answer = screenerAnswers?.search_support;
+  const picked = Array.isArray(answer) ? answer : answer ? [answer] : [];
+  return picked.some((option) => PROVIDER_REQUIRED_SUPPORT.some((pattern) => pattern.test(option)));
+}
+
+/** Whether the interviewer asked which outplacement provider, program, or coach the participant uses. */
+export function askedSupportProvider(turns: InterviewTurn[]): boolean {
+  return turns.some(
+    (turn) =>
+      turn.speaker === "interviewer" &&
+      /\b(?:which|what)\b[^?]*\b(?:outplacement|program|provider|firm|company|coach)\b|\bwho(?:'s| is) (?:that|it|the \w+) with\b|\bwho(?:'s| is) (?:your|the) coach\b/i.test(
+        turn.text,
+      ),
+  );
+}
+
 export interface InterviewChecks {
   participantTurns: number;
   interviewerTurns: number;
@@ -155,6 +178,8 @@ export interface InterviewChecks {
   screenerReasks: ScreenerReask[];
   reportPriority: { turnIndex: number; answered: boolean } | null;
   postingAgeAsked: boolean;
+  /** True when the screener shows outplacement or a free program and the interviewer never asked which one. */
+  supportProviderMissing: boolean;
   /** The last interviewer turn is a statement, not a question (the harness requires a closing turn with no question). */
   closesWithStatement: boolean;
 }
@@ -162,6 +187,7 @@ export interface InterviewChecks {
 export function runInterviewChecks(
   turns: InterviewTurn[],
   elapsedSeconds: number,
+  screenerAnswers?: Record<string, string | string[]> | null,
 ): InterviewChecks {
   const interviewerTurns = turns.filter((turn) => turn.speaker === "interviewer");
   const lastInterviewerTurn = interviewerTurns[interviewerTurns.length - 1];
@@ -175,6 +201,8 @@ export function runInterviewChecks(
     screenerReasks: findRepeatedScreenerQuestions(turns),
     reportPriority: findReportPriorityQuestion(turns),
     postingAgeAsked: askedPostingAge(turns),
+    supportProviderMissing:
+      needsSupportProviderQuestion(screenerAnswers) && !askedSupportProvider(turns),
     closesWithStatement: lastInterviewerTurn
       ? !lastInterviewerTurn.text.trim().endsWith("?")
       : false,

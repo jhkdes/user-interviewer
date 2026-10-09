@@ -164,8 +164,9 @@ describe("dimension scores", () => {
   });
 
   it("is not rated when the evidenced share is below the minimum, even with must-haves present", () => {
-    // Reach with only R1 (must-have, 50%) scored is exactly 50%, which is rated.
-    expect(dimension(score(rated("R1", 3)), "reach").status).toBe("rated");
+    // Reach with only R1 (must-have, 30%) scored is below the minimum; R1 with R3 (55%) is rated.
+    expect(dimension(score(rated("R1", 3)), "reach").status).toBe("not_rated");
+    expect(dimension(score(rated("R1", 3), rated("R3", 3)), "reach").status).toBe("rated");
     // Learn: L1 (must-have, 30%) alone is 30% of the weight, below 50%.
     const result = score(rated("L1", 3));
     expect(dimension(result, "learn")).toMatchObject({ status: "not_rated" });
@@ -184,16 +185,23 @@ describe("dimension scores", () => {
   });
 
   it("scores from the capped value, not the raw one", () => {
-    // R1 = 4 but estimated (cap 3) and R2 = 4 concrete -> (3 + 4) / 8 = 87.5
-    const result = score(rated("R1", 4, "estimated_pattern"), rated("R2", 4));
+    // R1 = 4 but estimated (cap 3), R2 = 4 and R3 = 4 concrete -> (3*30 + 4*45 + 4*25) / (4*100) = 92.5
+    const result = score(rated("R1", 4, "estimated_pattern"), rated("R2", 4), rated("R3", 4));
 
-    expect(dimension(result, "reach").score).toBe(87.5);
+    expect(dimension(result, "reach").score).toBe(92.5);
+  });
+
+  it("weights Reach as R1 30, R2 45, R3 25", () => {
+    // R1 = 4 alone would be 100; R3 = 0 with R1 = 4 and R2 = 4 -> (4*30 + 4*45) / 400 * 100 = 75
+    const result = score(rated("R1", 4), rated("R2", 4), rated("R3", 0));
+
+    expect(dimension(result, "reach").score).toBe(75);
   });
 });
 
 describe("near a band boundary", () => {
   it("is flagged within five points of a cutoff and not otherwise", () => {
-    // Reach: R1 50, R2 50. 3 and 2 = 62.5 (cutoffs 45 and 70: 7.5 from 70, 17.5 from 45) -> not near.
+    // Reach: R1 30, R2 45. 3 and 2 = 60 (cutoffs 45 and 70: 10 from 70, 15 from 45) -> not near.
     expect(dimension(score(rated("R1", 3), rated("R2", 2)), "reach").nearBandBoundary).toBe(false);
     // Learn: L1 30, L2 40, L3 30 with 3, 3, 2 = 67.5 -> 2.5 from 70 -> near.
     expect(

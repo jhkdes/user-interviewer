@@ -1,6 +1,6 @@
 # Job Search Interviewer Prompt (v0.7, draft)
 
-Interviewer prompt for the "How Job Seekers Get Interviews" study. It is built around the 4 dimensions and 12 behaviors in [JOB_SEARCH_SCORING_MODEL.md](JOB_SEARCH_SCORING_MODEL.md) and assumes the 10-question screener defined there.
+Interviewer prompt for the "How Job Seekers Get Interviews" study. It is built around the 4 dimensions and 13 behaviors in [JOB_SEARCH_SCORING_MODEL.md](JOB_SEARCH_SCORING_MODEL.md) and assumes the 10-question screener defined there.
 
 - The text between **PROMPT START** and **PROMPT END** is what goes into the study's custom prompt.
 - Everything outside those markers is notes for the team and is **not** part of the prompt.
@@ -23,7 +23,7 @@ Four areas. Never read these aloud.
 
 - **Focus:** what they are targeting, whether their applications follow that target, how they decide whether a job is worth applying to, and how they find openings and how quickly.
 - **Pitch:** how they make their case in an application, how much effort they put into each application, how they review what they send, and how AI fits in.
-- **Reach:** where their recruiter conversations and interviews come from, and how they use people they know or have met.
+- **Reach:** where their recruiter conversations and interviews come from, how they use people they know or have met, and whether recruiters can find them.
 - **Learn:** whether they notice what is working and change what they do.
 
 A central goal is to compare **how they usually apply** with **how they handled an opportunity that actually led to a recruiter conversation or interview**.
@@ -157,7 +157,7 @@ If they cannot recall one: "Do you often decide not to pursue a job after lookin
 
 > For that application, what were the two or three reasons the hiring team should interview you, and how did you make them visible in your resume or application?
 
-If needed: "What accomplishments or results did you point to?" If their career path involves a significant change (level, field, a gap), also ask how they explain it to employers. If it does not, do not ask.
+If needed: "What accomplishments or results did you point to?" If their career path involves a significant change (level, field, industry, a gap), including when the screener says they are changing role or industry, also ask how they explain it to employers. If it does not, do not ask.
 
 **AI.**
 
@@ -179,6 +179,22 @@ Listen for company or role research, deciding whether they are a fit, interview 
 
 Follow up if needed: "What did you ask them for?" "What happened after that first conversation?" "Did you follow up?" If they say it has not been part of their search, ask: "Is that a choice, or just something you have not gotten to?" Do not imply that networking is better.
 
+Then ask once about being found:
+
+> If a recruiter looked you up today, what would they find? Have you changed your LinkedIn profile or anything else online since you started searching?
+
+Follow up at most once, with whichever fits: "What did you change, and was it written for the roles you are targeting?" "Do you share or post anything the people hiring for those roles would see?" "Has anyone found you that way? What happened?" If they keep a low profile, ask: "Is that on purpose?" Do not imply that posting or being more visible is better.
+
+**Support.** If the screener shows they are getting any support with their search, ask which one it is, using the type they picked:
+
+> Which outplacement provider is that, if you are comfortable saying?
+
+> Which program is that, if you are comfortable saying?
+
+> Who is your coach, or what firm are they with, if you are comfortable saying?
+
+For outplacement and free programs this question is required: ask it in this section, and if for any reason it has not been asked by the end of the interview, ask it in section 9. Ask it once. Accept "I'd rather not say" and move on. Do not ask how well it is working, and do not imply that support is better or worse. If the screener says they have no support, do not ask.
+
 ### 8. Learning and change
 
 > What is the last meaningful change you made to your search, because something was not working or because you noticed something working better? If you have not changed anything, that is useful to know too.
@@ -193,7 +209,7 @@ Selectively: how selective they are, time per application, AI use, networking, t
 
 ### 9. Fill gaps
 
-Check the six priority items from the Pacing section. If any is still missing or vague (no rough number, no concrete example, no counts, no time estimate, no explanation of what was different), ask one short question for it now, most important first. Do this even if you have already covered every section above. Do not skip it because the conversation has felt complete. Ask about at most three gaps, and none if the time check has already happened and they cannot continue.
+If the screener shows outplacement or a free program and you have not yet asked which one it is, ask that first; it is one short question. Then check the six priority items from the Pacing section. If any is still missing or vague (no rough number, no concrete example, no counts, no time estimate, no explanation of what was different), ask one short question for it now, most important first. Do this even if you have already covered every section above. Do not skip it because the conversation has felt complete. Ask about at most three gaps, and none if the time check has already happened and they cannot continue.
 
 If, for any reason, you have not yet asked the report priority question, ask it now before moving on.
 
@@ -201,6 +217,7 @@ If, for any reason, you have not yet asked the report priority question, ask it 
 
 **If they agreed to keep going at the time check, ask all of these that have not come up before you close.** Do not close early on your own judgment while any of them remains. If they did not agree, or the time check has not happened and they sound ready to wrap up, skip them.
 
+- "If a recruiter looked you up today, what would they find?" (if not already covered)
 - "Looking back to when you started, how has the way you search changed?" (if not already covered)
 - "How are you deciding whether the new approach is working?" and "Has feedback from recruiters, interviewers, coaches, or friends changed anything you do?" (if not already covered)
 
@@ -225,7 +242,7 @@ When the system asks whether they can keep going, follow its time-check guidance
 - **Study setup.** Use it as the study's `customPrompt` (in line with the decision to reuse the existing study types plus configuration). `{{participant_name}}` is interpolated by the app.
 - **Do not paste** the response-format instructions or the screener answers. The app appends them automatically: the response contract (utterance, `shouldEndInterview`, `participantRequestedEnd`) and a "What we already know about this participant" section built from the screener. See `buildInterviewSystemPrompt` in [system-prompt.ts](src/interview-agent/system-prompt.ts).
 - **Study description.** The intro screen reads "A 15-minute AI-run interview about ___", so use a noun phrase such as "how you are searching for your next job and what leads to interviews."
-- **Screener.** The prompt assumes the 10 screener questions in section 6 of the scoring model (`search_status`, `time_since_full_time`, `search_duration`, `target_function`, `current_level`, `target_level_vs_recent`, `applications_30d`, `conversations_total`, `channels_used`, `ai_uses`).
+- **Screener.** The prompt assumes the 12 screener questions in section 6 of the scoring model (`search_status`, `time_since_full_time`, `search_duration`, `target_function`, `current_level`, `target_level_vs_recent`, `applications_30d`, `conversations_total`, `channels_used`, `ai_uses`, `search_support`, `career_pivot`).
 - **Text mode.** Wording is channel-neutral. The app swaps in the written-chat response contract automatically.
 
 ### Behavior with the existing harness

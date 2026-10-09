@@ -207,7 +207,7 @@ async function runPersona(
     elapsedSeconds += estimateSpokenSeconds(reply) + PARTICIPANT_OVERHEAD_SECONDS;
   }
 
-  const checks = runInterviewChecks(history, elapsedSeconds);
+  const checks = runInterviewChecks(history, elapsedSeconds, persona.screenerAnswers);
   const coverage = await judgeCoverage(client, history);
 
   mkdirSync(outDir, { recursive: true });
@@ -251,6 +251,7 @@ async function runPersona(
     }`,
   );
   console.log(`posting age asked: ${checks.postingAgeAsked}`);
+  console.log(`support provider question missing: ${checks.supportProviderMissing}`);
   console.log(`coaching/scoring phrases: ${checks.coachingViolations.length}`);
   console.log(`evaluative acknowledgments: ${checks.evaluativeAcknowledgments.length}`);
   console.log(

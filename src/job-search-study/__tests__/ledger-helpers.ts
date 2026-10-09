@@ -41,6 +41,7 @@ export function blankLedger(rubric: Rubric): EvidenceLedger {
       sources: [],
       effortSplit: [],
       volunteeredContext: [],
+      supportProviders: [],
     },
     comparison: {
       typical: null,
@@ -109,6 +110,7 @@ export function toWireLedger(ledger: EvidenceLedger) {
         qualitative: orEmpty(s.qualitative),
       })),
       volunteeredContext: ledger.facts.volunteeredContext,
+      supportProviders: ledger.facts.supportProviders,
     },
     comparison: {
       typical: profileToWire(ledger.comparison.typical),

@@ -17,7 +17,7 @@ describe("job-search study config", () => {
     expect(result).toEqual({ valid: true, errors: [] });
   });
 
-  it("defines the ten screener questions with unique, stable ids", () => {
+  it("defines the twelve screener questions with unique, stable ids", () => {
     const ids = JOB_SEARCH_SCREENER.map((question) => question.id);
 
     expect(ids).toEqual([
@@ -31,6 +31,8 @@ describe("job-search study config", () => {
       "conversations_total",
       "channels_used",
       "ai_uses",
+      "search_support",
+      "career_pivot",
     ]);
     expect(new Set(ids).size).toBe(ids.length);
   });
@@ -60,6 +62,21 @@ describe("job-search study config", () => {
       (question) => question.id,
     );
 
-    expect(multi).toEqual(["target_function", "channels_used", "ai_uses"]);
+    expect(multi).toEqual(["target_function", "channels_used", "ai_uses", "search_support"]);
+  });
+
+  it("asks about job-search support and about a career pivot, for research segmentation", () => {
+    const support = JOB_SEARCH_SCREENER.find((question) => question.id === "search_support")!;
+    const pivot = JOB_SEARCH_SCREENER.find((question) => question.id === "career_pivot")!;
+
+    expect(support.options).toEqual([
+      "No support",
+      "A paid career coach",
+      "Outplacement support paid for by a former employer",
+      "A free program (for example, a workforce, alumni, or community program)",
+    ]);
+    expect(pivot.type).toBe("single");
+    expect(pivot.options.filter((option) => option.startsWith("Yes"))).toHaveLength(3);
+    expect(pivot.options[0]).toMatch(/^No/);
   });
 });

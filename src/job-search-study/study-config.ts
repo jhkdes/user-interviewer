@@ -154,4 +154,29 @@ export const JOB_SEARCH_SCREENER: PreInterviewQuestion[] = [
     ],
     allowOther: true,
   },
+  {
+    id: "search_support",
+    label: "Are you getting any support with your job search? Select all that apply.",
+    type: "multi",
+    options: [
+      "No support",
+      "A paid career coach",
+      "Outplacement support paid for by a former employer",
+      "A free program (for example, a workforce, alumni, or community program)",
+    ],
+    allowOther: true,
+  },
+  {
+    id: "career_pivot",
+    label: "Is the role or industry you are targeting different from your previous one?",
+    type: "single",
+    options: [
+      "No, a similar role in the same industry",
+      "Yes, a different role in the same industry",
+      "Yes, a similar role in a different industry",
+      "Yes, a different role in a different industry",
+      "Not sure",
+    ],
+    allowOther: false,
+  },
 ];
