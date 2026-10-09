@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { appBaseUrl, getReviewDeps } from "@/job-search-study/pipeline/get-deps";
+import { getReviewDeps } from "@/job-search-study/pipeline/get-deps";
 import { reviewErrorResponse } from "@/job-search-study/pipeline/http-errors";
 import {
   regenerateNarrative,
@@ -34,9 +34,7 @@ export async function POST(request: Request, { params }: Params) {
       case "withdraw":
         return NextResponse.json(await withdrawReport(deps, params.reportId));
       case "resend-email":
-        return NextResponse.json(
-          await resendReportEmail(deps, params.reportId, appBaseUrl(request)),
-        );
+        return NextResponse.json(await resendReportEmail(deps, params.reportId));
       case "release": {
         const body = (await request.json().catch(() => ({}))) as {
           acknowledgeViolations?: boolean;
@@ -47,7 +45,6 @@ export async function POST(request: Request, { params }: Params) {
         return NextResponse.json(
           await releaseReport(deps, params.reportId, {
             releasedBy: user?.email ?? "unknown",
-            baseUrl: appBaseUrl(request),
             acknowledgeViolations: body.acknowledgeViolations === true,
           }),
         );

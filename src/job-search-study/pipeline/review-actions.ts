@@ -1,10 +1,11 @@
 import { randomBytes } from "node:crypto";
 import { generateReport } from "../report/generate";
+import { renderReportHtml } from "../report/render-html";
 import { loadRubric } from "../rubric/rubric";
 import type { JobSearchReport } from "../storage/types";
 import { applyEdits, recheckViolations, type ReportEdits } from "./edits";
 import { InvalidReportStateError, ReleaseBlockedError, ReportNotFoundError } from "./errors";
-import { renderReportEmail, reportUrl } from "./report-email";
+import { REPORT_ATTACHMENT_FILENAME, renderReportEmail } from "./report-email";
 import type { ReviewDeps } from "./types";
 
 async function load(deps: ReviewDeps, reportId: string): Promise<JobSearchReport> {
@@ -96,8 +97,6 @@ export async function requeueFromScratch(
 export interface ReleaseOptions {
   /** Who is releasing it (shown in the review history). */
   releasedBy: string;
-  /** The site's public origin, for the link in the email. */
-  baseUrl: string;
   /** Required to release a report that still has rule violations. */
   acknowledgeViolations?: boolean;
 }
@@ -108,21 +107,22 @@ export interface ReleaseResult {
   emailError: string | null;
 }
 
+/** Emails the participant their report as an attached, self-contained HTML file. */
 async function sendReportEmail(
   deps: ReviewDeps,
   report: JobSearchReport,
-  baseUrl: string,
 ): Promise<{ sent: boolean; error: string | null }> {
   const interview = await deps.interviewRepo.getById(report.interviewId);
   if (!interview) return { sent: false, error: "The interview no longer exists." };
-  if (!report.accessToken) return { sent: false, error: "The report has no access link." };
+  if (!report.report) return { sent: false, error: "The report has no content." };
 
-  const { subject, html } = renderReportEmail({
-    firstName: interview.firstName,
-    url: reportUrl(baseUrl, report.accessToken),
-  });
+  const { subject, html } = renderReportEmail({ firstName: interview.firstName });
+  const attachment = {
+    filename: REPORT_ATTACHMENT_FILENAME,
+    content: Buffer.from(renderReportHtml(report.report), "utf-8").toString("base64"),
+  };
   try {
-    await deps.emailClient.send({ to: interview.email, subject, html });
+    await deps.emailClient.send({ to: interview.email, subject, html, attachments: [attachment] });
     return { sent: true, error: null };
   } catch (error) {
     return { sent: false, error: error instanceof Error ? error.message : String(error) };
@@ -130,8 +130,8 @@ async function sendReportEmail(
 }
 
 /**
- * Releases a reviewed draft: creates the participant's private link and emails
- * it. A failed email does not undo the release; the result says so and the
+ * Releases a reviewed draft: emails the participant the report as an attached
+ * file, and also makes it available at a private link. A failed email does not undo the release; the result says so and the
  * email can be resent. A withdrawn report can be released again with a new link.
  */
 export async function releaseReport(
@@ -157,7 +157,7 @@ export async function releaseReport(
     withdrawnAt: null,
   });
 
-  const email = await sendReportEmail(deps, released, options.baseUrl);
+  const email = await sendReportEmail(deps, released);
   const final = email.sent
     ? await deps.reportRepo.update(reportId, { emailSentAt: now })
     : released;
@@ -168,12 +168,11 @@ export async function releaseReport(
 export async function resendReportEmail(
   deps: ReviewDeps,
   reportId: string,
-  baseUrl: string,
 ): Promise<ReleaseResult> {
   const report = await load(deps, reportId);
   requireStatus(report, ["released"], "email");
 
-  const email = await sendReportEmail(deps, report, baseUrl);
+  const email = await sendReportEmail(deps, report);
   const now = (deps.now ?? (() => new Date()))();
   const final = email.sent ? await deps.reportRepo.update(reportId, { emailSentAt: now }) : report;
   return { report: final, emailSent: email.sent, emailError: email.error };

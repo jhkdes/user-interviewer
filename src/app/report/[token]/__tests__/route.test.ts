@@ -21,7 +21,6 @@ async function releasedReport() {
   const { processed } = await runSweep(f.deps);
   const { report } = await releaseReport(f.reviewDeps, processed!.reportId, {
     releasedBy: "pm@example.com",
-    baseUrl: "https://x.example",
   });
   getRepo.mockReturnValue(f.reportRepo);
   return { f, report };

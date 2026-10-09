@@ -47,6 +47,7 @@ export class ResendEmailClient implements EmailClient {
           to: input.to,
           subject: input.subject,
           html: input.html,
+          ...(input.attachments?.length ? { attachments: input.attachments } : {}),
         }),
       });
     } catch (cause) {

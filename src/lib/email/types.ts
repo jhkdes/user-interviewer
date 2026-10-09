@@ -1,7 +1,14 @@
+export interface EmailAttachment {
+  filename: string;
+  /** The file's bytes, base64-encoded. */
+  content: string;
+}
+
 export interface SendEmailInput {
   to: string;
   subject: string;
   html: string;
+  attachments?: EmailAttachment[];
 }
 
 /**

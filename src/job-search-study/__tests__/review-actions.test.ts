@@ -20,7 +20,6 @@ import { loadRubric } from "../rubric/rubric";
 import { setup, type Fixture } from "./pipeline-helpers";
 
 const rubric = loadRubric();
-const BASE_URL = "https://reports.example.com";
 
 /** A fixture with one interview already turned into a draft report. */
 async function withDraft(options: Parameters<typeof setup>[0] = {}) {
@@ -33,7 +32,6 @@ async function withDraft(options: Parameters<typeof setup>[0] = {}) {
 const release = (f: Fixture, reportId: string, extra: { acknowledgeViolations?: boolean } = {}) =>
   releaseReport(f.reviewDeps, reportId, {
     releasedBy: "pm@example.com",
-    baseUrl: BASE_URL,
     ...extra,
   });
 
@@ -278,7 +276,14 @@ describe("releaseReport", () => {
     expect(f.emailClient.sent).toHaveLength(1);
     expect(f.emailClient.sent[0].to).toBe("jordan@example.com");
     expect(f.emailClient.sent[0].subject).toBe("Your job search report is ready, Jordan");
-    expect(f.emailClient.sent[0].html).toContain(`${BASE_URL}/report/${result.report.accessToken}`);
+    expect(f.emailClient.sent[0].html).toContain("attached");
+    expect(f.emailClient.sent[0].html).not.toContain("/report/");
+
+    const [attachment] = f.emailClient.sent[0].attachments!;
+    expect(attachment.filename).toBe("Your-Job-Search-Report.html");
+    const attached = Buffer.from(attachment.content, "base64").toString("utf-8");
+    expect(attached).toMatch(/^<!doctype html>/);
+    expect(attached).toContain("The short version");
   });
 
   it("blocks release while rule violations remain, unless they are acknowledged", async () => {
@@ -328,26 +333,26 @@ describe("releaseReport", () => {
 });
 
 describe("resendReportEmail", () => {
-  it("sends the same link again for a released report", async () => {
+  it("sends the report attachment again for a released report", async () => {
     const { f, reportId } = await withDraft();
-    const released = await release(f, reportId);
+    await release(f, reportId);
 
-    const result = await resendReportEmail(f.reviewDeps, reportId, BASE_URL);
+    const result = await resendReportEmail(f.reviewDeps, reportId);
 
     expect(result.emailSent).toBe(true);
     expect(f.emailClient.sent).toHaveLength(2);
-    expect(f.emailClient.sent[1].html).toContain(released.report.accessToken!);
+    expect(f.emailClient.sent[1].attachments).toEqual(f.emailClient.sent[0].attachments);
   });
 
   it("reports a failed resend, and refuses unless the report is released", async () => {
     const { f, reportId } = await withDraft();
-    await expect(resendReportEmail(f.reviewDeps, reportId, BASE_URL)).rejects.toThrow(
+    await expect(resendReportEmail(f.reviewDeps, reportId)).rejects.toThrow(
       InvalidReportStateError,
     );
 
     await release(f, reportId);
     f.emailClient.scriptFailure(new Error("still down"));
-    const result = await resendReportEmail(f.reviewDeps, reportId, BASE_URL);
+    const result = await resendReportEmail(f.reviewDeps, reportId);
 
     expect(result).toMatchObject({ emailSent: false, emailError: "still down" });
   });
@@ -373,15 +378,12 @@ describe("withdrawReport", () => {
 });
 
 describe("report email", () => {
-  it("links to the report and escapes the participant's name", () => {
-    const email = renderReportEmail({
-      firstName: "<b>Sam</b>",
-      url: "https://x.example/report/abc?a=1&b=2",
-    });
+  it("tells the participant which file to open, and escapes their name", () => {
+    const email = renderReportEmail({ firstName: "<b>Sam</b>" });
 
     expect(email.html).toContain("&lt;b&gt;Sam&lt;/b&gt;");
-    expect(email.html).toContain('href="https://x.example/report/abc?a=1&amp;b=2"');
-    expect(email.html).toContain("don't forward it");
+    expect(email.html).toContain("Your-Job-Search-Report.html");
+    expect(email.html).not.toContain("<a ");
   });
 
   it("builds the report URL without doubled slashes and encodes the token", () => {

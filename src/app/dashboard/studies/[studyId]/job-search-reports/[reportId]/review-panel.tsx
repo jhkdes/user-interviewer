@@ -255,7 +255,8 @@ export function ReviewPanel({
           <section className="rounded border border-neutral-200 p-3 dark:border-neutral-800">
             <h2 className="font-semibold">Release</h2>
             <p className="text-sm text-neutral-500 dark:text-neutral-400">
-              Creates the participant&apos;s private link and emails it. Save your edits first.
+              Emails the participant their report as an attached file (the preview below is exactly
+              what they get). Save your edits first.
             </p>
             {violations.length > 0 && (
               <label className="mt-2 flex items-start gap-2 text-sm text-red-700 dark:text-red-400">

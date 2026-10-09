@@ -1,9 +1,12 @@
+import { BAND_LADDER, DIMENSION_EXPLAINERS, ladderSteps } from "./explainers";
+import { buildTldr } from "./tldr";
 import type { ChannelAnalysis, Report, ReportDimension } from "./types";
 
 /**
  * Renders a Report as one self-contained HTML page: inline styles, no scripts,
- * no external requests. This is the page a participant opens from their emailed
- * link, so it must read well on a phone, in light and dark mode, and in print.
+ * no external requests. It is emailed to the participant as an attachment and
+ * also served from their private link, so it must read well on a phone, offline,
+ * in light and dark mode, and in print.
  * Pure function of the Report: every string is escaped, and nothing here can
  * add a number the Report does not contain.
  */
@@ -41,6 +44,31 @@ const BEHAVIOR_KIND: Record<string, string> = {
   "Not enough to tell": "none",
   "Does not apply": "none",
 };
+
+/** Three steps from Opportunity to Strong, filled up to the level reached, so the order of the levels is visible. */
+function ladder(dimension: ReportDimension): string {
+  const steps = ladderSteps(dimension.bandId);
+  const label = dimension.band
+    ? `Level ${dimension.band}: step ${steps} of ${BAND_LADDER.length}, from ${BAND_LADDER[0].label} to ${BAND_LADDER[BAND_LADDER.length - 1].label}`
+    : "Not enough to rate";
+  const cells = BAND_LADDER.map((_, i) => `<i${i < steps ? ' class="on"' : ""}></i>`).join("");
+  return `<span class="ladder" role="img" aria-label="${escapeHtml(label)}">${cells}</span>`;
+}
+
+function tldrSection(report: Report): string {
+  const tldr = buildTldr(report);
+  const list = (items: string[], empty: string, tag: "ul" | "ol" = "ul") =>
+    items.length > 0
+      ? `<${tag}>${items.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</${tag}>`
+      : `<p class="empty">${empty}</p>`;
+  return (
+    `<section class="tldr" aria-label="The short version"><h2>The short version</h2><div class="tldr-grid">` +
+    `<div><p class="label-h good">Working well</p>${list(tldr.workingWell, "Nothing stood out yet. This interview is a starting point.")}</div>` +
+    `<div><p class="label-h gap">Not working as well</p>${list(tldr.notWorkingAsWell, "Nothing stood out as a gap.")}</div>` +
+    `<div><p class="label-h try">Experiments to try</p>${list(tldr.experiments, "No experiments suggested this time.", "ol")}</div>` +
+    `</div></section>`
+  );
+}
 
 function channelsTable(channels: ChannelAnalysis): string {
   if (channels.rows.length === 0) return "";
@@ -92,6 +120,21 @@ p{margin:0 0 12px}
 .chip-none{background:var(--none-bg);color:var(--none-fg)}
 ul.behaviors{list-style:none;padding:0;margin:10px 0 12px}
 ul.behaviors li{display:flex;justify-content:space-between;gap:12px;padding:5px 0;border-top:1px solid var(--line)}
+.tldr{background:var(--surface);border:1px solid var(--line);border-top:4px solid var(--accent);border-radius:10px;padding:6px 18px 10px;margin:0 0 24px}
+.tldr h2{margin:10px 0 4px;padding:0}
+.tldr-grid{display:grid;gap:4px 24px;grid-template-columns:repeat(auto-fit,minmax(210px,1fr))}
+.tldr ul,.tldr ol{margin:4px 0 8px;padding-left:20px}
+.tldr li{margin:0 0 4px}
+.label-h.good{color:var(--strong-fg)}.label-h.gap{color:var(--dev-fg)}.label-h.try{color:var(--accent)}
+.ladder{display:inline-flex;gap:3px;margin-left:8px;vertical-align:middle}
+.ladder i{display:block;width:18px;height:7px;border-radius:3px;background:var(--line)}
+.ladder i.on{background:var(--accent)}
+.tile .ladder{display:flex;margin:8px 0 0}
+.tile .about{color:var(--muted);font-size:.88rem;line-height:1.45;margin:8px 0 0}
+.levels{list-style:none;padding:0;margin:14px 0 0}
+.levels li{padding:7px 0;border-top:1px solid var(--line)}
+.levels li:first-child{border-top:0}
+.levels .chip{margin-right:8px}
 .label-h{font-size:.8rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin:12px 0 2px}
 .table-wrap{overflow-x:auto;margin:0 0 14px}
 table{border-collapse:collapse;width:100%;background:var(--surface);border:1px solid var(--line);border-radius:8px;font-size:.95rem}
@@ -102,6 +145,7 @@ td.num,th.num{text-align:right;white-space:nowrap}
 .exp .meta{color:var(--muted);font-size:.92rem;margin:0 0 4px}
 .empty{color:var(--muted);font-style:italic}
 .fine{color:var(--muted);font-size:.9rem;border-top:1px solid var(--line);margin-top:48px;padding-top:16px}
+.fine-print{color:var(--muted);font-size:.9rem;margin:10px 0 0}
 .flow{font-weight:600}
 @media print{body{background:#fff;color:#000}.card,.tile,table{break-inside:avoid}}
 `;
@@ -111,6 +155,7 @@ export function renderReportHtml(report: Report, options: { title?: string } = {
   const parts: string[] = [];
 
   parts.push(`<h1>${escapeHtml(title)}</h1><p class="sub">Based on your 15-minute interview</p>`);
+  parts.push(tldrSection(report));
   parts.push(`<div class="lede">${paragraphs(report.executiveSummary)}</div>`);
 
   if (report.priority) {
@@ -120,12 +165,16 @@ export function renderReportHtml(report: Report, options: { title?: string } = {
   }
 
   parts.push(
-    `<h2>Your search profile</h2><div class="grid">${report.dimensions
+    `<h2>Your search profile</h2><p>Your search has four areas. Each is placed on a three-step ladder, from Opportunity (the most room to grow) up to Strong.</p><div class="grid">${report.dimensions
       .map(
         (d) =>
-          `<div class="tile"><p class="name">${escapeHtml(d.name)}</p>${dimensionBandChip(d)}</div>`,
+          `<div class="tile"><p class="name">${escapeHtml(d.name)}</p>${dimensionBandChip(d)}${ladder(d)}<p class="about">${escapeHtml(DIMENSION_EXPLAINERS[d.id])}</p></div>`,
       )
-      .join("")}</div>`,
+      .join("")}</div>` +
+      `<p class="label-h">What the levels mean, from least to most advanced</p><ul class="levels">${BAND_LADDER.map(
+        (band) => `<li>${chip(band.label, band.id)}${escapeHtml(band.meaning)}</li>`,
+      ).join("")}</ul>` +
+      `<p class="fine-print">Within each area, individual habits are marked Opportunity, Developing, or Doing well, in that order.</p>`,
   );
 
   parts.push(`<h2>What we heard about your search</h2>${paragraphs(report.whatWeHeard)}`);
@@ -166,7 +215,7 @@ export function renderReportHtml(report: Report, options: { title?: string } = {
           const none = d.band
             ? ""
             : `<p class="empty">There was not enough in the interview to rate this area.</p>`;
-          return `<div class="card"><h3>${escapeHtml(d.name)} ${dimensionBandChip(d)}</h3><p class="q">${escapeHtml(d.question)}</p><ul class="behaviors">${behaviors}</ul>${strength}${improvement}${none}</div>`;
+          return `<div class="card"><h3>${escapeHtml(d.name)} ${dimensionBandChip(d)}${ladder(d)}</h3><p class="q">${escapeHtml(d.question)}</p><ul class="behaviors">${behaviors}</ul>${strength}${improvement}${none}</div>`;
         })
         .join(""),
   );
