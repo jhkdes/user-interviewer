@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { renderReportHtml } from "@/job-search-study/report/render-html";
 import { renderReportPdf } from "@/job-search-study/report/render-pdf";
 import { getJobSearchReportRepository } from "@/job-search-study/storage/get-report-repository";
+import { getInterviewRepository } from "@/repositories/get-interview-repository";
 
 export const dynamic = "force-dynamic";
 /** Starting Chromium and printing the page takes several seconds. */
@@ -17,7 +18,10 @@ export async function GET(
     return NextResponse.json({ error: "Report not found" }, { status: 404 });
   }
   try {
-    const pdf = await renderReportPdf(renderReportHtml(report.report));
+    const interview = await getInterviewRepository().getById(report.interviewId);
+    const pdf = await renderReportPdf(
+      renderReportHtml(report.report, { participantName: interview?.firstName }),
+    );
     return new Response(new Uint8Array(pdf), {
       headers: {
         "Content-Type": "application/pdf",

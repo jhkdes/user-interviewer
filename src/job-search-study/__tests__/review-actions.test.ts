@@ -310,6 +310,8 @@ describe("releaseReport", () => {
     expect(f.pdfInputs).toHaveLength(1);
     expect(f.pdfInputs[0]).toMatch(/^<!doctype html>/);
     expect(f.pdfInputs[0]).toContain("The short version");
+    expect(f.pdfInputs[0]).toContain("Prepared for Jordan");
+    expect(f.pdfInputs[0]).toContain("https://discoverfirst.co/jobseekers");
   });
 
   it("stays released and says so when the PDF cannot be made", async () => {

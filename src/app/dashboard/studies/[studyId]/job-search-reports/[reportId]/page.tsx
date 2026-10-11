@@ -104,7 +104,7 @@ export default async function JobSearchReportReviewPage({
           <iframe
             title="Report preview"
             sandbox=""
-            srcDoc={renderReportHtml(report.report)}
+            srcDoc={renderReportHtml(report.report, { participantName: interview?.firstName })}
             className="mt-2 h-[900px] w-full rounded border border-neutral-200 dark:border-neutral-800"
           />
         </section>

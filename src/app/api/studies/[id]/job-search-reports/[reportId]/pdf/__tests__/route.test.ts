@@ -11,10 +11,16 @@ vi.mock("@/job-search-study/report/render-pdf", () => ({
   renderReportPdf: (html: string) => renderPdf(html),
 }));
 
+const getInterviews = vi.fn();
+vi.mock("@/repositories/get-interview-repository", () => ({
+  getInterviewRepository: () => getInterviews(),
+}));
+
 import { GET } from "../route";
 
 afterEach(() => {
   getRepo.mockReset();
+  getInterviews.mockReset();
   renderPdf.mockReset();
   vi.restoreAllMocks();
 });
@@ -24,6 +30,7 @@ async function draft() {
   await f.addInterview(8, "Jordan");
   const { processed } = await runSweep(f.deps);
   getRepo.mockReturnValue(f.reportRepo);
+  getInterviews.mockReturnValue(f.interviewRepo);
   return { f, reportId: processed!.reportId };
 }
 
@@ -42,6 +49,7 @@ describe("GET /api/studies/[id]/job-search-reports/[reportId]/pdf", () => {
     expect(res.headers.get("cache-control")).toBe("private, no-store");
     expect(Buffer.from(await res.arrayBuffer()).toString()).toBe("%PDF-1.4 test");
     expect(renderPdf.mock.calls[0][0]).toMatch(/^<!doctype html>/);
+    expect(renderPdf.mock.calls[0][0]).toContain("Prepared for Jordan");
   });
 
   it("answers 404 for a report in another study or one that does not exist", async () => {

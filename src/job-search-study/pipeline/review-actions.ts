@@ -130,7 +130,9 @@ async function sendReportEmail(
   });
   let attachment: { filename: string; content: string };
   try {
-    const pdf = await (deps.renderPdf ?? renderReportPdf)(renderReportHtml(report.report));
+    const pdf = await (deps.renderPdf ?? renderReportPdf)(
+      renderReportHtml(report.report, { participantName: interview.firstName }),
+    );
     attachment = { filename: REPORT_ATTACHMENT_FILENAME, content: pdf.toString("base64") };
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);

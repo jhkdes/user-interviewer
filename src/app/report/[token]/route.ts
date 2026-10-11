@@ -1,5 +1,6 @@
 import { renderReportHtml } from "@/job-search-study/report/render-html";
 import { getJobSearchReportRepository } from "@/job-search-study/storage/get-report-repository";
+import { getInterviewRepository } from "@/repositories/get-interview-repository";
 
 export const dynamic = "force-dynamic";
 
@@ -19,5 +20,7 @@ export async function GET(_request: Request, { params }: { params: { token: stri
   if (!report || report.status !== "released" || !report.report) {
     return new Response(NOT_AVAILABLE, { status: 404, headers: HEADERS });
   }
-  return new Response(renderReportHtml(report.report), { status: 200, headers: HEADERS });
+  const interview = await getInterviewRepository().getById(report.interviewId);
+  const html = renderReportHtml(report.report, { participantName: interview?.firstName });
+  return new Response(html, { status: 200, headers: HEADERS });
 }
