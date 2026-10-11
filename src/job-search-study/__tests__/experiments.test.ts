@@ -75,7 +75,7 @@ describe("experiment library", () => {
     expect(errors).toMatch(/needs 3 to 5 steps/);
     expect(errors).toMatch(/unknown behavior Z9/);
     expect(errors).toMatch(/duplicate experiment id/);
-    expect(errors).toMatch(/no experiment for P4/);
+    expect(errors).toMatch(/no experiment for P3/);
   });
 });
 
@@ -99,15 +99,15 @@ describe("priorityDimensions", () => {
 
 describe("selectExperiments", () => {
   it("picks one experiment per dimension, weakest and heaviest first", () => {
-    // Need = (4 - score) * weight. P1: 3*40 = 120. R2: 2*50 = 100. F3: 2*30 = 60.
+    // Need = (4 - score) * weight. P1: 3*50 = 150. R2: 2*45 = 90. F3: 2*30 = 60.
     const result = pick({ F1: 4, F2: 4, F3: 2, P1: 1, R1: 3, R2: 2, L1: 3, L2: 3, L3: 3 });
 
     expect(result.map((e) => e.forBehavior)).toEqual(["P1", "R2", "F3"]);
   });
 
   it("boosts the dimension the participant said they want help with", () => {
-    // Without a priority, P1 (120) outranks R2 (100). A reach priority adds 60 to R2.
-    const scores = { F1: 4, F2: 4, F3: 3, P1: 1, R1: 3, R2: 2, L1: 3, L2: 3, L3: 3 } as const;
+    // Without a priority, P1 (150) outranks R2 (135). A reach priority adds 60 to R2.
+    const scores = { F1: 4, F2: 4, F3: 3, P1: 1, R1: 3, R2: 1, L1: 3, L2: 3, L3: 3 } as const;
 
     expect(pick(scores).map((e) => e.forBehavior)[0]).toBe("P1");
     const boosted = pick(scores, { priorityText: "how to get human conversations" });
@@ -131,6 +131,7 @@ describe("selectExperiments", () => {
       L3: 4,
     });
 
+    // P1 needs 150 (3 x weight 50), P2 needs 90, P3 needs 60.
     expect(result.map((e) => e.forBehavior)).toEqual(["P1", "P2", "P3"]);
   });
 
@@ -156,9 +157,9 @@ describe("selectExperiments", () => {
         },
       ],
     };
-    // F3 = 2 (need 60) would beat L2 = 2 (need 80)? L2 weight 40 -> 80 already; use R1 = 0 (need 120) vs F3 = 1 (need 90).
+    // F3 = 2 (need 60) would beat L2 = 2 (need 80)? L2 weight 40 -> 80 already; use R1 = 0 (need 120) vs F3 = 2 (need 60).
     const without = pick({
-      F3: 1,
+      F3: 2,
       R1: 0,
       L2: 4,
       P1: 4,
@@ -171,7 +172,7 @@ describe("selectExperiments", () => {
       L3: 4,
     });
     const withMismatch = pick(
-      { F3: 1, R1: 0, L2: 4, P1: 4, P2: 4, P3: 4, F1: 4, F2: 4, R2: 4, L1: 4, L3: 4 },
+      { F3: 2, R1: 0, L2: 4, P1: 4, P2: 4, P3: 4, F1: 4, F2: 4, R2: 4, L1: 4, L3: 4 },
       { channels: mismatch },
     );
 
@@ -181,7 +182,7 @@ describe("selectExperiments", () => {
 
   it("skips the AI experiment for someone who has not used AI", () => {
     const result = pick(
-      { F1: 4, F2: 4, F3: 4, P1: 4, P2: 4, P3: 4, P4: 1, R1: 4, R2: 4, L1: 4, L2: 4, L3: 4 },
+      { F1: 4, F2: 4, F3: 4, P1: 4, P2: 4, P3: 1, R1: 4, R2: 4, L1: 4, L2: 4, L3: 4 },
       { usesAi: false },
     );
 
@@ -199,11 +200,11 @@ describe("selectExperiments", () => {
 });
 
 describe("usesAiFrom", () => {
-  it("is false only when P4 is not applicable", () => {
-    const applicable = aggregateRuns(rubric, [withEntry(blankLedger(rubric), rated("P4", 3))]);
+  it("is false only when P3 is not applicable", () => {
+    const applicable = aggregateRuns(rubric, [withEntry(blankLedger(rubric), rated("P3", 3))]);
     const notApplicable = aggregateRuns(rubric, [
       withEntry(blankLedger(rubric), {
-        ...rated("P4", 0),
+        ...rated("P3", 0),
         status: "not_applicable",
         score: null,
         evidenceBasis: null,

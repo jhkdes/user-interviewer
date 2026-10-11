@@ -36,7 +36,8 @@ export async function processReport(
     const screenerAnswers = interview.screenerAnswers;
 
     // Stage 1: extraction. Only the runs still missing, all at once.
-    let runs = claimed.extractionRuns;
+    // Runs saved under an older rubric describe different behaviors under the same ids, so they are not reused.
+    let runs = claimed.extractionRuns.filter((run) => run.rubricVersion === rubric.version);
     const missing = target - runs.length;
     if (missing > 0) {
       const results = await Promise.allSettled(

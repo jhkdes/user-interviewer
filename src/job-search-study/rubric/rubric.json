@@ -1,5 +1,5 @@
 {
-  "version": "0.4.0",
+  "version": "0.6.0",
   "description": "Machine-readable rubric for the job-search study. Source of truth for the extraction prompt and the scoring code. JOB_SEARCH_SCORING_MODEL.md is the human-readable spec; src/job-search-study/__tests__/rubric.test.ts checks weights and tiers match it.",
   "scale": {
     "min": 0,
@@ -69,7 +69,7 @@
     {
       "id": "focus",
       "name": "Focus",
-      "question": "Am I finding and going after the right jobs?"
+      "question": "Do I know what I'm good at, and am I going after the right jobs?"
     },
     {
       "id": "pitch",
@@ -91,8 +91,36 @@
     {
       "id": "F1",
       "dimension": "focus",
+      "name": "Knows what you're good at",
+      "weight": 40,
+      "tier": "must_have",
+      "subSignals": [
+        "can name core strengths, skills, and experience, with examples",
+        "knows what they enjoy most and least in their work",
+        "has asked others (managers, peers, mentors, friends) for an honest view of strengths and of what to improve or avoid",
+        "has used this to choose roles to pursue or avoid"
+      ],
+      "anchors": {
+        "0": "Has not thought about it; goes after roles by title or habit",
+        "1": "Can name general strengths (for example, good with people) with no examples; no outside input",
+        "2": "Can name specific strengths and some likes and dislikes from their own reflection only; the link to what they are targeting is loose",
+        "3": "Specific strengths and likes and dislikes with examples, and has asked at least one other person for an honest view; what they target reflects it",
+        "4": "Has deliberately assessed strengths, interests, and things to avoid, checked them with several people who know their work, and uses the result to choose and rule out roles"
+      },
+      "notes": [
+        "Not having done this is a real finding. Score 0 or 1 when the participant says they have not; only \"not discussed\" is insufficient evidence.",
+        "Outside input counts only if the participant says whom they asked and what they heard. A general sense of what others think is their own view.",
+        "Do not require formal tools. A conversation with a former manager counts.",
+        "Score what they did, not how impressive the strengths are.",
+        "Self-knowledge feeds the target (F2). If the target they describe clearly does not follow from the strengths they named, say so in the confidence note."
+      ],
+      "notApplicable": null
+    },
+    {
+      "id": "F2",
+      "dimension": "focus",
       "name": "Has a defined target",
-      "weight": 25,
+      "weight": 30,
       "tier": "standard",
       "subSignals": [
         "target role/function",
@@ -118,67 +146,47 @@
       "notApplicable": null
     },
     {
-      "id": "F2",
+      "id": "F3",
       "dimension": "focus",
-      "name": "Chooses roles on purpose",
-      "weight": 45,
-      "tier": "must_have",
+      "name": "Sources and screens the right openings",
+      "weight": 30,
+      "tier": "standard",
       "evidenceCapOverrides": {
         "estimated_pattern": 4,
         "general_description": 4
       },
       "subSignals": [
-        "match rate across roughly the last 20 applications",
-        "adherence to stated must-haves",
+        "sources used to find openings (job boards, company career pages, alerts or saved searches, recruiters, network, communities, newsletters)",
+        "whether the sources suit their target (industry, title, location, level, pay)",
+        "uses alerts, saved searches, or a list of target companies so fitting roles come to them",
+        "how old a posting usually is when they apply",
+        "knows which sources surface roles that fit",
+        "match rate across roughly the last 20 applications, and adherence to stated must-haves",
         "deviations deliberate versus drift, and whether the target loosened under pressure",
-        "reads and understands the role's requirements",
-        "assesses candidate-role fit (strengths and gaps)",
+        "reads the role's requirements and assesses fit (strengths and gaps)",
         "asks whether they actually want the role, and looks at the company",
         "willingness to pass on roles (go/no-go)"
       ],
       "anchors": {
-        "0": "Applies on title, keywords, or availability; reads little of the posting; under about 20% of recent applications match the stated target and no boundaries are kept; cannot recall passing on any role",
-        "1": "Notices broad overlap with little explicit evaluation; about 20-39% match, or mostly drift because criteria were dropped under urgency or discouragement; passes only on obvious mismatches (location, pay)",
-        "2": "Checks major requirements and sometimes fit, but inconsistently weighs gaps, desirability, or the company; about 40-59% match, with some exceptions deliberate and some drift; can give an occasional example of passing",
-        "3": "Usually identifies relevant strengths and meaningful gaps and considers whether they want the role and something about the company; about 60-79% match with must-haves kept and exceptions mostly deliberate; gives a concrete example of passing and why",
-        "4": "Systematic: explicit criteria for fit, competitiveness, and desirability; researches the company or team and uses that to decide whether and how much to invest; 80% or more match (or a lower rate fully explained by deliberate, bounded experiments) with must-haves kept under pressure; passes regularly"
+        "0": "Finds roles only by occasionally scrolling a feed or job board with no search set up; applies on title or availability with little screening; under about 20% of recent applications match the target; cannot recall passing on any role",
+        "1": "Mostly generic job-board browsing, applying to whatever surfaces, often weeks after it was posted, with no alerts; screens out only obvious mismatches (location, pay); about 20-39% match, or mostly drift because criteria were dropped under urgency or discouragement",
+        "2": "Uses one or two sources with some saved searches or alerts; checks major requirements and sometimes fit, but inconsistently weighs gaps, desirability, or the company; about 40-59% match, with some exceptions deliberate and some drift; can give an occasional example of passing",
+        "3": "Uses several sources suited to their target (niche boards, company career pages, recruiters, network) with alerts or saved searches, and usually applies within the first days; usually identifies relevant strengths and meaningful gaps and considers whether they want the role and the company; about 60-79% match with must-haves kept and exceptions mostly deliberate; gives a concrete example of passing and why",
+        "4": "A deliberate routine: sources chosen for their target, a list of target companies they follow, alerts tuned to the target, early applications to priority roles, and a regular look at which sources produce fitting roles; every opening is screened against explicit criteria for fit, competitiveness, and desirability; 80% or more match (or a lower rate fully explained by deliberate, bounded experiments) with must-haves kept under pressure; passes regularly"
       },
       "notes": [
-        "Judge both halves together: staying on target (match rate, must-haves, deliberate versus accidental exceptions) and deciding before applying (reading requirements, weighing strengths and gaps, asking whether they want the role, passing). If one half is strong and the other weak, score between them, closer to the weaker.",
-        "Adjustment: a low match rate made up of deliberate experiments can be raised one point; a high match rate with must-haves quietly dropped can be lowered one point.",
-        "A qualitative answer (\"most of them\", \"nearly all\") is accepted as evidence. Do not lower the score because no number was given; estimate the band from what the participant describes.",
-        "This scores the decision process, not whether the participant is objectively a fit. A well-qualified person who applies indiscriminately scores low. A person who correctly judges a role a stretch and passes scores high.",
-        "Do not treat broad applying as wrong. A deliberate, stated low-effort approach that still screens for must-haves can score 2.",
-        "Urgency, fatigue, and search duration are context, not penalties. Only whether the broadening was planned counts."
-      ],
-      "notApplicable": null
-    },
-    {
-      "id": "F3",
-      "dimension": "focus",
-      "name": "Finds the right openings early",
-      "weight": 30,
-      "tier": "standard",
-      "subSignals": [
-        "sources used to find openings (job boards, company career pages, alerts or saved searches, recruiters, network, communities, newsletters)",
-        "whether the sources suit their target (industry, title, location, level, pay)",
-        "uses alerts, saved searches, or a list of target companies to see new roles quickly",
-        "how old a posting usually is when they apply",
-        "knows which sources surface roles that fit"
-      ],
-      "anchors": {
-        "0": "Finds roles only by occasionally scrolling a feed or job board with no search set up; no sense of how old postings are when they apply",
-        "1": "Mostly generic job-board browsing with little targeting of sources; applies to whatever surfaces, often weeks after it was posted; no alerts",
-        "2": "Uses one or two sources with some saved searches or alerts; occasionally notices how old a posting is; coverage of target companies or niche sources is partial",
-        "3": "Uses several sources suited to their target (niche boards, company career pages, recruiters, network) with alerts or saved searches; usually applies within the first days, or can say how old postings are; knows which sources surface fitting roles",
-        "4": "A deliberate sourcing routine: sources chosen for their target (industry, title, location, level, pay), a list of target companies they follow, alerts tuned to the target, early applications to priority roles, and a regular look at which sources produce fitting roles"
-      },
-      "notes": [
+        "Judge both halves together: the sourcing routine that brings fitting roles to them, and how they screen what arrives. If one half is strong and the other weak, score between them, closer to the weaker.",
+        "A standing routine (alerts, saved searches, followed target companies, recruiters, network) is what earns the top scores. Careful screening of roles found by ad hoc browsing scores at most 2: the routine is what makes screening efficient and early.",
         "Do not penalize applying later to a role if the participant waited on purpose.",
-        "Posting age is the participant's estimate; an estimate supports an estimated-pattern basis at most.",
-        "Evidence comes from the screener's sources and alerts answer plus the interview's walkthrough: how they found the role and how old the posting was when they applied. Posting age is only asked in the interview.",
+        "Posting age is the participant's estimate.",
         "A screener checklist of sources is a self-report and cannot support a score above 2 on its own.",
-        "If this was not discussed and the screener did not cover it, mark it insufficient evidence."
+        "Adjustment: a low match rate made up of deliberate experiments can be raised one point; a high match rate with must-haves quietly dropped can be lowered one point.",
+        "A qualitative answer (\"most of them\", \"nearly all\") is accepted as evidence. Do not lower the score because no number was given; estimate the band from what the participant describes. The evidence cap does not apply to estimates or general descriptions for this behavior (a bare self-rating still caps at 2).",
+        "This scores the process, not whether the participant is objectively a fit. A well-qualified person who applies indiscriminately scores low. A person who correctly judges a role a stretch and passes scores high.",
+        "Do not treat broad applying as wrong. A deliberate, stated low-effort approach that still screens for must-haves can score 2.",
+        "Urgency, fatigue, and search duration are context, not penalties. Only whether the broadening was planned counts.",
+        "Strongest diagnostics: \"Tell me about a recent job that looked interesting but you decided not to apply for,\" and how they found the most recent role and how old the posting was.",
+        "If sourcing was not discussed and the screener did not cover it, judge from the screening evidence alone and note the gap in the confidence note."
       ],
       "notApplicable": null
     },
@@ -186,7 +194,7 @@
       "id": "P1",
       "dimension": "pitch",
       "name": "Makes the case for you",
-      "weight": 40,
+      "weight": 50,
       "tier": "must_have",
       "subSignals": [
         "can name two or three reasons they should be interviewed (why me)",
@@ -213,7 +221,7 @@
       "id": "P2",
       "dimension": "pitch",
       "name": "Matches effort to the opportunity",
-      "weight": 20,
+      "weight": 30,
       "tier": "standard",
       "subSignals": [
         "more care on strong-fit or high-interest roles",
@@ -237,32 +245,7 @@
     {
       "id": "P3",
       "dimension": "pitch",
-      "name": "Reviews what goes out",
-      "weight": 20,
-      "tier": "standard",
-      "subSignals": [
-        "reads the final resume or application end to end",
-        "owns the positioning decisions",
-        "checks edits and AI output",
-        "verifies facts (nothing added or exaggerated)"
-      ],
-      "anchors": {
-        "0": "Submits without re-reading, or submits tool or AI output unchanged",
-        "1": "Skims or spot-checks; assumes the tool or AI got the facts right",
-        "2": "Reads most of it and fixes obvious errors but has no systematic fact check; positioning partly delegated",
-        "3": "Usually reads end-to-end, decides the positioning themselves, and checks changes for accuracy",
-        "4": "Always reviews the final version and has a specific verification habit (for example, checks every claim and number against the source resume); can describe catching and fixing something"
-      },
-      "notes": [
-        "For participants who do not use AI, score the review of their own edits. Only the AI-specific parts become not applicable.",
-        "Credit only review the participant described. Do not assume they read or check what they send because they did not say otherwise. If the only evidence is an automated tool whose output they never checked, score 0 or 1."
-      ],
-      "notApplicable": null
-    },
-    {
-      "id": "P4",
-      "dimension": "pitch",
-      "name": "Uses AI where it helps",
+      "name": "Uses AI where it helps, and checks it",
       "weight": 20,
       "tier": "standard",
       "subSignals": [
@@ -270,17 +253,21 @@
         "uses AI to improve judgment (company and role research, fit assessment, interview prep, outreach drafts)",
         "uses beyond writing",
         "where human decisions remain",
-        "use of auto-apply tools"
+        "use of auto-apply tools",
+        "reads AI-written or AI-edited resumes and cover letters end to end before sending",
+        "verifies facts (nothing added or exaggerated)"
       ],
       "anchors": {
-        "0": "AI replaces their judgment on what to apply to or what to claim (for example auto-apply tools or unreviewed full applications) with no human decision point",
-        "1": "Uses AI as a generic generator with little thought about which tasks it suits; delegates indiscriminately",
-        "2": "Uses AI sensibly for drafting or tailoring but is unsure where it helps and where it does not; retention of judgment inconsistent",
-        "3": "Delegates well-suited tasks (drafting, tailoring, formatting) and clearly keeps the decisions",
-        "4": "Deliberate division of labor: can state what AI does and what they decide; also uses AI to improve judgment (research, fit, positioning, prep) with explicit human decision points"
+        "0": "AI replaces their judgment on what to apply to or what to claim (for example auto-apply tools or unreviewed full applications) with no human decision point; submits AI output unchanged",
+        "1": "Uses AI as a generic generator with little thought about which tasks it suits; skims or assumes the AI got the facts right",
+        "2": "Uses AI sensibly for drafting or tailoring but is unsure where it helps and where it does not; reads most of the output and fixes obvious errors but has no systematic fact check",
+        "3": "Delegates well-suited tasks (drafting, tailoring, formatting) and clearly keeps the decisions; usually reads AI output end to end and checks it for accuracy against their own record",
+        "4": "Deliberate division of labor: can state what AI does and what they decide; always reviews the final version with a specific verification habit (for example, checks every claim and number against the source resume) and can describe catching and fixing something; also uses AI to improve judgment (research, fit, positioning, prep) with explicit human decision points"
       },
       "notes": [
         "Not applicable if the participant does not use AI. Do not score as 0.",
+        "The check of AI output is part of this behavior: a participant who uses AI but never reads or verifies what it wrote cannot score above 1.",
+        "Credit only review the participant described. Do not assume they read or check what they send because they did not say otherwise. If the only evidence is an automated tool whose output they never checked, score 0 or 1.",
         "Do not reward breadth of use for its own sake. A score of 4 needs retained judgment, not just many uses.",
         "A past experiment with a tool the participant later dropped is still evidence about judgment.",
         "The screener checklist of AI uses is self-report; it cannot support a score above 2 by itself."

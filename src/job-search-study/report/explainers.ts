@@ -8,9 +8,9 @@ import type { DimensionId } from "../rubric/rubric";
 
 export const DIMENSION_EXPLAINERS: Record<DimensionId, string> = {
   focus:
-    "Knowing what kind of job you want, choosing roles that fit it on purpose, and finding the right openings early.",
+    "Knowing what you are good at and enjoy, choosing a target that fits, and finding and screening the right openings through a regular routine.",
   pitch:
-    "How well each application makes the case for interviewing you: a clear story, effort matched to the role, a last check before sending, and using AI where it helps.",
+    "How well each application makes the case for interviewing you: a clear story, effort matched to the role, and using AI where it helps while checking what it writes.",
   reach:
     "Getting in front of real people instead of relying only on job boards: referrals, recruiters, and your network.",
   learn:

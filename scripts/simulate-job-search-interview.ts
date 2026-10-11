@@ -251,6 +251,7 @@ async function runPersona(
     }`,
   );
   console.log(`posting age asked: ${checks.postingAgeAsked}`);
+  console.log(`strengths asked: ${checks.strengthsAsked}`);
   console.log(`support provider question missing: ${checks.supportProviderMissing}`);
   console.log(`coaching/scoring phrases: ${checks.coachingViolations.length}`);
   console.log(`evaluative acknowledgments: ${checks.evaluativeAcknowledgments.length}`);

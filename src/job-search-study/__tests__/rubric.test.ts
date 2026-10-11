@@ -20,7 +20,7 @@ describe("rubric config", () => {
     expect(validateRubric(rubric)).toEqual([]);
   });
 
-  it("defines four dimensions and thirteen behaviors", () => {
+  it("defines four dimensions and twelve behaviors", () => {
     expect(rubric.dimensions.map((d) => d.id)).toEqual(["focus", "pitch", "reach", "learn"]);
     expect(rubric.behaviors.map((b) => b.id)).toEqual([
       "F1",
@@ -29,7 +29,6 @@ describe("rubric config", () => {
       "P1",
       "P2",
       "P3",
-      "P4",
       "R1",
       "R2",
       "R3",
@@ -47,7 +46,7 @@ describe("rubric config", () => {
   });
 
   it("looks up behaviors by id", () => {
-    expect(getBehavior(rubric, "P4").notApplicable).toMatch(/not used AI/);
+    expect(getBehavior(rubric, "P3").notApplicable).toMatch(/not used AI/);
   });
 
   describe("validateRubric", () => {
@@ -56,7 +55,7 @@ describe("rubric config", () => {
     it("flags weights that do not sum to 100", () => {
       const broken = clone();
       broken.behaviors[0].weight = 99;
-      expect(validateRubric(broken).join("\n")).toMatch(/focus: behavior weights sum to 174/);
+      expect(validateRubric(broken).join("\n")).toMatch(/focus: behavior weights sum to 159/);
     });
 
     it("flags an invalid evidence cap override", () => {
@@ -103,7 +102,7 @@ describe("rubric.json matches JOB_SEARCH_SCORING_MODEL.md", () => {
         /^\|\s*(Focus|Pitch|Reach|Learn)\s*\|\s*([FPRL]\d)\s[^|]+\|\s*(\d+)%\s*\|\s*([^|]+?)\s*\|$/gm,
       ),
     ];
-    expect(rows).toHaveLength(13);
+    expect(rows).toHaveLength(12);
     for (const [, , id, weight, tierCell] of rows) {
       const behavior = rubric.behaviors.find((b) => b.id === id);
       expect(behavior, id).toBeDefined();

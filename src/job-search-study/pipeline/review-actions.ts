@@ -56,6 +56,12 @@ export async function regenerateNarrative(
 
   const interview = await deps.interviewRepo.getById(report.interviewId);
   const rubric = deps.rubric ?? loadRubric();
+  // The same behavior ids can mean different things under a newer rubric, so old evidence is not re-scored.
+  if (report.rubricVersion && report.rubricVersion !== rubric.version) {
+    throw new InvalidReportStateError(
+      `This report was extracted under rubric ${report.rubricVersion}, which differs from the current ${rubric.version}. Re-run it from scratch.`,
+    );
+  }
   const generated = await generateReport(
     { complete: deps.complete },
     { rubric, aggregate: report.aggregate, screenerAnswers: interview?.screenerAnswers ?? null },

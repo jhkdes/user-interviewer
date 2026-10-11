@@ -3,6 +3,7 @@ import type { InterviewTurn } from "@/llm";
 import {
   estimateSpokenSeconds,
   askedPostingAge,
+  askedStrengths,
   askedSupportProvider,
   needsSupportProviderQuestion,
   findCoachingViolations,
@@ -141,6 +142,23 @@ describe("askedPostingAge", () => {
   });
 });
 
+describe("askedStrengths", () => {
+  it("recognizes the strengths question, and not other questions", () => {
+    expect(
+      askedStrengths([
+        interviewer(
+          "How did you work out what you are best at, and what work you enjoy and don't? Did you ask anyone else?",
+        ),
+      ]),
+    ).toBe(true);
+    expect(askedStrengths([interviewer("What are your strengths?")])).toBe(true);
+    expect(askedStrengths([interviewer("Give me a quick picture of the job you are after.")])).toBe(
+      false,
+    );
+    expect(askedStrengths([participant("I am good at writing.")])).toBe(false);
+  });
+});
+
 describe("support provider question", () => {
   const outplacement = { search_support: ["Outplacement support paid for by a former employer"] };
   const freeProgram = {
@@ -212,6 +230,7 @@ describe("runInterviewChecks", () => {
       reportPriority: null,
       postingAgeAsked: false,
       supportProviderMissing: false,
+      strengthsAsked: false,
     });
   });
 

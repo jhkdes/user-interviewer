@@ -115,7 +115,7 @@ describe("applyEdits", () => {
           "l1-simple-tracker",
           "l2-rebalance-the-week",
           "l3-two-week-experiment",
-          "p3-final-read",
+          "p2-tier-your-effort",
         ],
       }),
     ).toThrow(/At most 3/);
@@ -220,6 +220,24 @@ describe("regenerateNarrative", () => {
     await expect(regenerateNarrative(f.reviewDeps, reportId)).rejects.toThrow(
       InvalidReportStateError,
     );
+  });
+});
+
+describe("reports from an older rubric", () => {
+  it("refuses to rewrite the text from evidence extracted under a different rubric", async () => {
+    const { f, reportId } = await withDraft();
+    await f.reportRepo.update(reportId, { rubricVersion: "0.4.0" });
+
+    await expect(regenerateNarrative(f.reviewDeps, reportId)).rejects.toThrow(
+      /extracted under rubric 0\.4\.0.*Re-run it from scratch/,
+    );
+  });
+
+  it("can still be re-run from scratch", async () => {
+    const { f, reportId } = await withDraft();
+    await f.reportRepo.update(reportId, { rubricVersion: "0.4.0" });
+
+    expect((await requeueFromScratch(f.reviewDeps, reportId)).status).toBe("pending");
   });
 });
 

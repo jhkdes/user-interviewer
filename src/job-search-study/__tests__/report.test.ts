@@ -33,8 +33,7 @@ function buildAggregate() {
     F3: 3,
     P1: 1,
     P2: 1,
-    P3: 1,
-    P4: 3,
+    P3: 3,
     R1: 3,
     R2: 2,
     L1: 3,
@@ -126,8 +125,9 @@ describe("generateReport", () => {
     expect(report.context).toEqual([
       { label: "Time searching", value: "1 to 3 months", origin: "screener" },
     ]);
-    // Reach priority puts the relationships experiment first, then Pitch.
-    expect(report.experiments.map((e) => e.forBehavior)).toEqual(["R2", "P1", "P2"]);
+    // The reach priority lifts the relationships experiment level with Pitch's heaviest gap (150 each);
+    // the tie falls back to rubric order. The boost itself is tested in experiments.test.ts.
+    expect(report.experiments.map((e) => e.forBehavior)).toEqual(["P1", "R2", "P2"]);
   });
 
   it("labels behaviors for the participant", async () => {
@@ -140,8 +140,7 @@ describe("generateReport", () => {
     expect(pitch.behaviors.map((b) => [b.id, b.label])).toEqual([
       ["P1", "Opportunity"],
       ["P2", "Opportunity"],
-      ["P3", "Opportunity"],
-      ["P4", "Doing well"],
+      ["P3", "Doing well"],
     ]);
   });
 

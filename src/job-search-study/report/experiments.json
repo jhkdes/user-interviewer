@@ -3,47 +3,48 @@
   "description": "Draft library of small experiments a participant can try, one or two per behavior. Written for the participant ('you'). Content for a researcher to review and edit; the selection code in experiments.ts picks from it.",
   "experiments": [
     {
-      "id": "f1-one-page-target",
+      "id": "f1-ask-others-your-strengths",
       "behavior": "F1",
+      "title": "Ask five people what you are best at",
+      "why": "It is hard to see your own strengths. People who have worked with you can tell you what you do better than most and what to avoid, which is a better starting point for choosing roles than job titles.",
+      "steps": [
+        "List the work from the past few years that gave you energy and the work that drained you.",
+        "Pick five people who have seen your work: a former manager, peers, someone you mentored, a friend who knows your field.",
+        "Ask each: what do I do better than most people, what would you trust me with, and what should I avoid or get help with?",
+        "Look for what at least three people said, and compare it with your own list.",
+        "Write three strengths to build your target around and two kinds of work to avoid."
+      ],
+      "effort": "About 20 minutes of reflection and five 15-minute conversations",
+      "track": "The strengths and things to avoid that more than one person named, and whether your target follows from them."
+    },
+    {
+      "id": "f2-one-page-target",
+      "behavior": "F2",
       "title": "Write your target on one page",
       "why": "A target you have written down is easier to hold on to when a tempting but off-target role appears.",
       "steps": [
         "List the role, level, industry, type of company, location or work setting, pay, and the kind of work you want.",
         "Mark each item Must-have or Flexible, and write one line on why.",
-        "Add two or three trade-offs you would make, such as accepting a different location for a bigger scope.",
+        "Identify 10-20 target companies that you would like to join.",
         "Keep the page where you search, and read it before you apply."
       ],
       "effort": "About 30 minutes, once",
       "track": "Whether you can say in one sentence why each role you apply to fits your page."
     },
     {
-      "id": "f2-check-each-role",
-      "behavior": "F2",
-      "title": "Check each role against your target before you apply",
-      "why": "A quick, written check helps you spend effort on roles that fit what you want and where you can say why you are a credible candidate, and shows you early if you are drifting.",
-      "steps": [
-        "Label each role Strong match, Partial match, or Stretch against your one-page target.",
-        "Name one reason you are a credible candidate and one real gap, and ask whether you would want the job and the company.",
-        "Write one line: Apply or Pass, and why. Keep a short list of the roles you passed on.",
-        "Once a week, count how many are in each group and decide on purpose whether Stretch roles are an experiment you want to keep running."
-      ],
-      "effort": "One to two minutes per role, plus 5 minutes a week",
-      "track": "The share of roles that are a Strong match, and how many you passed on, week by week."
-    },
-    {
       "id": "f3-build-a-sourcing-routine",
       "behavior": "F3",
       "title": "Build a routine for finding roles early",
-      "why": "Roles that match your target are often posted in a few specific places, and applying soon after they appear gives you a better chance of being seen.",
+      "why": "Roles that match your target are often posted in a few specific places. A routine that brings them to you, plus a quick written check of each one, saves time and keeps you from drifting off target.",
       "steps": [
         "Turn your target into search terms: titles, keywords, location, level, and pay if the site allows it.",
         "Set up alerts or saved searches on two or three job sites, and add sources specific to your field, such as niche boards, newsletters, or communities.",
         "List 15 to 20 companies you would like to work for and follow their career pages.",
-        "Check your alerts once a day, and apply to your strongest-fit roles within a couple of days of posting.",
-        "Each week, note which source surfaced your best-fit roles."
+        "Check your alerts once a day. For each role, write one line against your one-page target: strong match, partial, or stretch, one reason you are credible, one real gap, and apply or pass.",
+        "Apply to your strongest-fit roles within a couple of days of posting, and each week note which source surfaced your best-fit roles."
       ],
-      "effort": "About 45 minutes to set up, then 10 minutes a day",
-      "track": "How old roles are when you apply, and which source surfaces the best-fit roles."
+      "effort": "About 45 minutes to set up, then 10 to 15 minutes a day",
+      "track": "How old roles are when you apply, the share that are a strong match, and which source surfaces the best-fit roles."
     },
     {
       "id": "p1-lead-with-two-reasons",
@@ -74,32 +75,19 @@
       "track": "How many applications you send at each tier, and the responses from each."
     },
     {
-      "id": "p3-final-read",
+      "id": "p3-ai-with-a-check",
       "behavior": "P3",
-      "title": "Add a final-read checklist before you submit",
-      "why": "A short, repeatable check catches errors before an employer sees them, whether you or a tool wrote the text.",
-      "steps": [
-        "Read the whole application once, top to bottom.",
-        "Check every claim and number against your source resume.",
-        "If a tool or AI changed anything, check that it did not add or exaggerate.",
-        "Confirm the company name and role title are right."
-      ],
-      "effort": "About 5 minutes per application",
-      "track": "How often the check finds something to fix."
-    },
-    {
-      "id": "p4-ai-to-prepare",
-      "behavior": "P4",
-      "title": "Use AI to prepare, and keep the decisions yourself",
-      "why": "AI is useful for research and drafting while you stay in charge of what you apply to and what you claim.",
+      "title": "Use AI to prepare, check what it writes, and keep the decisions yourself",
+      "why": "AI is useful for research and drafting, but it can add or exaggerate. Checking its output against your own record, and deciding yourself what to apply to and what to claim, keeps the speed without the risk.",
       "steps": [
         "Ask an AI tool for a one-page brief on the company and the role.",
         "Paste in the posting and your resume and ask it to list the gaps.",
         "Decide yourself which gaps matter and what to emphasize.",
+        "Before you submit anything AI wrote or changed, read it top to bottom and check every claim and number against your source resume. Remove anything it added or exaggerated.",
         "Do not let any tool submit applications for you."
       ],
-      "effort": "About 10 minutes per priority role",
-      "track": "Whether the research changes what you decide to apply to or how you position yourself.",
+      "effort": "About 10 minutes of preparation and 5 minutes of checking per priority role",
+      "track": "Whether the research changes what you apply to or how you position yourself, and how often your check finds something to fix.",
       "requires": "uses_ai"
     },
     {
@@ -153,7 +141,8 @@
       "steps": [
         "Make a sheet with columns for date, role, source, time spent, response, and outcome.",
         "Fill it in as you apply, in under a minute.",
-        "Once a week, spend 10 minutes counting responses and interviews by source."
+        "Once a week, spend 10 minutes counting responses and interviews by source.",
+        "Use email Inbox to track each application."
       ],
       "effort": "About one minute per application, plus 10 minutes a week",
       "track": "Interviews per 10 applications, by source."

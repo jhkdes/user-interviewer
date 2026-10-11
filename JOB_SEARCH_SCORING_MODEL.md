@@ -19,32 +19,31 @@ Everything marked **provisional** (weights, band cutoffs, evidence caps) should 
 
 ## 2. Structure
 
-| Dimension | Question the job seeker is answering                  | Behaviors                                                                                                            |
-| --------- | ----------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| **Focus** | Am I finding and going after the right jobs?          | F1 Has a defined target, F2 Chooses roles on purpose, F3 Finds the right openings early                              |
-| **Pitch** | Do my applications make the case for interviewing me? | P1 Makes the case for you, P2 Matches effort to the opportunity, P3 Reviews what goes out, P4 Uses AI where it helps |
-| **Reach** | Am I getting in front of people, not just job boards? | R1 Uses more than cold applications, R2 Builds and uses relationships, R3 Makes you easy to find                     |
-| **Learn** | Am I adjusting based on what is working?              | L1 Reads the results, L2 Shifts effort to what works, L3 Experiments and uses feedback                               |
+| Dimension | Question the job seeker is answering                             | Behaviors                                                                                                 |
+| --------- | ---------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| **Focus** | Do I know what I'm good at, and am I going after the right jobs? | F1 Knows what you're good at, F2 Has a defined target, F3 Sources and screens the right openings          |
+| **Pitch** | Do my applications make the case for interviewing me?            | P1 Makes the case for you, P2 Matches effort to the opportunity, P3 Uses AI where it helps, and checks it |
+| **Reach** | Am I getting in front of people, not just job boards?            | R1 Uses more than cold applications, R2 Builds and uses relationships, R3 Makes you easy to find          |
+| **Learn** | Am I adjusting based on what is working?                         | L1 Reads the results, L2 Shifts effort to what works, L3 Experiments and uses feedback                    |
 
 The funnel the report uses ("qualified opportunities, applications and outreach, human responses, interviews") maps onto Focus, Pitch, Reach, and Learn.
 
 ### Weights within each dimension (provisional)
 
-| Dimension | Behavior                             | Weight | Evidence tier               |
-| --------- | ------------------------------------ | -----: | --------------------------- |
-| Focus     | F1 Has a defined target              |    25% | Standard                    |
-| Focus     | F2 Chooses roles on purpose          |    45% | **Must-have**               |
-| Focus     | F3 Finds the right openings early    |    30% | Standard                    |
-| Pitch     | P1 Makes the case for you            |    40% | **Must-have**               |
-| Pitch     | P2 Matches effort to the opportunity |    20% | Standard                    |
-| Pitch     | P3 Reviews what goes out             |    20% | Standard                    |
-| Pitch     | P4 Uses AI where it helps            |    20% | Standard (N/A if no AI use) |
-| Reach     | R1 Uses more than cold applications  |    30% | **Must-have**               |
-| Reach     | R2 Builds and uses relationships     |    45% | Standard                    |
-| Reach     | R3 Makes you easy to find            |    25% | Standard                    |
-| Learn     | L1 Reads the results                 |    30% | **Must-have**               |
-| Learn     | L2 Shifts effort to what works       |    40% | Standard                    |
-| Learn     | L3 Experiments and uses feedback     |    30% | Opportunistic               |
+| Dimension | Behavior                                  | Weight | Evidence tier               |
+| --------- | ----------------------------------------- | -----: | --------------------------- |
+| Focus     | F1 Knows what you're good at              |    40% | **Must-have**               |
+| Focus     | F2 Has a defined target                   |    30% | Standard                    |
+| Focus     | F3 Sources and screens the right openings |    30% | Standard                    |
+| Pitch     | P1 Makes the case for you                 |    50% | **Must-have**               |
+| Pitch     | P2 Matches effort to the opportunity      |    30% | Standard                    |
+| Pitch     | P3 Uses AI where it helps, and checks it  |    20% | Standard (N/A if no AI use) |
+| Reach     | R1 Uses more than cold applications       |    30% | **Must-have**               |
+| Reach     | R2 Builds and uses relationships          |    45% | Standard                    |
+| Reach     | R3 Makes you easy to find                 |    25% | Standard                    |
+| Learn     | L1 Reads the results                      |    30% | **Must-have**               |
+| Learn     | L2 Shifts effort to what works            |    40% | Standard                    |
+| Learn     | L3 Experiments and uses feedback          |    30% | Opportunistic               |
 
 **Evidence tiers** drive the interviewer's time use:
 
@@ -93,7 +92,7 @@ Generic meaning of the scale, for cases an anchor does not cover:
 
 - **Insufficient evidence:** the behavior was not discussed or only vaguely. It is excluded from the dimension calculation. It is never scored as 0.
 - **Does not do it:** the participant was asked and says or shows they do not do it. Score it 0 or 1 using the anchors.
-- **N/A:** only where stated in the behavior's section (P4 for non-users of AI, the career-transition signal in P1 when no transition exists).
+- **N/A:** only where stated in the behavior's section (P3 for non-users of AI, the career-transition signal in P1 when no transition exists).
 - The extractor must record which of these three applies for every behavior, with a supporting quote.
 
 ### 3.4 Conflicting evidence
@@ -140,7 +139,29 @@ Numeric scores are kept internally (for research and recalibration) and are **no
 
 ### FOCUS: Am I finding and going after the right jobs?
 
-#### F1. Has a defined target
+#### F1. Knows what you're good at
+
+The first step: a target only fits if it rests on an honest picture of your strengths, experience, and what you enjoy. This scores whether the participant has done that work, not how impressive the strengths are.
+
+**Looks for (sub-signals):** can name core strengths, skills, and experience, with examples; knows what they enjoy most and least in their work; has asked others (managers, peers, mentors, friends) for an honest view of strengths and of what to improve or avoid; has used this to choose roles to pursue or avoid.
+
+| Score | Anchor                                                                                                                                                                      |
+| ----: | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|     0 | Has not thought about it; goes after roles by title or habit                                                                                                                |
+|     1 | Can name general strengths (for example, good with people) with no examples; no outside input                                                                               |
+|     2 | Can name specific strengths and some likes and dislikes from their own reflection only; the link to what they are targeting is loose                                        |
+|     3 | Specific strengths and likes and dislikes with examples, and has asked at least one other person for an honest view; what they target reflects it                           |
+|     4 | Has deliberately assessed strengths, interests, and things to avoid, checked them with several people who know their work, and uses the result to choose and rule out roles |
+
+**Notes:**
+
+- Not having done this is a real finding. Score 0 or 1 when the participant says they have not; only "not discussed" is insufficient evidence.
+- Outside input counts only if the participant says whom they asked and what they heard. A general sense of what others think is their own view.
+- Do not require formal tools. A conversation with a former manager counts.
+- Score what they did, not how impressive the strengths are.
+- Self-knowledge feeds the target (F2). If the target they describe clearly does not follow from the strengths they named, say so in the confidence note.
+
+#### F2. Has a defined target
 
 **Looks for (sub-signals):** target role/function, level/scope, industry/domain, company profile, location/work setting, compensation requirements, desired work or problem characteristics. Code each as _specific_, _deliberately flexible_, _undecided_, or _not discussed_.
 
@@ -158,49 +179,36 @@ Numeric scores are kept internally (for research and recalibration) and are **no
 - Ask "is that open on purpose, or not decided yet?" before coding something as undecided.
 - Compensation is often not volunteered. Code it _not discussed_, not undecided, and do not let it alone lower the score.
 
-#### F2. Chooses roles on purpose
+#### F3. Sources and screens the right openings
 
-Combines two ideas job seekers rarely separate: **staying on target** (do the jobs you apply to match what you said you want) and **deciding before applying** (do you size up a role before spending effort on it).
+A routine that brings fitting roles to the participant, and a screen of what arrives. This combines the earlier "Chooses roles on purpose" (staying on target, deciding before applying) with "Finds the right openings early": screening is part of the sourcing routine, not a separate manual hunt.
 
-**Looks for:** match rate across roughly the last 20 applications; adherence to stated must-haves; whether deviations are deliberate or drift, and whether the target loosened under pressure; reads and understands the role's requirements; assesses candidate-role fit (strengths and gaps); asks whether they actually want the role and looks at the company; willingness to pass on roles (go/no-go).
+**Looks for:** sources used to find openings (job boards, company career pages, alerts or saved searches, recruiters, network, communities, newsletters); whether the sources suit their target (industry, title, location, level, pay); uses alerts, saved searches, or a list of target companies so fitting roles come to them; how old a posting usually is when they apply; knows which sources surface roles that fit; match rate across roughly the last 20 applications, and adherence to stated must-haves; deviations deliberate versus drift, and whether the target loosened under pressure; reads the role's requirements and assesses fit (strengths and gaps); asks whether they actually want the role, and looks at the company; willingness to pass on roles (go/no-go).
 
-| Score | Anchor                                                                                                                                                                                                                                                                                                        |
-| ----: | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|     0 | Applies on title, keywords, or availability; reads little of the posting; under about 20% of recent applications match the stated target and no boundaries are kept; cannot recall passing on any role                                                                                                        |
-|     1 | Notices broad overlap with little explicit evaluation; about 20-39% match, or mostly drift because criteria were dropped under urgency or discouragement; passes only on obvious mismatches (location, pay)                                                                                                   |
-|     2 | Checks major requirements and sometimes fit, but inconsistently weighs gaps, desirability, or the company; about 40-59% match, with some exceptions deliberate and some drift; can give an occasional example of passing                                                                                      |
-|     3 | Usually identifies relevant strengths and meaningful gaps and considers whether they want the role and something about the company; about 60-79% match with must-haves kept and exceptions mostly deliberate; gives a concrete example of passing and why                                                     |
-|     4 | Systematic: explicit criteria for fit, competitiveness, and desirability; researches the company or team and uses that to decide whether and how much to invest; 80% or more match (or a lower rate fully explained by deliberate, bounded experiments) with must-haves kept under pressure; passes regularly |
+| Score | Anchor                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| ----: | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+|     0 | Finds roles only by occasionally scrolling a feed or job board with no search set up; applies on title or availability with little screening; under about 20% of recent applications match the target; cannot recall passing on any role                                                                                                                                                                                                                                 |
+|     1 | Mostly generic job-board browsing, applying to whatever surfaces, often weeks after it was posted, with no alerts; screens out only obvious mismatches (location, pay); about 20-39% match, or mostly drift because criteria were dropped under urgency or discouragement                                                                                                                                                                                                |
+|     2 | Uses one or two sources with some saved searches or alerts; checks major requirements and sometimes fit, but inconsistently weighs gaps, desirability, or the company; about 40-59% match, with some exceptions deliberate and some drift; can give an occasional example of passing                                                                                                                                                                                     |
+|     3 | Uses several sources suited to their target (niche boards, company career pages, recruiters, network) with alerts or saved searches, and usually applies within the first days; usually identifies relevant strengths and meaningful gaps and considers whether they want the role and the company; about 60-79% match with must-haves kept and exceptions mostly deliberate; gives a concrete example of passing and why                                                |
+|     4 | A deliberate routine: sources chosen for their target, a list of target companies they follow, alerts tuned to the target, early applications to priority roles, and a regular look at which sources produce fitting roles; every opening is screened against explicit criteria for fit, competitiveness, and desirability; 80% or more match (or a lower rate fully explained by deliberate, bounded experiments) with must-haves kept under pressure; passes regularly |
 
 **Notes:**
 
-- Judge both halves together. If one half is strong and the other weak, score between them, closer to the weaker.
+- Judge both halves together: the sourcing routine that brings fitting roles to them, and how they screen what arrives. If one half is strong and the other weak, score between them, closer to the weaker.
+- A standing routine (alerts, saved searches, followed target companies, recruiters, network) is what earns the top scores. Careful screening of roles found by ad hoc browsing scores at most 2: the routine is what makes screening efficient and early.
+- Do not penalize applying later to a role if the participant waited on purpose.
+- Posting age is the participant's estimate.
+- A screener checklist of sources is a self-report and cannot support a score above 2 on its own.
 - Adjustment: a low match rate made up of deliberate experiments can be raised one point; a high match rate with must-haves quietly dropped can be lowered one point.
-- A qualitative answer ("most of them", "nearly all") is accepted as evidence. Do not lower the score because no number was given; estimate the band from what the participant describes, and the evidence cap does not apply to estimates or general descriptions for this behavior (a bare self-rating still caps at 2).
-- This scores the **decision process**, not whether the participant is objectively a fit. A well-qualified person who applies indiscriminately scores low. A person who correctly judges a role a stretch and passes scores high.
+- A qualitative answer ("most of them", "nearly all") is accepted as evidence. Do not lower the score because no number was given; estimate the band from what the participant describes. The evidence cap does not apply to estimates or general descriptions for this behavior (a bare self-rating still caps at 2).
+- This scores the process, not whether the participant is objectively a fit. A well-qualified person who applies indiscriminately scores low. A person who correctly judges a role a stretch and passes scores high.
 - Do not treat broad applying as wrong. A deliberate, stated low-effort approach that still screens for must-haves can score 2.
 - Urgency, fatigue, and search duration are context, not penalties. Only whether the broadening was planned counts.
-- Strongest diagnostic for the decision half: "Tell me about a recent job that looked interesting but you decided not to apply for."
+- Strongest diagnostics: "Tell me about a recent job that looked interesting but you decided not to apply for," and how they found the most recent role and how old the posting was.
+- If sourcing was not discussed and the screener did not cover it, judge from the screening evidence alone and note the gap in the confidence note.
 
-#### F3. Finds the right openings early
-
-**Looks for:** the sources used to find openings (job boards, company career pages, alerts or saved searches, recruiters, network, communities, newsletters); whether those sources suit the target (industry, title, location, level, pay); use of alerts, saved searches, or a list of target companies to see new roles quickly; how old a posting usually is when they apply; knowing which sources surface roles that fit.
-
-| Score | Anchor                                                                                                                                                                                                                                                                      |
-| ----: | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|     0 | Finds roles only by occasionally scrolling a feed or job board with no search set up; no sense of how old postings are when they apply                                                                                                                                      |
-|     1 | Mostly generic job-board browsing with little targeting of sources; applies to whatever surfaces, often weeks after it was posted; no alerts                                                                                                                                |
-|     2 | Uses one or two sources with some saved searches or alerts; occasionally notices how old a posting is; coverage of target companies or niche sources is partial                                                                                                             |
-|     3 | Uses several sources suited to their target (niche boards, company career pages, recruiters, network) with alerts or saved searches; usually applies within the first days, or can say how old postings are; knows which sources surface fitting roles                      |
-|     4 | A deliberate sourcing routine: sources chosen for their target (industry, title, location, level, pay), a list of target companies they follow, alerts tuned to the target, early applications to priority roles, and a regular look at which sources produce fitting roles |
-
-**Notes:**
-
-- Do not penalize applying later to a role if the participant waited on purpose.
-- Posting age is the participant's estimate; an estimate supports an estimated-pattern basis at most.
-- A screener checklist of sources is a self-report and cannot support a score above 2 on its own.
-- If this was not discussed and the screener did not cover it, mark it insufficient evidence.
-- **Where the evidence comes from:** the screener's `channels_used` answer (which sources, and whether they use alerts or saved searches) and, for timeliness, the interview. The walkthrough asks how they found the role and how old the posting was when they applied. Participants cannot reliably answer a screener question about how soon they usually apply, so posting age is collected only in the interview.
+- **Where the evidence comes from:** the screener's `channels_used` answer (which sources, and whether they use alerts or saved searches) and the interview: the target and last-20 match rate, the recent-application walkthrough (how they found the role, how old the posting was, why they decided to apply), and the role they passed on. Participants cannot reliably answer a screener question about how soon they apply, so timeliness is asked only in the interview.
 
 ### PITCH: Do my applications make the case for interviewing me?
 
@@ -235,42 +243,30 @@ Combines two ideas job seekers rarely separate: **staying on target** (do the jo
 - A fast application is not automatically low intentionality.
 - Volume is context, not a score. Only whether effort level is **chosen** counts.
 
-#### P3. Reviews what goes out
+#### P3. Uses AI where it helps, and checks it
 
-**Looks for:** reads the final resume or application end-to-end; owns the positioning decisions (what to claim, how to frame it); checks edits and AI output; verifies facts (nothing added or exaggerated).
+Combines the earlier "Reviews what goes out" with AI use: the review that matters most is checking what AI wrote or changed in a resume or cover letter before it is sent.
 
-| Score | Anchor                                                                                                                                                                                    |
-| ----: | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|     0 | Submits without re-reading, or submits tool or AI output unchanged                                                                                                                        |
-|     1 | Skims or spot-checks; assumes the tool or AI got the facts right                                                                                                                          |
-|     2 | Reads most of it and fixes obvious errors but has no systematic fact check; positioning partly delegated                                                                                  |
-|     3 | Usually reads end-to-end, decides the positioning themselves, and checks changes for accuracy                                                                                             |
-|     4 | Always reviews the final version and has a specific verification habit (for example, checks every claim and number against the source resume); can describe catching and fixing something |
-
-**Notes:**
-
-- For non-AI users, score the review of their own edits. Only the AI-specific parts become N/A.
-- Credit only review the participant described. Do not assume they read or check what they send because they did not say otherwise. If the only evidence is an automated tool whose output they never checked, score 0 or 1.
-
-#### P4. Uses AI where it helps
-
-**Looks for:** which tasks are delegated (drafting, tailoring, formatting); whether AI is also used to improve judgment (company and role research, fit assessment, interview prep, outreach drafts); uses beyond writing; where human decisions remain; use of auto-apply tools.
+**Looks for:** which tasks are delegated (drafting, tailoring, formatting); whether AI is also used to improve judgment (company and role research, fit assessment, interview prep, outreach drafts); uses beyond writing; where human decisions remain; use of auto-apply tools; whether AI-written or AI-edited text is read end to end before sending; whether facts are verified (nothing added or exaggerated).
 
 **N/A** if the participant does not use AI. Do not score as 0.
 
-| Score | Anchor                                                                                                                                                                             |
-| ----: | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|     0 | AI replaces their judgment on what to apply to or what to claim (for example auto-apply tools or unreviewed full applications) with no human decision point                        |
-|     1 | Uses AI as a generic generator with little thought about which tasks it suits; delegates indiscriminately                                                                          |
-|     2 | Uses AI sensibly for drafting or tailoring but is unsure where it helps and where it does not; retention of judgment inconsistent                                                  |
-|     3 | Delegates well-suited tasks (drafting, tailoring, formatting) and clearly keeps the decisions                                                                                      |
-|     4 | Deliberate division of labor: can state what AI does and what they decide; also uses AI to improve judgment (research, fit, positioning, prep) with explicit human decision points |
+| Score | Anchor                                                                                                                                                                                                                                                                                                                                                                        |
+| ----: | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|     0 | AI replaces their judgment on what to apply to or what to claim (for example auto-apply tools or unreviewed full applications) with no human decision point; submits AI output unchanged                                                                                                                                                                                      |
+|     1 | Uses AI as a generic generator with little thought about which tasks it suits; skims or assumes the AI got the facts right                                                                                                                                                                                                                                                    |
+|     2 | Uses AI sensibly for drafting or tailoring but is unsure where it helps and where it does not; reads most of the output and fixes obvious errors but has no systematic fact check                                                                                                                                                                                             |
+|     3 | Delegates well-suited tasks (drafting, tailoring, formatting) and clearly keeps the decisions; usually reads AI output end to end and checks it for accuracy against their own record                                                                                                                                                                                         |
+|     4 | Deliberate division of labor: can state what AI does and what they decide; always reviews the final version with a specific verification habit (for example, checks every claim and number against the source resume) and can describe catching and fixing something; also uses AI to improve judgment (research, fit, positioning, prep) with explicit human decision points |
 
 **Notes:**
 
-- Do not reward breadth of use for its own sake. Score 4 needs retained judgment, not just many uses.
+- The check of AI output is part of this behavior: a participant who uses AI but never reads or verifies what it wrote cannot score above 1.
+- Credit only review the participant described. Do not assume they read or check what they send because they did not say otherwise. If the only evidence is an automated tool whose output they never checked, score 0 or 1.
+- Do not reward breadth of use for its own sake. A score of 4 needs retained judgment, not just many uses.
+- A past experiment with a tool the participant later dropped is still evidence about judgment.
+- The screener checklist of AI uses is self-report; it cannot support a score above 2 by itself.
 - Uses beyond writing are recorded as descriptive data (the report can list them) even when not scored.
-- The screener checklist of AI uses guides probing but is self-report, so it cannot support a score above 2 by itself.
 
 ### REACH: Am I getting in front of people, not just job boards?
 
@@ -375,23 +371,22 @@ Opportunistic: if it does not surface, mark Insufficient.
 
 ## 5. Interview coverage map
 
-| Behavior | Main questions (see interviewer prompt)                                                                            |
-| -------- | ------------------------------------------------------------------------------------------------------------------ |
-| F1       | Target question                                                                                                    |
-| F2       | Last-20 match rate, boundaries, change over time; walkthrough ("why did you decide to apply"); "job you passed on" |
-| F3       | Screener `channels_used` (sources, alerts); walkthrough ("how did you find it, and how old was the posting")       |
-| P1       | Walkthrough, positioning question, successful application                                                          |
-| P2       | Walkthrough, successful-versus-typical comparison, change over time                                                |
-| P3       | Walkthrough, AI review probes                                                                                      |
-| P4       | AI role question, "where else do you use AI"                                                                       |
-| R1       | Successful application, interview sources                                                                          |
-| R2       | Relationship example                                                                                               |
-| R3       | Profile question ("if a recruiter looked you up today, what would they find?")                                     |
-| L1       | Interview sources and effort, change question                                                                      |
-| L2       | Interview sources and effort, change question                                                                      |
-| L3       | Change-strategy question                                                                                           |
+| Behavior | Main questions (see interviewer prompt)                                                                                                                                                                      |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| F1       | Strengths question ("how did you work out what you are best at, and did you ask anyone else?")                                                                                                               |
+| F2       | Target question                                                                                                                                                                                              |
+| F3       | Screener `channels_used` (sources, alerts); last-20 match rate, boundaries, change over time; walkthrough ("how did you find it, how old was the posting, why did you decide to apply"); "job you passed on" |
+| P1       | Walkthrough, positioning question, successful application                                                                                                                                                    |
+| P2       | Walkthrough, successful-versus-typical comparison, change over time                                                                                                                                          |
+| P3       | AI role question (including what they checked or changed), "where else do you use AI"                                                                                                                        |
+| R1       | Successful application, interview sources                                                                                                                                                                    |
+| R2       | Relationship example                                                                                                                                                                                         |
+| R3       | Profile question ("if a recruiter looked you up today, what would they find?")                                                                                                                               |
+| L1       | Interview sources and effort, change question                                                                                                                                                                |
+| L2       | Interview sources and effort, change question                                                                                                                                                                |
+| L3       | Change-strategy question                                                                                                                                                                                     |
 
-Because one walkthrough covers F2 and P1-P4, the recent-application walkthrough is the highest-value segment of the interview.
+Because one walkthrough covers F3 and P1-P3, the recent-application walkthrough is the highest-value segment of the interview.
 
 ---
 
@@ -535,7 +530,7 @@ Order is deliberate: easy factual questions first.
   - Posting or sharing content
 - Feeds: R1 (channel mix) and F3 (sources and alerts) as probing hints. The first four options are where openings are found and are the cold application paths; the rest are the non-cold paths the rubric looks for. The first option used to be a single "job boards or company career sites" checkbox; it was split so F3 can tell general boards, niche sources, career pages, and alerts apart.
 
-### Group D: AI (feeds P4 as a probing hint)
+### Group D: AI (feeds P3 as a probing hint)
 
 **S10. `ai_uses`**
 
@@ -551,7 +546,7 @@ Order is deliberate: easy factual questions first.
   - Finding jobs to apply to
   - Applying to jobs automatically
   - I have not used AI in my search
-- Feeds: P4. The interviewer probes beyond the selected uses and asks about anything not selected that the participant mentions. "Applying to jobs automatically" prompts a follow-up on where the human decision point is. Selecting "I have not used AI" sets P4 to a likely N/A, to be confirmed in the interview.
+- Feeds: P3. The interviewer probes beyond the selected uses and asks about anything not selected that the participant mentions. "Applying to jobs automatically" prompts a follow-up on where the human decision point is. Selecting "I have not used AI" sets P4 to a likely N/A, to be confirmed in the interview.
 
 ### Group E: Support and career change (research segmentation, never scored)
 
@@ -584,7 +579,7 @@ These two questions are collected to compare interview rates by whether a partic
 
 | Answer                                                                                    | Effect                                                                                                                        |
 | ----------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| `ai_uses` is "I have not used AI"                                                         | P4 is a candidate for N/A; interviewer confirms. P3 is scored on the participant's own edits                                  |
+| `ai_uses` is "I have not used AI"                                                         | P3 is a candidate for N/A; interviewer confirms. There is then no review signal, since checking AI output is part of P3       |
 | `conversations_total` is "None yet"                                                       | Interviewer asks about the furthest-progress opportunity instead of an interview-producing one; L2 uses the no-responses rule |
 | `channels_used` has only job-board or career-page options                                 | Interviewer still asks about the interview sources; R1 is scored from the interview, not this list                            |
 | `channels_used` has no "Job alerts or saved searches" and no niche or career-page options | Does not by itself lower F3. The interviewer asks how they found the role from the walkthrough and how old the posting was    |
@@ -656,13 +651,13 @@ These explain behavior and must never raise or lower a score:
 
 | Earlier dimension           | Now                                                                                                |
 | --------------------------- | -------------------------------------------------------------------------------------------------- |
-| Target Clarity              | F1                                                                                                 |
-| Target Adherence            | F2 (merged with Opportunity Qualification)                                                         |
-| Opportunity Qualification   | F2 (including "understands the role before applying" from Application Intentionality)              |
-| (no counterpart)            | F3 Finds the right openings early, new in this version                                             |
-| Application Intentionality  | P1 ("why me"), P2 (effort, autopilot), P3 (final review)                                           |
+| Target Clarity              | F2                                                                                                 |
+| Target Adherence            | F3 (merged with Opportunity Qualification)                                                         |
+| Opportunity Qualification   | F3 (including "understands the role before applying" from Application Intentionality)              |
+| (no counterpart)            | F1 Knows what you're good at, new in v0.5; F3 now also covers finding openings early (new in v0.4) |
+| Application Intentionality  | P1 ("why me"), P2 (effort, autopilot); final review is now part of P3                              |
 | Story-to-Role Alignment     | P1                                                                                                 |
-| Human-Directed AI Use       | P3 (human ownership, reviewing and verifying AI output), P4 (delegation, research and preparation) |
+| Human-Directed AI Use       | P3 (delegation, research and preparation; human ownership and verifying AI output)                 |
 | Channel Strategy            | R1 (diversity, direct outreach, referrals); L1 (measurement); L2 (effort follows results)          |
 | Relationship Activation     | R2                                                                                                 |
 | (no counterpart)            | R3 Makes you easy to find, new in this version                                                     |

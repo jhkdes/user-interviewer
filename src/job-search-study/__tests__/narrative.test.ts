@@ -185,8 +185,7 @@ function buildPack() {
     F3: 3,
     P1: 1,
     P2: 1,
-    P3: 1,
-    P4: 3,
+    P3: 3,
     R1: 3,
     R2: 2,
     L1: 3,
@@ -264,7 +263,7 @@ describe("buildNarrativePack", () => {
   it("includes the strength and improvement behaviors with their evidence", () => {
     const pitch = pack.dimensions.find((d) => d.id === "pitch")!;
 
-    expect(pitch.strength?.name).toBe("Uses AI where it helps");
+    expect(pitch.strength?.name).toBe("Uses AI where it helps, and checks it");
     expect(pitch.improvement?.evidence[0]).toMatch(/something observed/);
   });
 

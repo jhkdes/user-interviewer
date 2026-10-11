@@ -169,6 +169,15 @@ export function askedSupportProvider(turns: InterviewTurn[]): boolean {
   );
 }
 
+/** Whether the interviewer asked how the participant worked out their strengths and what they enjoy. */
+export function askedStrengths(turns: InterviewTurn[]): boolean {
+  return turns.some(
+    (turn) =>
+      turn.speaker === "interviewer" &&
+      /\b(?:good at|best at|strengths?)\b[^?]*\?|\bwhat (?:work )?you enjoy\b/i.test(turn.text),
+  );
+}
+
 export interface InterviewChecks {
   participantTurns: number;
   interviewerTurns: number;
@@ -178,6 +187,7 @@ export interface InterviewChecks {
   screenerReasks: ScreenerReask[];
   reportPriority: { turnIndex: number; answered: boolean } | null;
   postingAgeAsked: boolean;
+  strengthsAsked: boolean;
   /** True when the screener shows outplacement or a free program and the interviewer never asked which one. */
   supportProviderMissing: boolean;
   /** The last interviewer turn is a statement, not a question (the harness requires a closing turn with no question). */
@@ -201,6 +211,7 @@ export function runInterviewChecks(
     screenerReasks: findRepeatedScreenerQuestions(turns),
     reportPriority: findReportPriorityQuestion(turns),
     postingAgeAsked: askedPostingAge(turns),
+    strengthsAsked: askedStrengths(turns),
     supportProviderMissing:
       needsSupportProviderQuestion(screenerAnswers) && !askedSupportProvider(turns),
     closesWithStatement: lastInterviewerTurn

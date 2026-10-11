@@ -104,6 +104,30 @@ describe("processReport", () => {
     expect(result.extractionRuns).toHaveLength(2);
   });
 
+  it("does not reuse saved extraction runs from a different rubric version", async () => {
+    const f = await setup();
+    const interviewId = await f.addInterview(8);
+    await f.reportRepo.enqueue({ interviewId, studyId: f.studyId });
+    const first = await processReport(
+      f.deps,
+      (await f.reportRepo.claimNext({ staleBefore: new Date(0) }))!,
+    );
+    const stale = first.extractionRuns.map((run) => ({ ...run, rubricVersion: "0.4.0" }));
+    const callsBefore = f.model.calls.extraction;
+
+    const result = await processReport(f.deps, {
+      ...first,
+      status: "generating",
+      extractionRuns: stale,
+    });
+
+    expect(result.status).toBe("draft");
+    expect(f.model.calls.extraction).toBe(callsBefore + 3);
+    expect(result.extractionRuns.every((run) => run.rubricVersion === loadRubric().version)).toBe(
+      true,
+    );
+  });
+
   it("fails with the reason when too few extraction runs are valid", async () => {
     const f = await setup({ model: { failExtractionCalls: 2 } });
 
