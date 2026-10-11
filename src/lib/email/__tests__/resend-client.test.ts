@@ -43,6 +43,21 @@ describe("ResendEmailClient", () => {
     expect(fetchSpy).toHaveBeenCalledTimes(1);
   });
 
+  it("sends attachments when given, and omits the field otherwise", async () => {
+    const fetchSpy = vi.fn().mockResolvedValue({ ok: true, status: 200 });
+    vi.stubGlobal("fetch", fetchSpy);
+
+    await new ResendEmailClient().send({
+      to: "jordan@example.com",
+      subject: "Your report",
+      html: "<p>Attached</p>",
+      attachments: [{ filename: "report.html", content: "PGgxPkhpPC9oMT4=" }],
+    });
+
+    const body = JSON.parse(fetchSpy.mock.calls[0][1].body as string);
+    expect(body.attachments).toEqual([{ filename: "report.html", content: "PGgxPkhpPC9oMT4=" }]);
+  });
+
   it("throws immediately (no retry) on a non-retryable 4xx response", async () => {
     const fetchSpy = vi
       .fn()

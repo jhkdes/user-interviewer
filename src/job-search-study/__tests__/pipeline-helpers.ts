@@ -104,6 +104,8 @@ export interface Fixture {
   model: ReturnType<typeof makeFakeModel>;
   deps: PipelineDeps;
   reviewDeps: ReviewDeps;
+  /** The report HTML handed to the fake PDF renderer, one entry per PDF made. */
+  pdfInputs: string[];
   studyId: string;
   /** Adds a completed interview with this many participant turns. */
   addInterview(participantTurns: number, firstName?: string): Promise<string>;
@@ -137,12 +139,17 @@ export async function setup(
     complete: model.complete,
     now: options.now,
   };
+  const pdfInputs: string[] = [];
   const reviewDeps: ReviewDeps = {
     studyRepo,
     interviewRepo,
     reportRepo,
     complete: model.complete,
     emailClient,
+    renderPdf: async (html) => {
+      pdfInputs.push(html);
+      return Buffer.from(`%PDF-1.4 fake pdf of ${html.length} characters`);
+    },
     now: options.now,
   };
 
@@ -154,6 +161,7 @@ export async function setup(
     model,
     deps,
     reviewDeps,
+    pdfInputs,
     studyId: study.id,
     async addInterview(participantTurns: number, firstName = "Jordan") {
       const interview = await interviewRepo.create({

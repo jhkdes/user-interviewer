@@ -114,6 +114,8 @@ export interface ExtractedFacts {
   effortSplit: EffortShare[];
   /** Context the participant volunteered (energy, pressure, gap, and so on). Never scored. */
   volunteeredContext: string[];
+  /** Names of the coach, outplacement firm, or program the participant named in the interview. Empty if none was named. */
+  supportProviders: string[];
 }
 
 export interface ReportPriority {

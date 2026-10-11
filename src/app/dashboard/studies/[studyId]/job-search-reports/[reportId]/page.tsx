@@ -90,11 +90,21 @@ export default async function JobSearchReportReviewPage({
 
       {report.report && (
         <section className="mt-8">
-          <h2 className="font-semibold">Preview (what the participant sees)</h2>
+          <div className="flex items-baseline justify-between">
+            <h2 className="font-semibold">Preview (what the participant sees)</h2>
+            <a
+              href={`/api/studies/${params.studyId}/job-search-reports/${report.id}/pdf`}
+              target="_blank"
+              rel="noreferrer"
+              className="text-sm underline hover:no-underline"
+            >
+              Open the PDF that will be emailed
+            </a>
+          </div>
           <iframe
             title="Report preview"
             sandbox=""
-            srcDoc={renderReportHtml(report.report)}
+            srcDoc={renderReportHtml(report.report, { participantName: interview?.firstName })}
             className="mt-2 h-[900px] w-full rounded border border-neutral-200 dark:border-neutral-800"
           />
         </section>

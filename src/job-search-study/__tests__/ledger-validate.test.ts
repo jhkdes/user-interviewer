@@ -121,7 +121,7 @@ describe("validateLedger", () => {
   });
 
   it("allows not_applicable only where the rubric allows it", () => {
-    const notApplicable = (id: "P4" | "F1"): BehaviorEvidence => ({
+    const notApplicable = (id: "P3" | "F1"): BehaviorEvidence => ({
       id,
       status: "not_applicable",
       score: null,
@@ -134,7 +134,7 @@ describe("validateLedger", () => {
     });
 
     expect(
-      validateLedger(rubric, withEntry(blankLedger(rubric), notApplicable("P4")), SAMPLE_TRANSCRIPT)
+      validateLedger(rubric, withEntry(blankLedger(rubric), notApplicable("P3")), SAMPLE_TRANSCRIPT)
         .ok,
     ).toBe(true);
     expect(

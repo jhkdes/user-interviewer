@@ -28,6 +28,7 @@ describe("fromWireLedger", () => {
         { source: "cold_application", sharePercent: null, qualitative: "mostly talking to people" },
       ],
       volunteeredContext: ["side project"],
+      supportProviders: ["Acme Outplacement"],
     };
     ledger.comparison = {
       typical: {

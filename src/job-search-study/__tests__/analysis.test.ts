@@ -12,6 +12,7 @@ const facts = (overrides: Partial<ExtractedFacts> = {}): ExtractedFacts => ({
   totalConversations: null,
   sources: [],
   effortSplit: [],
+  supportProviders: [],
   volunteeredContext: [],
   ...overrides,
 });

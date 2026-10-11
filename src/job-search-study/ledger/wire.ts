@@ -105,6 +105,7 @@ export function fromWireLedger(wire: unknown): Omit<EvidenceLedger, "rubricVersi
       qualitative: str(asObject(s).qualitative),
     })),
     volunteeredContext: asArray(f.volunteeredContext).map(String),
+    supportProviders: asArray(f.supportProviders).map(String),
   };
 
   const c = asObject(w.comparison);

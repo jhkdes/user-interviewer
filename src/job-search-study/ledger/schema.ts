@@ -214,6 +214,12 @@ export function buildLedgerSchema(rubric: Rubric) {
             description:
               "Context the participant volunteered about their situation (energy, money pressure, a gap, a side project). Never scored.",
           },
+          supportProviders: {
+            type: "array",
+            items: { type: "string" },
+            description:
+              "Names of the career coach, outplacement firm, or program the participant named in the interview, exactly as they said them. Empty if they named none.",
+          },
         },
         required: [
           "targetSummary",
@@ -222,6 +228,7 @@ export function buildLedgerSchema(rubric: Rubric) {
           "sources",
           "effortSplit",
           "volunteeredContext",
+          "supportProviders",
         ],
         additionalProperties: false,
       },

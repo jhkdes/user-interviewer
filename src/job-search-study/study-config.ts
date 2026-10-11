@@ -104,6 +104,19 @@ export const JOB_SEARCH_SCREENER: PreInterviewQuestion[] = [
     allowOther: false,
   },
   {
+    id: "career_pivot",
+    label: "Are you targeting the same kind of role and industry as your previous job?",
+    type: "single",
+    options: [
+      "Yes, the same kind of role in the same industry",
+      "A different role in the same industry",
+      "The same kind of role in a different industry",
+      "A different role in a different industry",
+      "Not sure",
+    ],
+    allowOther: false,
+  },
+  {
     id: "applications_30d",
     label: "Roughly how many job applications have you submitted in the past month?",
     type: "single",
@@ -151,6 +164,18 @@ export const JOB_SEARCH_SCREENER: PreInterviewQuestion[] = [
       "Finding jobs to apply to",
       "Applying to jobs automatically",
       "I have not used AI in my search",
+    ],
+    allowOther: true,
+  },
+  {
+    id: "search_support",
+    label: "Are you getting any support with your job search? Select all that apply.",
+    type: "multi",
+    options: [
+      "No support",
+      "A paid career coach",
+      "Outplacement support paid for by a former employer",
+      "A free program (for example, a workforce, alumni, or community program)",
     ],
     allowOther: true,
   },

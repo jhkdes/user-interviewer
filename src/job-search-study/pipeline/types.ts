@@ -2,6 +2,7 @@ import type { EmailClient } from "@/lib/email";
 import type { InterviewRepository } from "@/repositories/interview-repository";
 import type { StudyRepository } from "@/repositories/study-repository";
 import type { StructuredCompletion } from "../extraction/extract";
+import type { PdfRenderer } from "../report/render-pdf";
 import type { Rubric } from "../rubric/rubric";
 import type { JobSearchReportRepository } from "../storage/types";
 
@@ -29,6 +30,8 @@ export interface ReviewDeps {
   reportRepo: JobSearchReportRepository;
   complete: StructuredCompletion;
   emailClient: EmailClient;
+  /** Makes the report PDF from its HTML. Defaults to headless Chromium; tests supply a fake. */
+  renderPdf?: PdfRenderer;
   rubric?: Rubric;
   now?: () => Date;
 }

@@ -179,8 +179,8 @@ export function selectExperiments(input: ExperimentSelectionInput): ReportExperi
   return experiments;
 }
 
-/** True if the participant has used AI in their search, from the rubric's P4 status. */
+/** True if the participant has used AI in their search, from the rubric's P3 status. */
 export function usesAiFrom(aggregate: AggregatedLedger): boolean {
-  const p4 = aggregate.behaviors.find((behavior) => behavior.id === "P4");
-  return !!p4 && p4.status !== "not_applicable";
+  const p3 = aggregate.behaviors.find((behavior) => behavior.id === "P3");
+  return !!p3 && p3.status !== "not_applicable";
 }

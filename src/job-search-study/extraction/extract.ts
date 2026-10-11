@@ -114,6 +114,7 @@ function emptyLedger(rubric: Rubric): EvidenceLedger {
       sources: [],
       effortSplit: [],
       volunteeredContext: [],
+      supportProviders: [],
     },
     comparison: {
       typical: null,

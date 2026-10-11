@@ -29,9 +29,9 @@ describe("rubric config", () => {
       "P1",
       "P2",
       "P3",
-      "P4",
       "R1",
       "R2",
+      "R3",
       "L1",
       "L2",
       "L3",
@@ -46,7 +46,7 @@ describe("rubric config", () => {
   });
 
   it("looks up behaviors by id", () => {
-    expect(getBehavior(rubric, "P4").notApplicable).toMatch(/not used AI/);
+    expect(getBehavior(rubric, "P3").notApplicable).toMatch(/not used AI/);
   });
 
   describe("validateRubric", () => {
@@ -55,7 +55,7 @@ describe("rubric config", () => {
     it("flags weights that do not sum to 100", () => {
       const broken = clone();
       broken.behaviors[0].weight = 99;
-      expect(validateRubric(broken).join("\n")).toMatch(/focus: behavior weights sum to 174/);
+      expect(validateRubric(broken).join("\n")).toMatch(/focus: behavior weights sum to 159/);
     });
 
     it("flags an invalid evidence cap override", () => {

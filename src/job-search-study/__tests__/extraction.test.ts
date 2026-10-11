@@ -120,7 +120,7 @@ describe("extractEvidence", () => {
     await extractEvidence({ complete }, input);
 
     const args = complete.mock.calls[0][0];
-    expect(args.system).toContain("### F1. Has a defined target");
+    expect(args.system).toContain("### F1. Knows what you're good at");
     expect(args.user).toContain("[3] Participant: Probably most of them");
     expect(args.schema).toBeDefined();
   });

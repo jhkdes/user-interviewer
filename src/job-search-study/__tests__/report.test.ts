@@ -2,7 +2,9 @@ import { describe, expect, it, vi } from "vitest";
 import { aggregateRuns } from "../ledger/aggregate";
 import type { BehaviorEvidence } from "../ledger/types";
 import { generateReport } from "../report/generate";
+import { DIMENSION_EXPLAINERS, ladderSteps } from "../report/explainers";
 import { escapeHtml, renderReportHtml } from "../report/render-html";
+import { buildTldr } from "../report/tldr";
 import type { Report } from "../report/types";
 import { loadRubric, type BehaviorId, type Score } from "../rubric/rubric";
 import { blankLedger, withEntry } from "./ledger-helpers";
@@ -31,8 +33,7 @@ function buildAggregate() {
     F3: 3,
     P1: 1,
     P2: 1,
-    P3: 1,
-    P4: 3,
+    P3: 3,
     R1: 3,
     R2: 2,
     L1: 3,
@@ -124,8 +125,9 @@ describe("generateReport", () => {
     expect(report.context).toEqual([
       { label: "Time searching", value: "1 to 3 months", origin: "screener" },
     ]);
-    // Reach priority puts the relationships experiment first, then Pitch.
-    expect(report.experiments.map((e) => e.forBehavior)).toEqual(["R2", "P1", "P2"]);
+    // The reach priority lifts the relationships experiment level with Pitch's heaviest gap (150 each);
+    // the tie falls back to rubric order. The boost itself is tested in experiments.test.ts.
+    expect(report.experiments.map((e) => e.forBehavior)).toEqual(["P1", "R2", "P2"]);
   });
 
   it("labels behaviors for the participant", async () => {
@@ -138,8 +140,7 @@ describe("generateReport", () => {
     expect(pitch.behaviors.map((b) => [b.id, b.label])).toEqual([
       ["P1", "Opportunity"],
       ["P2", "Opportunity"],
-      ["P3", "Opportunity"],
-      ["P4", "Doing well"],
+      ["P3", "Doing well"],
     ]);
   });
 
@@ -248,7 +249,8 @@ describe("renderReportHtml", () => {
     expect(html).not.toContain("Where your interviews are coming from");
     expect(html).not.toContain("Your starting line");
     expect(html).not.toContain("What is affecting your search");
-    expect(html).not.toContain("Experiments to try");
+    expect(html).not.toContain("Experiments to try over the next");
+    expect(html).toContain("No experiments suggested this time.");
   });
 
   it("says when an area could not be rated", async () => {
@@ -267,12 +269,94 @@ describe("renderReportHtml", () => {
     expect(html).toContain("There was not enough in the interview to rate this area.");
   });
 
+  it("starts with a short version: what is working, what is not, and the experiments to try", async () => {
+    const report = await build();
+    const html = renderReportHtml(report);
+
+    const tldr = html.slice(html.indexOf('class="tldr"'), html.indexOf('class="lede"'));
+    expect(html.indexOf('class="tldr"')).toBeLessThan(html.indexOf('class="lede"'));
+    expect(tldr).toContain("The short version");
+    expect(tldr).toContain("Working well");
+    expect(tldr).toContain("Not working as well");
+    expect(tldr).toContain("Experiments to try");
+    expect(tldr).toContain(escapeHtml(report.experiments[0].title));
+    const strength = report.dimensions.find((d) => d.strength)!;
+    expect(tldr).toContain(
+      escapeHtml(
+        `${strength.name}: ${strength.behaviors.find((b) => b.id === strength.strength)!.name}`,
+      ),
+    );
+  });
+
+  it("builds the short version from the report, so edited experiments carry through", async () => {
+    const report = await build();
+    const tldr = buildTldr({
+      ...report,
+      experiments: [{ ...report.experiments[0], title: "A new idea" }],
+    });
+
+    expect(tldr.experiments).toEqual(["A new idea"]);
+    expect(tldr.workingWell.length).toBeGreaterThan(0);
+  });
+
+  it("explains each of the four areas in plain words", async () => {
+    const html = renderReportHtml(await build());
+
+    for (const text of Object.values(DIMENSION_EXPLAINERS))
+      expect(html).toContain(escapeHtml(text));
+    expect(Object.keys(DIMENSION_EXPLAINERS)).toEqual(["focus", "pitch", "reach", "learn"]);
+  });
+
+  it("shows the levels as an ordered ladder from Opportunity up to Strong", async () => {
+    const report = await build();
+    const html = renderReportHtml(report);
+
+    expect(html.indexOf("What the levels mean")).toBeGreaterThan(-1);
+    const legend = html.slice(html.indexOf('class="levels"'));
+    expect(legend.indexOf("Opportunity")).toBeLessThan(legend.indexOf("Developing"));
+    expect(legend.indexOf("Developing")).toBeLessThan(legend.indexOf("Strong"));
+    expect(html).toContain("the most room to grow");
+    expect(ladderSteps("opportunity")).toBe(1);
+    expect(ladderSteps("developing")).toBe(2);
+    expect(ladderSteps("strong")).toBe(3);
+    expect(ladderSteps(null)).toBe(0);
+    expect(html).toMatch(/class="ladder" role="img" aria-label="Level \w+: step \d of 3/);
+  });
+
+  it("says who the report was prepared for, escaping the name", async () => {
+    const report = await build();
+
+    expect(renderReportHtml(report, { participantName: "Jae" })).toContain(
+      "Prepared for Jae · Based on your 15-minute interview",
+    );
+    expect(renderReportHtml(report, { participantName: "<b>Jae</b>" })).toContain(
+      "Prepared for &lt;b&gt;Jae&lt;/b&gt;",
+    );
+    const anonymous = renderReportHtml(report);
+    expect(anonymous).not.toContain("Prepared for");
+    expect(renderReportHtml(report, { participantName: "  " })).not.toContain("Prepared for");
+  });
+
+  it("credits DiscoverFirst.co with a link to the job seekers page, at the end", async () => {
+    const html = renderReportHtml(await build(), { participantName: "Jae" });
+
+    expect(html).toContain(
+      'Report generated by <a href="https://discoverfirst.co/jobseekers">DiscoverFirst.co</a>',
+    );
+    expect(html).toContain(">discoverfirst.co/jobseekers</a>");
+    expect(html.indexOf("Report generated by")).toBeGreaterThan(html.indexOf("Bottom line"));
+  });
+
   it("is a self-contained, non-indexed page", async () => {
     const html = renderReportHtml(await build());
 
     expect(html).toMatch(/^<!doctype html>/);
     expect(html).toContain('name="robots" content="noindex,nofollow"');
-    expect(html).not.toMatch(/<script|src=|href=|@import/);
+    expect(html).not.toMatch(/<script|src=|@import/);
+    // The only links are the credit to DiscoverFirst.co.
+    const hrefs = [...html.matchAll(/href="([^"]*)"/g)].map((match) => match[1]);
+    expect(hrefs.length).toBeGreaterThan(0);
+    expect(new Set(hrefs)).toEqual(new Set(["https://discoverfirst.co/jobseekers"]));
   });
 });
 

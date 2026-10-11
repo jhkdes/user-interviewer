@@ -8,9 +8,17 @@ vi.mock("@/job-search-study/storage/get-report-repository", () => ({
   getJobSearchReportRepository: () => getRepo(),
 }));
 
+const getInterviews = vi.fn();
+vi.mock("@/repositories/get-interview-repository", () => ({
+  getInterviewRepository: () => getInterviews(),
+}));
+
 import { GET } from "../route";
 
-afterEach(() => getRepo.mockReset());
+afterEach(() => {
+  getRepo.mockReset();
+  getInterviews.mockReset();
+});
 
 const call = (token: string) =>
   GET(new Request(`http://localhost/report/${token}`), { params: { token } });
@@ -21,9 +29,9 @@ async function releasedReport() {
   const { processed } = await runSweep(f.deps);
   const { report } = await releaseReport(f.reviewDeps, processed!.reportId, {
     releasedBy: "pm@example.com",
-    baseUrl: "https://x.example",
   });
   getRepo.mockReturnValue(f.reportRepo);
+  getInterviews.mockReturnValue(f.interviewRepo);
   return { f, report };
 }
 
@@ -37,7 +45,9 @@ describe("GET /report/[token]", () => {
     expect(res.headers.get("content-type")).toMatch(/text\/html/);
     expect(res.headers.get("cache-control")).toBe("private, no-store");
     expect(res.headers.get("x-robots-tag")).toBe("noindex, nofollow");
-    expect(await res.text()).toContain("Your Job Search Report");
+    const html = await res.text();
+    expect(html).toContain("Your Job Search Report");
+    expect(html).toContain("Prepared for Jordan");
   });
 
   it("answers 404 for an unknown token", async () => {

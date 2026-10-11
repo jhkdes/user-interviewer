@@ -20,8 +20,3 @@ export function getPipelineDeps(): PipelineDeps {
 export function getReviewDeps(): ReviewDeps {
   return { ...getPipelineDeps(), emailClient: getEmailClient() };
 }
-
-/** The site's public origin for links in emails: APP_BASE_URL if set, otherwise the request's own origin. */
-export function appBaseUrl(request: Request): string {
-  return process.env.APP_BASE_URL || new URL(request.url).origin;
-}
