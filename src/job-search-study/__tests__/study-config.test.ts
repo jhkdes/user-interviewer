@@ -27,12 +27,12 @@ describe("job-search study config", () => {
       "target_function",
       "current_level",
       "target_level_vs_recent",
+      "career_pivot",
       "applications_30d",
       "conversations_total",
       "channels_used",
       "ai_uses",
       "search_support",
-      "career_pivot",
     ]);
     expect(new Set(ids).size).toBe(ids.length);
   });
@@ -76,7 +76,15 @@ describe("job-search study config", () => {
       "A free program (for example, a workforce, alumni, or community program)",
     ]);
     expect(pivot.type).toBe("single");
-    expect(pivot.options.filter((option) => option.startsWith("Yes"))).toHaveLength(3);
-    expect(pivot.options[0]).toMatch(/^No/);
+    expect(pivot.label).toBe(
+      "Are you targeting the same kind of role and industry as your previous job?",
+    );
+    expect(pivot.options).toEqual([
+      "Yes, the same kind of role in the same industry",
+      "A different role in the same industry",
+      "The same kind of role in a different industry",
+      "A different role in a different industry",
+      "Not sure",
+    ]);
   });
 });

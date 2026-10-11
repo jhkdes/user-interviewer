@@ -486,9 +486,21 @@ Order is deliberate: easy factual questions first.
   - Not sure yet
 - Feeds: context (career-level trajectory). A "mix" or "lower" answer prompts the interviewer to ask what is driving it.
 
+**S7. `career_pivot`**
+
+- Label: Are you targeting the same kind of role and industry as your previous job?
+- Type: single-select. Allow "Other": no.
+- Options:
+  - Yes, the same kind of role in the same industry
+  - A different role in the same industry
+  - The same kind of role in a different industry
+  - A different role in a different industry
+  - Not sure
+- Feeds: research segmentation (any answer other than the first counts as a pivot, and the options say whether the role, the industry, or both changed; "Not sure" is not counted). A pivot also prompts the interviewer to ask how they explain the change to employers (see the positioning question).
+
 ### Group C: Search activity (context and probing hints)
 
-**S7. `applications_30d`**
+**S8. `applications_30d`**
 
 - Label: Roughly how many job applications have you submitted in the past month?
 - Type: single-select. Allow "Other": no.
@@ -500,7 +512,7 @@ Order is deliberate: easy factual questions first.
   - More than 50
 - Feeds: context (application volume). Never scored.
 
-**S8. `conversations_total`**
+**S9. `conversations_total`**
 
 - Label: Since you started searching, roughly how many recruiter conversations or interviews have you had?
 - Type: single-select. Allow "Other": no.
@@ -512,7 +524,7 @@ Order is deliberate: easy factual questions first.
   - More than 10
 - Feeds: outcome context; the interviewer uses it to decide between the interview-producing opportunity and the furthest-progress opportunity. Also a cross-check on interview-source counts.
 
-**S9. `channels_used`**
+**S10. `channels_used`**
 
 - Label: Which of these have you used to find opportunities? Select all that apply.
 - Type: **multi-select**. Allow "Other": yes.
@@ -532,7 +544,7 @@ Order is deliberate: easy factual questions first.
 
 ### Group D: AI (feeds P3 as a probing hint)
 
-**S10. `ai_uses`**
+**S11. `ai_uses`**
 
 - Label: Where have you used AI in your job search? Select all that apply.
 - Type: **multi-select**. Allow "Other": yes.
@@ -548,11 +560,11 @@ Order is deliberate: easy factual questions first.
   - I have not used AI in my search
 - Feeds: P3. The interviewer probes beyond the selected uses and asks about anything not selected that the participant mentions. "Applying to jobs automatically" prompts a follow-up on where the human decision point is. Selecting "I have not used AI" sets P4 to a likely N/A, to be confirmed in the interview.
 
-### Group E: Support and career change (research segmentation, never scored)
+### Group E: Support (research segmentation, never scored)
 
-These two questions are collected to compare interview rates by whether a participant has job-search support and whether they are changing careers. They are never scored and are not shown to the participant in the report.
+This question is collected, together with `career_pivot` in Group B, to compare interview rates by whether a participant has job-search support and whether they are changing careers. Neither is scored or shown to the participant in the report.
 
-**S11. `search_support`**
+**S12. `search_support`**
 
 - Label: Are you getting any support with your job search? Select all that apply.
 - Type: **multi-select**. Allow "Other": yes.
@@ -562,18 +574,6 @@ These two questions are collected to compare interview rates by whether a partic
   - Outplacement support paid for by a former employer
   - A free program (for example, a workforce, alumni, or community program)
 - Feeds: research segmentation. If outplacement or a free program is selected, the interviewer **must** ask which provider or program it is (in the People section, and again in the gap-fill step if missed); a paid coach is asked about once as well. The participant may decline. The answer is recorded in the ledger as `supportProviders`, and the simulation harness flags interviews where the required question was never asked. "No support" excludes the other options.
-
-**S12. `career_pivot`**
-
-- Label: Is the role or industry you are targeting different from your previous one?
-- Type: single-select. Allow "Other": no.
-- Options:
-  - No, a similar role in the same industry
-  - Yes, a different role in the same industry
-  - Yes, a similar role in a different industry
-  - Yes, a different role in a different industry
-  - Not sure
-- Feeds: research segmentation (any "Yes" counts as a pivot, and the options say whether the role, the industry, or both changed). A pivot also prompts the interviewer to ask how they explain the change to employers (see the positioning question).
 
 ### Screener answers and the pipeline
 
@@ -586,7 +586,7 @@ These two questions are collected to compare interview rates by whether a partic
 | `target_level_vs_recent` is "A mix" or "Lower"                                            | Interviewer asks what is driving it                                                                                           |
 | `search_duration`, `time_since_full_time`, `target_level_vs_recent`                       | Context for the report's "what is affecting your search" section only                                                         |
 | `search_support` has any support selected                                                 | Interviewer asks once who it is with, if they are comfortable saying; recorded as `supportProviders`                          |
-| `career_pivot` is any "Yes"                                                               | Interviewer asks how they explain the change to employers (P1 positioning). Segmentation only, never scored                   |
+| `career_pivot` is a pivot (not the first option, not "Not sure")                          | Interviewer asks how they explain the change to employers (P1 positioning). Segmentation only, never scored                   |
 | Any answer conflicts with the interview                                                   | The interview answer (the concrete example) wins; the conflict is noted                                                       |
 
 ### Not in the screener (asked in the interview or dropped)

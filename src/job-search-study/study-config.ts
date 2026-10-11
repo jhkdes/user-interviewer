@@ -104,6 +104,19 @@ export const JOB_SEARCH_SCREENER: PreInterviewQuestion[] = [
     allowOther: false,
   },
   {
+    id: "career_pivot",
+    label: "Are you targeting the same kind of role and industry as your previous job?",
+    type: "single",
+    options: [
+      "Yes, the same kind of role in the same industry",
+      "A different role in the same industry",
+      "The same kind of role in a different industry",
+      "A different role in a different industry",
+      "Not sure",
+    ],
+    allowOther: false,
+  },
+  {
     id: "applications_30d",
     label: "Roughly how many job applications have you submitted in the past month?",
     type: "single",
@@ -165,18 +178,5 @@ export const JOB_SEARCH_SCREENER: PreInterviewQuestion[] = [
       "A free program (for example, a workforce, alumni, or community program)",
     ],
     allowOther: true,
-  },
-  {
-    id: "career_pivot",
-    label: "Is the role or industry you are targeting different from your previous one?",
-    type: "single",
-    options: [
-      "No, a similar role in the same industry",
-      "Yes, a different role in the same industry",
-      "Yes, a similar role in a different industry",
-      "Yes, a different role in a different industry",
-      "Not sure",
-    ],
-    allowOther: false,
   },
 ];
