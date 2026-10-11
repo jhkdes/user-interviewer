@@ -147,8 +147,19 @@ td.num,th.num{text-align:right;white-space:nowrap}
 .fine{color:var(--muted);font-size:.9rem;border-top:1px solid var(--line);margin-top:48px;padding-top:16px}
 .fine-print{color:var(--muted);font-size:.9rem;margin:10px 0 0}
 .flow{font-weight:600}
-@media print{body{background:#fff;color:#000}.card,.tile,table{break-inside:avoid}}
+@media print{body{background:#fff;color:#000;font-size:14px;line-height:1.5}main{max-width:none;padding:0}h1{font-size:1.6rem}h2{margin-top:28px;break-after:avoid}h2+p{break-after:avoid}h3{break-after:avoid}.card,.tile,table,.tldr,.callout,.levels li,.exp,.keep{break-inside:avoid}.table-wrap{overflow:visible}}
 `;
+
+/** Sections kept whole on one printed page. Other headings are kept with the block after them by the print styles. */
+const KEEP_TOGETHER = ["Your search profile"];
+
+function keepSectionsTogether(body: string): string {
+  return body.replace(
+    /<h2>(.*?)<\/h2>[\s\S]*?(?=<h2>|<p class="fine">|$)/g,
+    (section, title: string) =>
+      KEEP_TOGETHER.includes(title) ? `<section class="keep">${section}</section>` : section,
+  );
+}
 
 export function renderReportHtml(report: Report, options: { title?: string } = {}): string {
   const title = options.title ?? "Your Job Search Report";
@@ -259,5 +270,5 @@ export function renderReportHtml(report: Report, options: { title?: string } = {
     `<p class="fine">These bands describe job-search behaviors seen in one interview. They are not a measure of your value or ability as a candidate, and in this early study they are directional, not precise comparisons.</p>`,
   );
 
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>${escapeHtml(title)}</title><style>${CSS}</style></head><body><main>${parts.join("")}</main></body></html>`;
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>${escapeHtml(title)}</title><style>${CSS}</style></head><body><main>${keepSectionsTogether(parts.join(""))}</main></body></html>`;
 }

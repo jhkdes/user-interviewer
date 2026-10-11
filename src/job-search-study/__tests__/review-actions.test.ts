@@ -295,13 +295,36 @@ describe("releaseReport", () => {
     expect(f.emailClient.sent[0].to).toBe("jordan@example.com");
     expect(f.emailClient.sent[0].subject).toBe("Your job search report is ready, Jordan");
     expect(f.emailClient.sent[0].html).toContain("attached");
+    expect(f.emailClient.sent[0].html).toContain("The attached report has the detail");
     expect(f.emailClient.sent[0].html).not.toContain("/report/");
 
+    // The short version is in the email itself.
+    expect(f.emailClient.sent[0].html).toContain("Working well");
+    expect(f.emailClient.sent[0].html).toContain("Focus: ");
+
+    // The attachment is a PDF made from the same HTML the reviewer previews.
     const [attachment] = f.emailClient.sent[0].attachments!;
-    expect(attachment.filename).toBe("Your-Job-Search-Report.html");
+    expect(attachment.filename).toBe("Your-Job-Search-Report.pdf");
     const attached = Buffer.from(attachment.content, "base64").toString("utf-8");
-    expect(attached).toMatch(/^<!doctype html>/);
-    expect(attached).toContain("The short version");
+    expect(attached).toMatch(/^%PDF-/);
+    expect(f.pdfInputs).toHaveLength(1);
+    expect(f.pdfInputs[0]).toMatch(/^<!doctype html>/);
+    expect(f.pdfInputs[0]).toContain("The short version");
+  });
+
+  it("stays released and says so when the PDF cannot be made", async () => {
+    const { f, reportId } = await withDraft();
+    f.reviewDeps.renderPdf = async () => {
+      throw new Error("Chromium would not start");
+    };
+
+    const result = await release(f, reportId);
+
+    expect(result.report.status).toBe("released");
+    expect(result.emailSent).toBe(false);
+    expect(result.emailError).toBe("Could not create the PDF: Chromium would not start");
+    expect(f.emailClient.sent).toHaveLength(0);
+    expect(result.report.emailSentAt).toBeNull();
   });
 
   it("blocks release while rule violations remain, unless they are acknowledged", async () => {
@@ -396,12 +419,31 @@ describe("withdrawReport", () => {
 });
 
 describe("report email", () => {
-  it("tells the participant which file to open, and escapes their name", () => {
-    const email = renderReportEmail({ firstName: "<b>Sam</b>" });
+  const tldr = {
+    workingWell: ["Focus: Knows what you are good at"],
+    notWorkingAsWell: ["Pitch: Makes the case for you <script>"],
+    experiments: ["Lead with two reasons to interview you"],
+  };
+
+  it("names the attached PDF, carries the short version, and escapes everything", () => {
+    const email = renderReportEmail({ firstName: "<b>Sam</b>", tldr });
 
     expect(email.html).toContain("&lt;b&gt;Sam&lt;/b&gt;");
-    expect(email.html).toContain("Your-Job-Search-Report.html");
+    expect(email.html).toContain("Your-Job-Search-Report.pdf");
+    expect(email.html).toContain("Focus: Knows what you are good at");
+    expect(email.html).toContain("Pitch: Makes the case for you &lt;script&gt;");
+    expect(email.html).not.toContain("<script>");
     expect(email.html).not.toContain("<a ");
+  });
+
+  it("leaves out a part of the short version that has nothing in it", () => {
+    const email = renderReportEmail({
+      firstName: "Sam",
+      tldr: { ...tldr, notWorkingAsWell: [] },
+    });
+
+    expect(email.html).toContain("Working well");
+    expect(email.html).not.toContain("Not working as well");
   });
 
   it("builds the report URL without doubled slashes and encodes the token", () => {

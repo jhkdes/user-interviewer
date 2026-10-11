@@ -1,6 +1,8 @@
 import { randomBytes } from "node:crypto";
 import { generateReport } from "../report/generate";
 import { renderReportHtml } from "../report/render-html";
+import { renderReportPdf } from "../report/render-pdf";
+import { buildTldr } from "../report/tldr";
 import { loadRubric } from "../rubric/rubric";
 import type { JobSearchReport } from "../storage/types";
 import { applyEdits, recheckViolations, type ReportEdits } from "./edits";
@@ -113,7 +115,7 @@ export interface ReleaseResult {
   emailError: string | null;
 }
 
-/** Emails the participant their report as an attached, self-contained HTML file. */
+/** Emails the participant their report as an attached PDF, with the short version in the body. */
 async function sendReportEmail(
   deps: ReviewDeps,
   report: JobSearchReport,
@@ -122,11 +124,18 @@ async function sendReportEmail(
   if (!interview) return { sent: false, error: "The interview no longer exists." };
   if (!report.report) return { sent: false, error: "The report has no content." };
 
-  const { subject, html } = renderReportEmail({ firstName: interview.firstName });
-  const attachment = {
-    filename: REPORT_ATTACHMENT_FILENAME,
-    content: Buffer.from(renderReportHtml(report.report), "utf-8").toString("base64"),
-  };
+  const { subject, html } = renderReportEmail({
+    firstName: interview.firstName,
+    tldr: buildTldr(report.report),
+  });
+  let attachment: { filename: string; content: string };
+  try {
+    const pdf = await (deps.renderPdf ?? renderReportPdf)(renderReportHtml(report.report));
+    attachment = { filename: REPORT_ATTACHMENT_FILENAME, content: pdf.toString("base64") };
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    return { sent: false, error: `Could not create the PDF: ${reason}` };
+  }
   try {
     await deps.emailClient.send({ to: interview.email, subject, html, attachments: [attachment] });
     return { sent: true, error: null };
@@ -137,7 +146,7 @@ async function sendReportEmail(
 
 /**
  * Releases a reviewed draft: emails the participant the report as an attached
- * file, and also makes it available at a private link. A failed email does not undo the release; the result says so and the
+ * PDF, and also makes it available at a private link. A failed email does not undo the release; the result says so and the
  * email can be resent. A withdrawn report can be released again with a new link.
  */
 export async function releaseReport(
