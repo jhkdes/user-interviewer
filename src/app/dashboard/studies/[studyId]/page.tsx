@@ -79,6 +79,14 @@ export default async function StudyDetailPage({ params }: { params: { studyId: s
       >
         Edit questions →
       </Link>
+      {study.type === "discovery" && (
+        <Link
+          href={`/dashboard/studies/${study.id}/participant-pages`}
+          className="mt-2 ml-4 inline-block text-sm underline hover:no-underline"
+        >
+          Edit landing and ending pages →
+        </Link>
+      )}
 
       <div className="mt-4">
         <StudyLink linkToken={study.linkToken} />

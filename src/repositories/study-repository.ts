@@ -1,4 +1,5 @@
 import type {
+  ParticipantCopy,
   PreInterviewQuestion,
   ReportPipeline,
   Study,
@@ -20,6 +21,8 @@ export interface CreateStudyInput {
   customPrompt?: string;
   /** Which post-interview report pipeline runs for this study. Omit for none. Immutable after creation. */
   reportPipeline?: ReportPipeline;
+  /** Custom landing and ending page text. Omit for the standard wording. */
+  participantCopy?: ParticipantCopy;
   linkToken: string;
   /** Defaults to `"vapi"` if omitted, matching the DB column default. */
   voiceProvider?: VoiceProvider;
@@ -33,6 +36,8 @@ export interface UpdateStudyDetailsInput {
   feedbackQuestions?: string[];
   researchTopic?: string | null;
   customPrompt?: string | null;
+  /** `null` clears it back to the standard wording; `undefined` leaves it untouched. */
+  participantCopy?: ParticipantCopy | null;
 }
 
 export interface StudyRepository {

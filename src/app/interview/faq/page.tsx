@@ -37,7 +37,7 @@ const FAQS: { q: string; a: ReactNode }[] = [
   },
   {
     q: "What do I get out of it?",
-    a: "A short summary of your own conversation afterward, and access to the full study report once it's done.",
+    a: "It depends on the study. Some studies send each participant an individualized report on how they're doing; others send a short summary of your own conversation afterward, plus access to the full study report once it's done. The page you started from says which one this study offers.",
   },
   {
     q: "Who do I contact with questions?",

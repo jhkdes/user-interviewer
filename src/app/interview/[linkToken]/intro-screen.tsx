@@ -1,12 +1,5 @@
-const STEPS = [
-  { title: "Click the link", body: "No signup — just your name and a few quick questions." },
-  { title: "Talk with an AI", body: "A real ~15-minute conversation, not a script." },
-  {
-    title: "Speak freely",
-    body: "Nothing goes to your employer; quotes are never attributed to you.",
-  },
-  { title: "Get something back", body: "Your own summary now, the full report once it's done." },
-];
+import type { ParticipantCopy } from "@/domain";
+import { resolveIntroCopy } from "@/participant-copy";
 
 /**
  * T11.1 — study purpose, recording disclosure, and consent. Per REQUIREMENTS.md's
@@ -18,11 +11,15 @@ export function IntroScreen({
   title,
   description,
   onAgree,
+  copy,
 }: {
   title: string;
   description: string;
   onAgree: () => void;
+  /** The study's custom wording; anything it leaves out uses the standard text. */
+  copy?: ParticipantCopy | null;
 }) {
+  const { tagline, facts, steps, consentNote } = resolveIntroCopy(copy, description);
   return (
     <div className="text-left">
       <p className="flex items-center gap-2 text-xs font-bold tracking-widest text-neutral-500 uppercase dark:text-neutral-400">
@@ -32,12 +29,10 @@ export function IntroScreen({
 
       <h1 className="mt-4 text-2xl font-semibold text-balance">{title || "Research study"}</h1>
 
-      <p className="mt-3 text-sm text-neutral-600 dark:text-neutral-400">
-        A 15-minute AI-run interview about {description || "your day-to-day work"}.
-      </p>
+      <p className="mt-3 text-sm text-neutral-600 dark:text-neutral-400">{tagline}</p>
 
       <div className="mt-5 flex flex-wrap gap-2">
-        {["~15 minutes", "Voice, not text", "No login", "Confidential"].map((fact) => (
+        {facts.map((fact) => (
           <span
             key={fact}
             className="rounded-full bg-neutral-100 px-3 py-1 text-xs font-semibold text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300"
@@ -52,7 +47,7 @@ export function IntroScreen({
       </p>
 
       <ol className="mt-4 space-y-4">
-        {STEPS.map((step, i) => (
+        {steps.map((step, i) => (
           <li key={step.title} className="grid grid-cols-[2rem_1fr] gap-3">
             <span className="text-2xl leading-none font-semibold text-neutral-400 dark:text-neutral-600">
               {i + 1}
@@ -71,10 +66,7 @@ export function IntroScreen({
       >
         Start the interview
       </button>
-      <p className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">
-        The call is recorded (audio and transcript) so we can review it afterward. Starting means
-        you&apos;re okay with that.
-      </p>
+      <p className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">{consentNote}</p>
 
       <p className="mt-6 flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-neutral-200 pt-4 text-xs text-neutral-500 dark:border-neutral-800 dark:text-neutral-400">
         <span>Want the full details?</span>

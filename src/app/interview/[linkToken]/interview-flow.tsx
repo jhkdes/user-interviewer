@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import type { Interview, PreInterviewQuestion, StudyType } from "@/domain";
+import type { Interview, ParticipantCopy, PreInterviewQuestion, StudyType } from "@/domain";
 import { isMobileDevice } from "@/lib/device";
 import { CompletionScreen } from "./completion-screen";
 import { FeedbackIntroScreen } from "./feedback-intro-screen";
@@ -48,6 +48,7 @@ export function InterviewFlow({
   title,
   description,
   questions,
+  copy,
   textModeEnabled = false,
 }: {
   linkToken: string;
@@ -56,6 +57,8 @@ export function InterviewFlow({
   title: string;
   description: string;
   questions: PreInterviewQuestion[];
+  /** The study's custom landing and ending page text, if it has any. */
+  copy?: ParticipantCopy | null;
   /** Offer typing as an alternative to the voice interview. Only ever applies to feedback studies — discovery studies stay voice-only whatever this says. */
   textModeEnabled?: boolean;
 }) {
@@ -180,7 +183,12 @@ export function InterviewFlow({
             onAgree={() => setStep("intake")}
           />
         ) : (
-          <IntroScreen title={title} description={description} onAgree={() => setStep("intake")} />
+          <IntroScreen
+            title={title}
+            description={description}
+            copy={copy}
+            onAgree={() => setStep("intake")}
+          />
         ))}
       {step === "intake" && (
         <IntakeForm
@@ -219,7 +227,7 @@ export function InterviewFlow({
         />
       )}
       {step === "timed-out" && <TimedOutScreen />}
-      {step === "done" && <CompletionScreen mode={usedTyping ? "text" : "voice"} />}
+      {step === "done" && <CompletionScreen mode={usedTyping ? "text" : "voice"} copy={copy} />}
     </main>
   );
 }

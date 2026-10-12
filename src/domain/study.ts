@@ -1,3 +1,4 @@
+import type { ParticipantCopy } from "./participant-copy";
 export type StudyStatus = "open" | "closed";
 
 export type VoiceProvider = "vapi" | "elevenlabs";
@@ -77,6 +78,8 @@ export interface Study {
   linkToken: string;
   /** Which post-interview report pipeline, if any, runs for this study's interviews. */
   reportPipeline: ReportPipeline | null;
+  /** Custom text for the landing and ending pages; null keeps the standard wording. Editable any time. */
+  participantCopy: ParticipantCopy | null;
   status: StudyStatus;
   /** Which voice platform runs this study's interview calls — set at creation by the researcher, lets whole studies be A/B tested against each other. */
   voiceProvider: VoiceProvider;

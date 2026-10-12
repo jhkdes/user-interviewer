@@ -38,6 +38,7 @@ export default async function InterviewPage({
       title={study.title}
       description={study.description}
       questions={study.preInterviewQuestions}
+      copy={study.participantCopy}
       textModeEnabled={isTextInterviewModeEnabled()}
     />
   );

@@ -16,6 +16,7 @@ const discoveryStudy: Study = {
   researchTopic: "where AI tools get abandoned after the first try",
   customPrompt: null,
   reportPipeline: null,
+  participantCopy: null,
   linkToken: "token-1",
   status: "open",
   voiceProvider: "vapi",

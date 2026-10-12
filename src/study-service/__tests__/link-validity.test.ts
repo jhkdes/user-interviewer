@@ -12,6 +12,7 @@ const baseStudy: Study = {
   researchTopic: null,
   customPrompt: null,
   reportPipeline: null,
+  participantCopy: null,
   linkToken: "token",
   status: "open",
   voiceProvider: "vapi",
