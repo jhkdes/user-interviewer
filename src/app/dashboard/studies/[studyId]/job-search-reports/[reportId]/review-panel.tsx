@@ -11,7 +11,6 @@ interface Props {
   report: Report | null;
   violations: string[];
   library: Array<{ id: string; title: string; track: string }>;
-  shareUrl: string | null;
   emailSent: boolean;
   /** True when the report went out automatically, with no reviewer. */
   autoReleased: boolean;
@@ -30,7 +29,6 @@ export function ReviewPanel({
   report,
   violations,
   library,
-  shareUrl,
   emailSent,
   autoReleased,
 }: Props) {
@@ -129,17 +127,11 @@ export function ReviewPanel({
         <p className="rounded bg-neutral-100 p-3 text-sm dark:bg-neutral-900">{message}</p>
       )}
 
-      {status === "released" && shareUrl && (
+      {status === "released" && (
         <div className="rounded border border-green-300 p-3 text-sm dark:border-green-800">
           <p className="font-medium">
             Released{autoReleased ? " automatically, with no review" : ""}
             {emailSent ? " and emailed" : " (the email has not been sent)"}.
-          </p>
-          <p className="mt-1 break-all">
-            Private link:{" "}
-            <a href={shareUrl} className="underline" target="_blank" rel="noreferrer">
-              {shareUrl}
-            </a>
           </p>
           <div className="mt-3 flex gap-2">
             <button
@@ -148,16 +140,6 @@ export function ReviewPanel({
               onClick={() => void act("resend-email", "Email sent again.")}
             >
               Resend email
-            </button>
-            <button
-              className={SECONDARY}
-              disabled={busy !== null}
-              onClick={() => {
-                if (confirm("Withdraw this report? The link stops working immediately."))
-                  void act("withdraw", "Withdrawn.");
-              }}
-            >
-              Withdraw
             </button>
           </div>
         </div>
@@ -291,29 +273,19 @@ export function ReviewPanel({
         </>
       )}
 
-      {["draft", "failed", "skipped"].includes(status) && (
+      {status !== "pending" && status !== "generating" && (
         <button
           className={SECONDARY}
           disabled={busy !== null}
           onClick={() => {
-            if (confirm("Throw this work away and analyze the interview again from scratch?")) {
-              void act("requeue", "Queued to be analyzed again.");
-            }
+            const warning =
+              status === "released"
+                ? "This report was already emailed to the participant. Wipe it and generate a new one? A clean new report is emailed automatically as a replacement; otherwise it waits for your review."
+                : "Wipe this report and generate a new one from the interview? Your edits are lost. A clean new report is released automatically; otherwise it waits for your review.";
+            if (confirm(warning)) void act("wipe", "Wiped. A new report is being generated.");
           }}
         >
-          Re-run from scratch
-        </button>
-      )}
-
-      {status === "withdrawn" && (
-        <button
-          className={PRIMARY}
-          disabled={busy !== null}
-          onClick={() =>
-            void act("release", "Released again with a new link.", { acknowledgeViolations: true })
-          }
-        >
-          Release again (new link)
+          {busy === "wipe" ? "Wiping…" : "Wipe and regenerate"}
         </button>
       )}
     </div>

@@ -10,13 +10,12 @@ import type { ScoringResult } from "../scoring/score";
  * pending     waiting for the worker
  * generating  being worked on (an abandoned one is picked up again once stale)
  * draft       ready for a reviewer
- * released    the participant can open it
- * withdrawn   access removed after release
+ * released    emailed to the participant (or released with the email failed; see `emailSentAt`)
  * failed      the pipeline gave up (see `error`)
  * skipped     not worth analyzing, for example a too-short interview (see `error`)
  */
 export type JobSearchReportStatus =
-  "pending" | "generating" | "draft" | "released" | "withdrawn" | "failed" | "skipped";
+  "pending" | "generating" | "draft" | "released" | "failed" | "skipped";
 
 export interface JobSearchReport {
   id: string;
@@ -40,12 +39,10 @@ export interface JobSearchReport {
   textViolations: string[];
   error: string | null;
   attempts: number;
-  /** Set on release; the participant's link is `/report/<token>`. Cleared on withdrawal. */
-  accessToken: string | null;
   releasedAt: Date | null;
   releasedBy: string | null;
+  /** When the participant was last emailed. Kept when a report is wiped, so a replacement can say it replaces that one. */
   emailSentAt: Date | null;
-  withdrawnAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -70,8 +67,6 @@ export interface JobSearchReportRepository {
   ): Promise<{ report: JobSearchReport; created: boolean }>;
   getById(id: string): Promise<JobSearchReport | null>;
   getByInterviewId(interviewId: string): Promise<JobSearchReport | null>;
-  /** Only a released report has an access token. */
-  getByAccessToken(token: string): Promise<JobSearchReport | null>;
   /** Newest first. */
   listByStudyId(studyId: string): Promise<JobSearchReport[]>;
   /**

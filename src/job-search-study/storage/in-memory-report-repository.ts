@@ -38,11 +38,9 @@ export class InMemoryJobSearchReportRepository implements JobSearchReportReposit
       textViolations: [],
       error: input.error ?? null,
       attempts: 0,
-      accessToken: null,
       releasedAt: null,
       releasedBy: null,
       emailSentAt: null,
-      withdrawnAt: null,
       createdAt: now,
       updatedAt: now,
     };
@@ -58,13 +56,6 @@ export class InMemoryJobSearchReportRepository implements JobSearchReportReposit
   async getByInterviewId(interviewId: string) {
     for (const report of this.reports.values()) {
       if (report.interviewId === interviewId) return copy(report);
-    }
-    return null;
-  }
-
-  async getByAccessToken(token: string) {
-    for (const report of this.reports.values()) {
-      if (report.accessToken !== null && report.accessToken === token) return copy(report);
     }
     return null;
   }

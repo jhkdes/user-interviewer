@@ -28,7 +28,6 @@ export function runJobSearchReportRepositoryContractTests(
         textViolations: [],
         error: null,
         attempts: 0,
-        accessToken: null,
         releasedAt: null,
       });
       expect(report.id).toBeTruthy();
@@ -83,7 +82,6 @@ export function runJobSearchReportRepositoryContractTests(
         rubricVersion: "0.3.1",
         extractionRuns: [{ rubricVersion: "0.3.1", behaviors: [], conflicts: [] } as never],
         narrativeViolations: ["a rule was broken"],
-        accessToken: "token-abc",
         releasedAt,
         releasedBy: "pm@example.com",
         attempts: 2,
@@ -93,7 +91,6 @@ export function runJobSearchReportRepositoryContractTests(
         status: "released",
         rubricVersion: "0.3.1",
         narrativeViolations: ["a rule was broken"],
-        accessToken: "token-abc",
         releasedBy: "pm@example.com",
         attempts: 2,
         error: null,
@@ -107,23 +104,12 @@ export function runJobSearchReportRepositoryContractTests(
       const repo = await makeRepository();
       const { interviewId, studyId } = await newFixture();
       const { report } = await repo.enqueue({ interviewId, studyId });
-      await repo.update(report.id, { accessToken: "token-to-clear", error: "boom" });
+      await repo.update(report.id, { releasedBy: "someone", error: "boom" });
 
-      const cleared = await repo.update(report.id, { accessToken: null, error: null });
+      const cleared = await repo.update(report.id, { releasedBy: null, error: null });
 
-      expect(cleared.accessToken).toBeNull();
+      expect(cleared.releasedBy).toBeNull();
       expect(cleared.error).toBeNull();
-    });
-
-    it("finds a released report by its access token only", async () => {
-      const repo = await makeRepository();
-      const { interviewId, studyId } = await newFixture();
-      const { report } = await repo.enqueue({ interviewId, studyId });
-      const token = `token-${report.id}`;
-      await repo.update(report.id, { accessToken: token, status: "released" });
-
-      expect((await repo.getByAccessToken(token))?.id).toBe(report.id);
-      expect(await repo.getByAccessToken("not-a-real-token")).toBeNull();
     });
 
     it("throws when updating a report that does not exist", async () => {

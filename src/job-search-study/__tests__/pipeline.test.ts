@@ -291,7 +291,6 @@ describe("automatic release", () => {
     });
     const stored = (await f.reportRepo.getById(result.processed!.reportId))!;
     expect(stored).toMatchObject({ status: "released", releasedBy: AUTO_RELEASE_ACTOR });
-    expect(stored.accessToken).toBeTruthy();
     expect(stored.emailSentAt).toBeInstanceOf(Date);
     expect(f.emailClient.sent).toHaveLength(1);
     expect(f.emailClient.sent[0].to).toBe("jordan@example.com");

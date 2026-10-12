@@ -4,9 +4,9 @@ import type { ChannelAnalysis, Report, ReportDimension } from "./types";
 
 /**
  * Renders a Report as one self-contained HTML page: inline styles, no scripts,
- * no external requests. It is emailed to the participant as an attachment and
- * also served from their private link, so it must read well on a phone, offline,
- * in light and dark mode, and in print.
+ * no external requests. It is the source of the PDF emailed to the participant
+ * and of the reviewer's preview, so it must read well on a phone, offline, in
+ * light and dark mode, and in print.
  * Pure function of the Report: every string is escaped, and nothing here can
  * add a number the Report does not contain.
  */

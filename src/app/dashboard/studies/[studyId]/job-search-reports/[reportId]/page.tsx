@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AUTO_RELEASE_ACTOR } from "@/job-search-study/pipeline/auto-release";
-import { reportUrl } from "@/job-search-study/pipeline/report-email";
 import { loadExperimentLibrary } from "@/job-search-study/report/experiments";
 import { renderReportHtml } from "@/job-search-study/report/render-html";
 import { loadRubric } from "@/job-search-study/rubric/rubric";
@@ -29,9 +28,6 @@ export default async function JobSearchReportReviewPage({
   }));
   const violations = [...report.narrativeViolations, ...report.textViolations];
   const behaviorName = new Map(rubric.behaviors.map((b) => [b.id, b.name]));
-  const shareUrl = report.accessToken
-    ? reportUrl(process.env.APP_BASE_URL ?? "", report.accessToken)
-    : null;
   const { scoring, aggregate } = report;
 
   return (
@@ -85,7 +81,6 @@ export default async function JobSearchReportReviewPage({
         report={report.report}
         violations={violations}
         library={library}
-        shareUrl={shareUrl}
         emailSent={report.emailSentAt !== null}
         autoReleased={report.releasedBy === AUTO_RELEASE_ACTOR}
       />

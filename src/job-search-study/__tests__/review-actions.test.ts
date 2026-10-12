@@ -6,14 +6,14 @@ import {
   ReleaseBlockedError,
   ReportNotFoundError,
 } from "../pipeline/errors";
-import { renderReportEmail, reportUrl } from "../pipeline/report-email";
+import { AUTO_RELEASE_ACTOR } from "../pipeline/auto-release";
+import { renderReportEmail } from "../pipeline/report-email";
 import {
   regenerateNarrative,
   releaseReport,
-  requeueFromScratch,
   resendReportEmail,
   saveEdits,
-  withdrawReport,
+  wipeReport,
 } from "../pipeline/review-actions";
 import { runSweep } from "../pipeline/sweep";
 import { loadRubric } from "../rubric/rubric";
@@ -233,70 +233,160 @@ describe("reports from an older rubric", () => {
     );
   });
 
-  it("can still be re-run from scratch", async () => {
+  it("can still be wiped and regenerated", async () => {
     const { f, reportId } = await withDraft();
     await f.reportRepo.update(reportId, { rubricVersion: "0.4.0" });
 
-    expect((await requeueFromScratch(f.reviewDeps, reportId)).status).toBe("pending");
+    expect((await wipeReport(f.reviewDeps, reportId)).status).toBe("pending");
   });
 });
 
-describe("requeueFromScratch", () => {
-  it("clears the work and queues the report again", async () => {
+describe("wipeReport", () => {
+  it("clears everything generated and queues the report again", async () => {
     const { f, reportId } = await withDraft();
+    await saveEdits(f.reviewDeps, reportId, { bottomLine: "My own takeaway." });
 
-    const requeued = await requeueFromScratch(f.reviewDeps, reportId);
+    const wiped = await wipeReport(f.reviewDeps, reportId);
 
-    expect(requeued).toMatchObject({
+    expect(wiped).toMatchObject({
       status: "pending",
+      rubricVersion: null,
       extractionRuns: [],
       aggregate: null,
+      scoring: null,
+      pack: null,
+      comparison: null,
       report: null,
       generatedReport: null,
+      narrativeViolations: [],
+      textViolations: [],
       error: null,
+      releasedAt: null,
+      releasedBy: null,
     });
     const result = await runSweep(f.deps);
     expect(result.processed).toEqual({ reportId, outcome: "draft" });
+    // The new report is built fresh: the earlier edit is gone.
+    const regenerated = (await f.reportRepo.getById(reportId))!;
+    expect(regenerated.report?.bottomLine).not.toBe("My own takeaway.");
   });
 
-  it("works for a failed report", async () => {
+  it("works for a failed or skipped report", async () => {
     const f = await setup({ model: { failNarrative: true } });
     await f.addInterview(8);
     const swept = await runSweep(f.deps);
+    expect((await wipeReport(f.reviewDeps, swept.processed!.reportId)).status).toBe("pending");
 
-    const requeued = await requeueFromScratch(f.reviewDeps, swept.processed!.reportId);
-
-    expect(requeued.status).toBe("pending");
+    const short = await f.addInterview(2, "Short");
+    await runSweep(f.deps);
+    const skipped = (await f.reportRepo.getByInterviewId(short))!;
+    expect(skipped.status).toBe("skipped");
+    expect((await wipeReport(f.reviewDeps, skipped.id)).status).toBe("pending");
   });
 
-  it("refuses for a released report", async () => {
+  it("works for a report that was already emailed, and keeps when it was emailed", async () => {
     const { f, reportId } = await withDraft();
-    await release(f, reportId);
+    const { report: sent } = await release(f, reportId);
 
-    await expect(requeueFromScratch(f.reviewDeps, reportId)).rejects.toThrow(
-      InvalidReportStateError,
-    );
+    const wiped = await wipeReport(f.reviewDeps, reportId);
+
+    expect(wiped.status).toBe("pending");
+    expect(wiped.releasedAt).toBeNull();
+    expect(wiped.emailSentAt?.toISOString()).toBe(sent.emailSentAt?.toISOString());
+  });
+
+  it("refuses while the report is waiting or being worked on", async () => {
+    const f = await setup();
+    const interviewId = await f.addInterview(8);
+    const { report } = await f.reportRepo.enqueue({ interviewId, studyId: f.studyId });
+
+    await expect(wipeReport(f.reviewDeps, report.id)).rejects.toThrow(/pending/);
+    await f.reportRepo.update(report.id, { status: "generating" });
+    await expect(wipeReport(f.reviewDeps, report.id)).rejects.toThrow(/generating/);
+  });
+
+  it("throws for a report that does not exist", async () => {
+    const f = await setup();
+
+    await expect(wipeReport(f.reviewDeps, "missing")).rejects.toThrow(ReportNotFoundError);
+  });
+
+  it("sends the replacement as an update that says it replaces the earlier report", async () => {
+    const { f, reportId } = await withDraft();
+    const { report: first } = await release(f, reportId);
+    await wipeReport(f.reviewDeps, reportId);
+    await runSweep(f.deps);
+
+    const second = await release(f, reportId);
+
+    expect(second.emailSent).toBe(true);
+    expect(f.emailClient.sent).toHaveLength(2);
+    expect(f.emailClient.sent[0].subject).toBe("Your job search report is ready, Jordan");
+    expect(f.emailClient.sent[0].html).not.toContain("replaces");
+    expect(f.emailClient.sent[1].subject).toBe("Your updated job search report is ready, Jordan");
+    expect(f.emailClient.sent[1].html).toContain("This report replaces the one we sent you on");
+    const dateText = first.emailSentAt!.toLocaleDateString("en-US", {
+      month: "long",
+      day: "numeric",
+      year: "numeric",
+      timeZone: "UTC",
+    });
+    expect(f.emailClient.sent[1].html).toContain(dateText);
+  });
+
+  it("is released automatically when the new report is clean, like any other", async () => {
+    const f = await setup();
+    await f.addInterview(8, "Jordan");
+    const autoDeps = {
+      ...f.deps,
+      autoRelease: (id: string) =>
+        releaseReport(f.reviewDeps, id, { releasedBy: AUTO_RELEASE_ACTOR }),
+    };
+    const first = await runSweep(autoDeps);
+    const reportId = first.processed!.reportId;
+    expect(first.autoRelease?.outcome).toBe("released");
+
+    await wipeReport(f.reviewDeps, reportId);
+    const second = await runSweep(autoDeps);
+
+    expect(second.autoRelease?.outcome).toBe("released");
+    expect(f.emailClient.sent).toHaveLength(2);
+    expect(f.emailClient.sent[1].subject).toBe("Your updated job search report is ready, Jordan");
+  });
+
+  it("waits for a reviewer when the new report is not clean", async () => {
+    const f = await setup({ model: { disagree: true } });
+    await f.addInterview(8, "Jordan");
+    const reportId = (await runSweep(f.deps)).processed!.reportId;
+    await release(f, reportId, { acknowledgeViolations: true });
+    await wipeReport(f.reviewDeps, reportId);
+
+    const result = await runSweep({
+      ...f.deps,
+      autoRelease: (id) => releaseReport(f.reviewDeps, id, { releasedBy: AUTO_RELEASE_ACTOR }),
+    });
+
+    expect(result.autoRelease?.outcome).toBe("held");
+    expect((await f.reportRepo.getById(reportId))?.status).toBe("draft");
+    expect(f.emailClient.sent).toHaveLength(1);
   });
 });
 
 describe("releaseReport", () => {
-  it("releases a draft with a private link and emails it to the participant", async () => {
+  it("releases a draft and emails it to the participant", async () => {
     const { f, reportId } = await withDraft();
 
     const result = await release(f, reportId);
 
     expect(result.emailSent).toBe(true);
     expect(result.report).toMatchObject({ status: "released", releasedBy: "pm@example.com" });
-    expect(result.report.accessToken).toMatch(/^[A-Za-z0-9_-]{43}$/);
     expect(result.report.emailSentAt).toBeInstanceOf(Date);
-    expect((await f.reportRepo.getByAccessToken(result.report.accessToken!))?.id).toBe(reportId);
 
     expect(f.emailClient.sent).toHaveLength(1);
     expect(f.emailClient.sent[0].to).toBe("jordan@example.com");
     expect(f.emailClient.sent[0].subject).toBe("Your job search report is ready, Jordan");
     expect(f.emailClient.sent[0].html).toContain("attached");
     expect(f.emailClient.sent[0].html).toContain("The attached report has the detail");
-    expect(f.emailClient.sent[0].html).not.toContain("/report/");
 
     // The short version is in the email itself.
     expect(f.emailClient.sent[0].html).toContain("Working well");
@@ -351,7 +441,6 @@ describe("releaseReport", () => {
     expect(result.emailError).toBe("mail server down");
     expect(result.report.status).toBe("released");
     expect(result.report.emailSentAt).toBeNull();
-    expect(result.report.accessToken).toBeTruthy();
   });
 
   it("refuses a report that is not ready", async () => {
@@ -362,16 +451,11 @@ describe("releaseReport", () => {
     await expect(release(f, report.id)).rejects.toThrow(InvalidReportStateError);
   });
 
-  it("can release a withdrawn report again, with a new link", async () => {
+  it("refuses a report that was already released", async () => {
     const { f, reportId } = await withDraft();
-    const first = await release(f, reportId);
-    await withdrawReport(f.reviewDeps, reportId);
+    await release(f, reportId);
 
-    const second = await release(f, reportId);
-
-    expect(second.report.status).toBe("released");
-    expect(second.report.accessToken).not.toBe(first.report.accessToken);
-    expect(second.report.withdrawnAt).toBeNull();
+    await expect(release(f, reportId)).rejects.toThrow(InvalidReportStateError);
   });
 });
 
@@ -398,25 +482,6 @@ describe("resendReportEmail", () => {
     const result = await resendReportEmail(f.reviewDeps, reportId);
 
     expect(result).toMatchObject({ emailSent: false, emailError: "still down" });
-  });
-});
-
-describe("withdrawReport", () => {
-  it("takes a released report offline: the link no longer finds it", async () => {
-    const { f, reportId } = await withDraft();
-    const { report } = await release(f, reportId);
-
-    const withdrawn = await withdrawReport(f.reviewDeps, reportId);
-
-    expect(withdrawn).toMatchObject({ status: "withdrawn", accessToken: null });
-    expect(withdrawn.withdrawnAt).toBeInstanceOf(Date);
-    expect(await f.reportRepo.getByAccessToken(report.accessToken!)).toBeNull();
-  });
-
-  it("refuses unless the report is released", async () => {
-    const { f, reportId } = await withDraft();
-
-    await expect(withdrawReport(f.reviewDeps, reportId)).rejects.toThrow(InvalidReportStateError);
   });
 });
 
@@ -448,7 +513,15 @@ describe("report email", () => {
     expect(email.html).not.toContain("Not working as well");
   });
 
-  it("builds the report URL without doubled slashes and encodes the token", () => {
-    expect(reportUrl("https://x.example/", "a/b c")).toBe("https://x.example/report/a%2Fb%20c");
+  it("says it replaces an earlier report, with its date, and changes the subject", () => {
+    const earlier = new Date("2026-10-09T18:30:00.000Z");
+
+    const email = renderReportEmail({ firstName: "Sam", tldr, replaces: earlier });
+
+    expect(email.subject).toBe("Your updated job search report is ready, Sam");
+    expect(email.html).toContain("This report replaces the one we sent you on October 9, 2026.");
+    const plain = renderReportEmail({ firstName: "Sam", tldr, replaces: null });
+    expect(plain.subject).toBe("Your job search report is ready, Sam");
+    expect(plain.html).not.toContain("replaces");
   });
 });

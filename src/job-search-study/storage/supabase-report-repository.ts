@@ -59,11 +59,9 @@ function toReport(row: JobSearchReportRow): JobSearchReport {
     textViolations: (row.text_violations as string[] | null) ?? [],
     error: row.error,
     attempts: row.attempts,
-    accessToken: row.access_token,
     releasedAt: date(row.released_at),
     releasedBy: row.released_by,
     emailSentAt: date(row.email_sent_at),
-    withdrawnAt: date(row.withdrawn_at),
     createdAt: new Date(row.created_at),
     updatedAt: new Date(row.updated_at),
   };
@@ -95,11 +93,9 @@ function toRowPatch(patch: JobSearchReportPatch): Record<string, unknown> {
   set("textViolations", "text_violations");
   set("error", "error");
   set("attempts", "attempts");
-  set("accessToken", "access_token");
   set("releasedAt", "released_at", (v) => iso(v as Date | null));
   set("releasedBy", "released_by");
   set("emailSentAt", "email_sent_at", (v) => iso(v as Date | null));
-  set("withdrawnAt", "withdrawn_at", (v) => iso(v as Date | null));
   return columns;
 }
 
@@ -145,16 +141,6 @@ export class SupabaseJobSearchReportRepository implements JobSearchReportReposit
       .from("job_search_reports")
       .select()
       .eq("interview_id", interviewId)
-      .maybeSingle();
-    if (error) throw new Error(`Failed to fetch job-search report: ${error.message}`);
-    return data ? toReport(data as JobSearchReportRow) : null;
-  }
-
-  async getByAccessToken(token: string) {
-    const { data, error } = await this.client
-      .from("job_search_reports")
-      .select()
-      .eq("access_token", token)
       .maybeSingle();
     if (error) throw new Error(`Failed to fetch job-search report: ${error.message}`);
     return data ? toReport(data as JobSearchReportRow) : null;
