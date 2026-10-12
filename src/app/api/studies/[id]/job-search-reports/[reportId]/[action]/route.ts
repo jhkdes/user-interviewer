@@ -4,10 +4,10 @@ import { reviewErrorResponse } from "@/job-search-study/pipeline/http-errors";
 import {
   regenerateNarrative,
   releaseReport,
-  requeueFromScratch,
   resendReportEmail,
-  withdrawReport,
+  wipeReport,
 } from "@/job-search-study/pipeline/review-actions";
+import { triggerReportSweep } from "@/job-search-study/pipeline/trigger";
 import { getJobSearchReportRepository } from "@/job-search-study/storage/get-report-repository";
 import { createServerComponentSupabaseClient } from "@/lib/supabase/server-client";
 
@@ -17,7 +17,7 @@ export const maxDuration = 120;
 
 type Params = { params: { id: string; reportId: string; action: string } };
 
-/** Reviewer actions: regenerate, requeue, release, resend-email, withdraw. */
+/** Reviewer actions: regenerate, wipe, release, resend-email. */
 export async function POST(request: Request, { params }: Params) {
   const existing = await getJobSearchReportRepository().getById(params.reportId);
   if (!existing || existing.studyId !== params.id) {
@@ -29,10 +29,12 @@ export async function POST(request: Request, { params }: Params) {
     switch (params.action) {
       case "regenerate":
         return NextResponse.json(await regenerateNarrative(deps, params.reportId));
-      case "requeue":
-        return NextResponse.json(await requeueFromScratch(deps, params.reportId));
-      case "withdraw":
-        return NextResponse.json(await withdrawReport(deps, params.reportId));
+      case "wipe": {
+        const wiped = await wipeReport(deps, params.reportId);
+        // Start the sweep now instead of waiting for the next scheduled run.
+        await triggerReportSweep();
+        return NextResponse.json(wiped);
+      }
       case "resend-email":
         return NextResponse.json(await resendReportEmail(deps, params.reportId));
       case "release": {

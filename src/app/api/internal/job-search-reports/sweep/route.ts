@@ -21,7 +21,10 @@ async function handle(request: Request) {
     const result = await runSweep(getPipelineDeps());
     console.log(
       `Job-search report sweep: enqueued ${result.enqueued}, skipped ${result.skipped}, ` +
-        `processed ${result.processed ? `${result.processed.reportId} (${result.processed.outcome})` : "nothing"}`,
+        `processed ${result.processed ? `${result.processed.reportId} (${result.processed.outcome})` : "nothing"}` +
+        (result.autoRelease
+          ? `, auto-release ${result.autoRelease.outcome}${result.autoRelease.reasons.length ? ` (${result.autoRelease.reasons.join("; ")})` : ""}`
+          : ""),
     );
     return NextResponse.json(result);
   } catch (error) {

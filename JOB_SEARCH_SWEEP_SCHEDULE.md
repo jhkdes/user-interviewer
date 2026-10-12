@@ -174,6 +174,13 @@ curl -X POST -H "Authorization: Bearer $CRON_SECRET" https://yourapp.com/api/int
 
 ## What the schedule does not do
 
-- It does not retry **failed** reports. A reviewer re-runs those from the review
-  page ("Re-run from scratch").
-- It does not release anything. A draft always waits for a reviewer.
+- It does not retry **failed** reports. A reviewer wipes and regenerates those from
+  the review page ("Wipe and regenerate"). Wiping works for any report that is not
+  already waiting or being generated, including one that was emailed: the sweep builds
+  a new report, which is released automatically if it is clean (and the email says it
+  replaces the earlier one) or waits for review if it is not.
+- It releases a report only when it is **clean**: no rule violations in the text and
+  no low-confidence ratings. A clean report is emailed to the participant straight
+  away, with no reviewer. Anything else stays a draft for a reviewer. Set
+  `AUTO_RELEASE_REPORTS=false` in Vercel to turn automatic release off so every
+  report waits for review.

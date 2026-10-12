@@ -1,4 +1,3 @@
-import { randomBytes } from "node:crypto";
 import { generateReport } from "../report/generate";
 import { renderReportHtml } from "../report/render-html";
 import { renderReportPdf } from "../report/render-pdf";
@@ -79,13 +78,19 @@ export async function regenerateNarrative(
   });
 }
 
-/** Throws the work away and queues the report to be extracted from scratch. Allowed for a draft, a failed report, or a skipped one. */
-export async function requeueFromScratch(
-  deps: ReviewDeps,
-  reportId: string,
-): Promise<JobSearchReport> {
+/**
+ * Wipes everything generated for a report (extraction, scores, text, edits, and
+ * any release) so the next sweep builds a new one from the interview. Allowed
+ * for any report that is not waiting or being worked on, including one that was
+ * already emailed. When the new report is ready it follows the normal rules: a
+ * clean one is released automatically, any other waits for a reviewer. The date
+ * of an earlier email is kept, so the replacement email can say it replaces it.
+ */
+export async function wipeReport(deps: ReviewDeps, reportId: string): Promise<JobSearchReport> {
   const report = await load(deps, reportId);
-  requireStatus(report, ["draft", "failed", "skipped"], "re-run");
+  if (report.status === "pending" || report.status === "generating") {
+    throw new InvalidReportStateError(`Cannot wipe a report that is ${report.status}.`);
+  }
   return deps.reportRepo.update(reportId, {
     status: "pending",
     rubricVersion: null,
@@ -99,6 +104,8 @@ export async function requeueFromScratch(
     narrativeViolations: [],
     textViolations: [],
     error: null,
+    releasedAt: null,
+    releasedBy: null,
   });
 }
 
@@ -119,6 +126,7 @@ export interface ReleaseResult {
 async function sendReportEmail(
   deps: ReviewDeps,
   report: JobSearchReport,
+  replaces: Date | null,
 ): Promise<{ sent: boolean; error: string | null }> {
   const interview = await deps.interviewRepo.getById(report.interviewId);
   if (!interview) return { sent: false, error: "The interview no longer exists." };
@@ -127,6 +135,7 @@ async function sendReportEmail(
   const { subject, html } = renderReportEmail({
     firstName: interview.firstName,
     tldr: buildTldr(report.report),
+    replaces,
   });
   let attachment: { filename: string; content: string };
   try {
@@ -148,8 +157,9 @@ async function sendReportEmail(
 
 /**
  * Releases a reviewed draft: emails the participant the report as an attached
- * PDF, and also makes it available at a private link. A failed email does not undo the release; the result says so and the
- * email can be resent. A withdrawn report can be released again with a new link.
+ * PDF. If they were emailed an earlier report for this interview (one that was
+ * since wiped), the email says it replaces that one. A failed email does not
+ * undo the release; the result says so and the email can be resent.
  */
 export async function releaseReport(
   deps: ReviewDeps,
@@ -157,7 +167,7 @@ export async function releaseReport(
   options: ReleaseOptions,
 ): Promise<ReleaseResult> {
   const report = await load(deps, reportId);
-  requireStatus(report, ["draft", "withdrawn"], "release");
+  requireStatus(report, ["draft"], "release");
   if (!report.report) throw new InvalidReportStateError("This report has no content to release.");
 
   const violations = [...report.narrativeViolations, ...report.textViolations];
@@ -167,14 +177,12 @@ export async function releaseReport(
   const now = (deps.now ?? (() => new Date()))();
   const released = await deps.reportRepo.update(reportId, {
     status: "released",
-    accessToken: randomBytes(32).toString("base64url"),
     releasedAt: now,
     releasedBy: options.releasedBy,
     emailSentAt: null,
-    withdrawnAt: null,
   });
 
-  const email = await sendReportEmail(deps, released);
+  const email = await sendReportEmail(deps, released, report.emailSentAt);
   const final = email.sent
     ? await deps.reportRepo.update(reportId, { emailSentAt: now })
     : released;
@@ -189,20 +197,8 @@ export async function resendReportEmail(
   const report = await load(deps, reportId);
   requireStatus(report, ["released"], "email");
 
-  const email = await sendReportEmail(deps, report);
+  const email = await sendReportEmail(deps, report, null);
   const now = (deps.now ?? (() => new Date()))();
   const final = email.sent ? await deps.reportRepo.update(reportId, { emailSentAt: now }) : report;
   return { report: final, emailSent: email.sent, emailError: email.error };
-}
-
-/** Takes a released report offline: the link stops working immediately. */
-export async function withdrawReport(deps: ReviewDeps, reportId: string): Promise<JobSearchReport> {
-  const report = await load(deps, reportId);
-  requireStatus(report, ["released"], "withdraw");
-  const now = (deps.now ?? (() => new Date()))();
-  return deps.reportRepo.update(reportId, {
-    status: "withdrawn",
-    accessToken: null,
-    withdrawnAt: now,
-  });
 }
