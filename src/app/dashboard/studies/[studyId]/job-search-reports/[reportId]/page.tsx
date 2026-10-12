@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { AUTO_RELEASE_ACTOR } from "@/job-search-study/pipeline/auto-release";
 import { reportUrl } from "@/job-search-study/pipeline/report-email";
 import { loadExperimentLibrary } from "@/job-search-study/report/experiments";
 import { renderReportHtml } from "@/job-search-study/report/render-html";
@@ -86,6 +87,7 @@ export default async function JobSearchReportReviewPage({
         library={library}
         shareUrl={shareUrl}
         emailSent={report.emailSentAt !== null}
+        autoReleased={report.releasedBy === AUTO_RELEASE_ACTOR}
       />
 
       {report.report && (

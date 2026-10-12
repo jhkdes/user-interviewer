@@ -13,6 +13,8 @@ interface Props {
   library: Array<{ id: string; title: string; track: string }>;
   shareUrl: string | null;
   emailSent: boolean;
+  /** True when the report went out automatically, with no reviewer. */
+  autoReleased: boolean;
 }
 
 const BTN = "rounded px-3 py-1.5 text-sm disabled:opacity-60";
@@ -30,6 +32,7 @@ export function ReviewPanel({
   library,
   shareUrl,
   emailSent,
+  autoReleased,
 }: Props) {
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
@@ -129,7 +132,8 @@ export function ReviewPanel({
       {status === "released" && shareUrl && (
         <div className="rounded border border-green-300 p-3 text-sm dark:border-green-800">
           <p className="font-medium">
-            Released{emailSent ? " and emailed" : " (the email has not been sent)"}.
+            Released{autoReleased ? " automatically, with no review" : ""}
+            {emailSent ? " and emailed" : " (the email has not been sent)"}.
           </p>
           <p className="mt-1 break-all">
             Private link:{" "}

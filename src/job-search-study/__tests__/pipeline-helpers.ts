@@ -5,7 +5,7 @@ import { InMemoryStudyRepository } from "@/repositories/in-memory/in-memory-stud
 import type { StructuredCompletion } from "../extraction/extract";
 import type { NarrativePack } from "../report/narrative";
 import type { PipelineDeps, ReviewDeps } from "../pipeline/types";
-import { loadRubric } from "../rubric/rubric";
+import { loadRubric, type Score } from "../rubric/rubric";
 import { InMemoryJobSearchReportRepository } from "../storage/in-memory-report-repository";
 import { blankLedger, toWireLedger, withEntry } from "./ledger-helpers";
 
@@ -29,13 +29,13 @@ export function buildTranscript(participantTurns: number): TranscriptEntry[] {
 }
 
 /** The wire-format ledger a model would return for the transcript above: every behavior rated 3 with a verifiable quote. */
-function wireLedger() {
+function wireLedger(firstBehaviorScore: Score = 3) {
   let ledger = blankLedger(rubric);
   for (const behavior of rubric.behaviors) {
     ledger = withEntry(ledger, {
       id: behavior.id,
       status: "rated",
-      score: 3,
+      score: behavior.id === rubric.behaviors[0].id ? firstBehaviorScore : 3,
       evidenceBasis: "concrete_example",
       subSignals: [{ name: behavior.subSignals[0], observation: "Described in the interview" }],
       quotes: [{ turnIndex: 1, text: "I mostly apply through LinkedIn" }],
@@ -58,6 +58,8 @@ export interface FakeModelOptions {
   failExtractionCalls?: number;
   /** Reject every narrative call. */
   failNarrative?: boolean;
+  /** Extraction runs disagree about the first behavior (0 on some runs, 4 on others), so it is low confidence. */
+  disagree?: boolean;
   /** Replace the executive summary the fake writer returns (for example to include a banned word). */
   executiveSummary?: string;
 }
@@ -91,7 +93,7 @@ export function makeFakeModel(options: FakeModelOptions = {}) {
     calls.extraction++;
     if (calls.extraction <= (options.failExtractionCalls ?? 0))
       throw new Error("extraction model down");
-    return wireLedger();
+    return wireLedger(options.disagree ? (calls.extraction % 2 === 1 ? 0 : 4) : 3);
   };
   return { complete, calls };
 }

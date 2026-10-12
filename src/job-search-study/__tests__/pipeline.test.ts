@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { enqueueEligibleReports } from "../pipeline/enqueue";
 import { processReport } from "../pipeline/process-report";
+import {
+  AUTO_RELEASE_ACTOR,
+  autoReleaseBlockers,
+  autoReleaseEnabled,
+} from "../pipeline/auto-release";
+import { releaseReport } from "../pipeline/review-actions";
 import { runSweep } from "../pipeline/sweep";
 import { STALE_AFTER_MS } from "../pipeline/types";
 import { loadRubric } from "../rubric/rubric";
@@ -261,5 +267,158 @@ describe("runSweep", () => {
     const f = await setup();
 
     expect(await runSweep(f.deps)).toEqual({ enqueued: 0, skipped: 0, processed: null });
+  });
+});
+
+describe("automatic release", () => {
+  /** A sweep that releases clean reports the way the live wiring does. */
+  const withAutoRelease = (f: Awaited<ReturnType<typeof setup>>) => ({
+    ...f.deps,
+    autoRelease: (reportId: string) =>
+      releaseReport(f.reviewDeps, reportId, { releasedBy: AUTO_RELEASE_ACTOR }),
+  });
+
+  it("releases and emails a clean report with no reviewer", async () => {
+    const f = await setup();
+    await f.addInterview(8, "Jordan");
+
+    const result = await runSweep(withAutoRelease(f));
+
+    expect(result.autoRelease).toEqual({
+      reportId: result.processed!.reportId,
+      outcome: "released",
+      reasons: [],
+    });
+    const stored = (await f.reportRepo.getById(result.processed!.reportId))!;
+    expect(stored).toMatchObject({ status: "released", releasedBy: AUTO_RELEASE_ACTOR });
+    expect(stored.accessToken).toBeTruthy();
+    expect(stored.emailSentAt).toBeInstanceOf(Date);
+    expect(f.emailClient.sent).toHaveLength(1);
+    expect(f.emailClient.sent[0].to).toBe("jordan@example.com");
+    expect(f.emailClient.sent[0].attachments?.[0].filename).toBe("Your-Job-Search-Report.pdf");
+  });
+
+  it("holds a report with rule violations for a reviewer, and sends nothing", async () => {
+    const f = await setup({ model: { executiveSummary: "He has a clear target." } });
+    await f.addInterview(8);
+
+    const result = await runSweep(withAutoRelease(f));
+
+    expect(result.autoRelease).toMatchObject({ outcome: "held" });
+    expect(result.autoRelease!.reasons.join(" ")).toMatch(/rule violation/);
+    expect((await f.reportRepo.getById(result.processed!.reportId))?.status).toBe("draft");
+    expect(f.emailClient.sent).toHaveLength(0);
+  });
+
+  it("holds a report with a low-confidence rating for a reviewer", async () => {
+    const f = await setup({ model: { disagree: true } });
+    await f.addInterview(8);
+
+    const result = await runSweep(withAutoRelease(f));
+
+    expect(result.autoRelease).toMatchObject({ outcome: "held" });
+    expect(result.autoRelease!.reasons.join(" ")).toMatch(/low-confidence rating for F1/);
+    expect((await f.reportRepo.getById(result.processed!.reportId))?.status).toBe("draft");
+    expect(f.emailClient.sent).toHaveLength(0);
+  });
+
+  it("does not consider release when it is not wired up", async () => {
+    const f = await setup();
+    await f.addInterview(8);
+
+    const result = await runSweep(f.deps);
+
+    expect(result.autoRelease).toBeUndefined();
+    expect((await f.reportRepo.getById(result.processed!.reportId))?.status).toBe("draft");
+    expect(f.emailClient.sent).toHaveLength(0);
+  });
+
+  it("does not consider release for a report that failed", async () => {
+    const f = await setup({ model: { failNarrative: true } });
+    await f.addInterview(8);
+
+    const result = await runSweep(withAutoRelease(f));
+
+    expect(result.processed?.outcome).toBe("failed");
+    expect(result.autoRelease).toBeUndefined();
+  });
+
+  it("keeps the report released and says why when the email cannot be sent", async () => {
+    const f = await setup();
+    await f.addInterview(8);
+    f.emailClient.scriptFailure(new Error("mail server down"));
+
+    const result = await runSweep(withAutoRelease(f));
+
+    expect(result.autoRelease).toMatchObject({
+      outcome: "email_failed",
+      reasons: ["mail server down"],
+    });
+    const stored = (await f.reportRepo.getById(result.processed!.reportId))!;
+    expect(stored.status).toBe("released");
+    expect(stored.emailSentAt).toBeNull();
+    expect(stored.error).toMatch(
+      /Released automatically, but the email was not sent: mail server down/,
+    );
+  });
+
+  it("leaves the draft for a reviewer when the release itself throws", async () => {
+    const f = await setup();
+    await f.addInterview(8);
+
+    const result = await runSweep({
+      ...f.deps,
+      autoRelease: async () => {
+        throw new Error("database unavailable");
+      },
+    });
+
+    expect(result.autoRelease).toMatchObject({ outcome: "held" });
+    expect(result.autoRelease!.reasons[0]).toMatch(/release failed: database unavailable/);
+    expect((await f.reportRepo.getById(result.processed!.reportId))?.status).toBe("draft");
+  });
+});
+
+describe("autoReleaseBlockers", () => {
+  async function draft(options: Parameters<typeof setup>[0] = {}) {
+    const f = await setup(options);
+    await f.addInterview(8);
+    const { processed } = await runSweep(f.deps);
+    return (await f.reportRepo.getById(processed!.reportId))!;
+  }
+
+  it("is empty for a clean draft", async () => {
+    expect(autoReleaseBlockers(await draft())).toEqual([]);
+  });
+
+  it("lists each reason a report must wait", async () => {
+    const violations = await draft({ model: { executiveSummary: "He has a clear target." } });
+    expect(autoReleaseBlockers(violations)).toEqual([
+      expect.stringMatching(/1 rule violation in the text/),
+    ]);
+
+    const lowConfidence = await draft({ model: { disagree: true } });
+    expect(autoReleaseBlockers(lowConfidence)).toEqual([
+      expect.stringMatching(/low-confidence rating for F1/),
+    ]);
+
+    const clean = await draft();
+    expect(autoReleaseBlockers({ ...clean, status: "released" })).toEqual([
+      expect.stringMatching(/released, not a draft/),
+    ]);
+    expect(autoReleaseBlockers({ ...clean, report: null })).toEqual([
+      expect.stringMatching(/no report content/),
+    ]);
+  });
+});
+
+describe("autoReleaseEnabled", () => {
+  it("is on unless turned off", () => {
+    expect(autoReleaseEnabled({})).toBe(true);
+    expect(autoReleaseEnabled({ AUTO_RELEASE_REPORTS: "" })).toBe(true);
+    expect(autoReleaseEnabled({ AUTO_RELEASE_REPORTS: "true" })).toBe(true);
+    for (const off of ["false", "FALSE", " 0 ", "no", "off"]) {
+      expect(autoReleaseEnabled({ AUTO_RELEASE_REPORTS: off }), off).toBe(false);
+    }
   });
 });

@@ -21,6 +21,12 @@ export interface PipelineDeps {
   extractionRuns?: number;
   /** Interviews with fewer participant turns than this are skipped as too short to analyze. Default 6. */
   minParticipantTurns?: number;
+  /**
+   * Releases a report and emails the participant, without a reviewer. When set,
+   * the sweep calls it for each freshly generated draft that is clean (see
+   * autoReleaseBlockers). Leave it unset to keep every report for review.
+   */
+  autoRelease?: (reportId: string) => Promise<{ emailSent: boolean; emailError: string | null }>;
 }
 
 /** What a reviewer's actions need: the repositories, plus the model (to regenerate) and email (to release). */

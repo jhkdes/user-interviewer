@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Interview } from "@/domain";
 import { getJobSearchReportRepository } from "@/job-search-study/storage/get-report-repository";
+import { AUTO_RELEASE_ACTOR } from "@/job-search-study/pipeline/auto-release";
 import { ProcessNowButton } from "./process-now-button";
 import { StatusChip } from "./status-chip";
 
@@ -19,8 +20,9 @@ export async function JobSearchReportsSection({
     <section className="mt-8">
       <h2 className="font-semibold">Participant reports</h2>
       <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
-        Each completed interview becomes a draft report. Review it, edit the wording, then release
-        it to email the participant their private link.
+        Each completed interview becomes a report. A clean one (no rule violations, no
+        low-confidence ratings) is released and emailed automatically; any other waits here as a
+        draft for you to review, edit, and release.
       </p>
       {reports.length === 0 ? (
         <p className="mt-2 text-sm text-neutral-500 dark:text-neutral-400">No reports yet.</p>
@@ -54,6 +56,9 @@ export async function JobSearchReportsSection({
                       <span className="text-amber-600 dark:text-amber-400">email not sent</span>
                     )}
                     <StatusChip status={report.status} />
+                    {report.status === "released" && report.releasedBy === AUTO_RELEASE_ACTOR && (
+                      <span className="text-neutral-500 dark:text-neutral-400">auto-released</span>
+                    )}
                     <span className="text-neutral-400">
                       {report.updatedAt.toLocaleDateString()}
                     </span>
