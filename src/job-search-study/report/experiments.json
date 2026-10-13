@@ -26,7 +26,7 @@
         "List the role, level, industry, type of company, location or work setting, pay, and the kind of work you want.",
         "Mark each item Must-have or Flexible, and write one line on why.",
         "Identify 10-20 target companies that you would like to join.",
-        "Keep the page where you search, and read it before you apply."
+        "Write down three reasons you would reject a posting, even if it matches target criteria."
       ],
       "effort": "About 30 minutes, once",
       "track": "Whether you can say in one sentence why each role you apply to fits your page."
@@ -66,10 +66,10 @@
       "title": "Match your time to the opportunity",
       "why": "Putting your best effort where it counts leaves you free to move quickly on roles that are less likely to lead anywhere.",
       "steps": [
+        "Before assigning a tier, check whether you meet the role's critical requirements, such as required expertise, location, authorization, or experience.",
         "Sort roles into A (strong fit and you want it), B (reasonable fit), and C (a stretch).",
-        "Give A roles your full effort, for example 45 to 60 minutes with tailoring and research.",
-        "Give B roles a lighter pass of 15 to 20 minutes, and either skip C roles or send them with minimal effort.",
-        "Keep the same tiers for two weeks before changing them."
+        "For every A-tier opportunity, identify one additional action beyond submitting the application, such as contacting an employee or recruiter.",
+        "Give B-tier roles a lighter pass of customization by limiting time spent to 15 to 20 minutes, and either skip C roles or send them with minimal effort."
       ],
       "effort": "Reshuffles your time rather than adding to it",
       "track": "How many applications you send at each tier, and the responses from each."
@@ -97,9 +97,9 @@
       "why": "A role where someone knows who you are before or soon after you apply gives your application a better chance of being read.",
       "steps": [
         "Search for former colleagues, shared connections, or employees at the company.",
-        "Find the recruiter or hiring manager if you can.",
-        "Send a short, specific note about why the role interests you.",
-        "Apply either way."
+        "Find the recruiter or hiring manager, and send a specific note about why the role interests you.",
+        "Give a potential referrer the job link, your resume, and two or three specific reasons you match the role.",
+        "Do not delay a strong application indefinitely while waiting for a referral; coordinate timing when possible and apply promptly."
       ],
       "effort": "10 to 15 minutes per priority role",
       "track": "How many priority roles had a human contact, and how those responded compared with ones without."
@@ -142,7 +142,7 @@
         "Make a sheet with columns for date, role, source, time spent, response, and outcome.",
         "Fill it in as you apply, in under a minute.",
         "Once a week, spend 10 minutes counting responses and interviews by source.",
-        "Use email Inbox to track each application."
+        "Use email folders or labels to organize correspondence."
       ],
       "effort": "About one minute per application, plus 10 minutes a week",
       "track": "Interviews per 10 applications, by source."
