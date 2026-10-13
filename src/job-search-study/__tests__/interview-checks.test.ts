@@ -4,6 +4,7 @@ import {
   estimateSpokenSeconds,
   askedPostingAge,
   askedStrengths,
+  findCompoundQuestions,
   askedSupportProvider,
   needsSupportProviderQuestion,
   findCoachingViolations,
@@ -142,6 +143,66 @@ describe("askedPostingAge", () => {
   });
 });
 
+describe("findCompoundQuestions", () => {
+  it("flags a turn with two question marks", () => {
+    const turns = [
+      interviewer(
+        "Got it. What is your job target? Have you asked your network what you are good at?",
+      ),
+    ];
+
+    expect(findCompoundQuestions(turns)).toEqual([{ turnIndex: 0, questions: 2 }]);
+  });
+
+  it("flags a second question joined on with and, with no question mark of its own", () => {
+    expect(
+      findCompoundQuestions([
+        interviewer(
+          "Roughly how long did that application take you, and is that typical of how you apply?",
+        ),
+        interviewer("What are you best at, and have you asked anyone else what they think?"),
+      ]),
+    ).toEqual([
+      { turnIndex: 0, questions: 2 },
+      { turnIndex: 1, questions: 2 },
+    ]);
+    expect(findCompoundQuestions([interviewer("What did you do, or how did you decide?")])).toEqual(
+      [{ turnIndex: 0, questions: 2 }],
+    );
+  });
+
+  it("does not flag one question, an either/or, or a question with a longer clause", () => {
+    expect(
+      findCompoundQuestions([
+        interviewer("Thanks. What would you say you are best at?"),
+        interviewer("Is that open on purpose, or not decided yet?"),
+        interviewer(
+          "Is that mix of roles a deliberate choice, or did it just happen as you applied?",
+        ),
+        interviewer(
+          "Walk me through the most recent job you applied for, from when you found it to when you submitted.",
+        ),
+        interviewer("Which outplacement provider is that, if you are comfortable saying?"),
+        interviewer("I'm Riley, and I'll be asking about your search. How is your week going?"),
+        participant("What do you mean? And why?"),
+      ]),
+    ).toEqual([]);
+  });
+
+  it("is reported by runInterviewChecks", () => {
+    const checks = runInterviewChecks(
+      [
+        interviewer("What is your target? Who did you ask?"),
+        participant("PM roles."),
+        interviewer("Thanks."),
+      ],
+      60,
+    );
+
+    expect(checks.compoundQuestions).toEqual([{ turnIndex: 0, questions: 2 }]);
+  });
+});
+
 describe("askedStrengths", () => {
   it("recognizes the strengths question, and not other questions", () => {
     expect(
@@ -231,6 +292,7 @@ describe("runInterviewChecks", () => {
       postingAgeAsked: false,
       supportProviderMissing: false,
       strengthsAsked: false,
+      compoundQuestions: [],
     });
   });
 

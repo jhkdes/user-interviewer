@@ -12,8 +12,8 @@ describe("endedEarly", () => {
   });
 
   it("uses the report's minimum for a study that makes one", () => {
-    expect(MIN_PARTICIPANT_TURNS_FOR_REPORT).toBe(12);
-    expect(endedEarly(call(11), MIN_PARTICIPANT_TURNS_FOR_REPORT)).toBe(true);
-    expect(endedEarly(call(12), MIN_PARTICIPANT_TURNS_FOR_REPORT)).toBe(false);
+    expect(MIN_PARTICIPANT_TURNS_FOR_REPORT).toBe(14);
+    expect(endedEarly(call(13), MIN_PARTICIPANT_TURNS_FOR_REPORT)).toBe(true);
+    expect(endedEarly(call(14), MIN_PARTICIPANT_TURNS_FOR_REPORT)).toBe(false);
   });
 });

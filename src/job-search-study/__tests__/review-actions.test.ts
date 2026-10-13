@@ -24,7 +24,7 @@ const rubric = loadRubric();
 /** A fixture with one interview already turned into a draft report. */
 async function withDraft(options: Parameters<typeof setup>[0] = {}) {
   const f = await setup(options);
-  await f.addInterview(12, "Jordan");
+  await f.addInterview(20, "Jordan");
   const result = await runSweep(f.deps);
   return { f, reportId: result.processed!.reportId };
 }
@@ -273,7 +273,7 @@ describe("wipeReport", () => {
 
   it("works for a failed report, including one that was too short", async () => {
     const f = await setup({ model: { failNarrative: true } });
-    await f.addInterview(12);
+    await f.addInterview(20);
     const swept = await runSweep(f.deps);
     expect((await wipeReport(f.reviewDeps, swept.processed!.reportId)).status).toBe("pending");
 
@@ -297,7 +297,7 @@ describe("wipeReport", () => {
 
   it("refuses while the report is waiting or being worked on", async () => {
     const f = await setup();
-    const interviewId = await f.addInterview(12);
+    const interviewId = await f.addInterview(20);
     const { report } = await f.reportRepo.enqueue({ interviewId, studyId: f.studyId });
 
     await expect(wipeReport(f.reviewDeps, report.id)).rejects.toThrow(/pending/);
@@ -336,7 +336,7 @@ describe("wipeReport", () => {
 
   it("is released automatically when the new report is clean, like any other", async () => {
     const f = await setup();
-    await f.addInterview(12, "Jordan");
+    await f.addInterview(20, "Jordan");
     const autoDeps = {
       ...f.deps,
       autoRelease: (id: string) =>
@@ -356,7 +356,7 @@ describe("wipeReport", () => {
 
   it("waits for a reviewer when the new report is not clean", async () => {
     const f = await setup({ model: { disagree: true } });
-    await f.addInterview(12, "Jordan");
+    await f.addInterview(20, "Jordan");
     const reportId = (await runSweep(f.deps)).processed!.reportId;
     await release(f, reportId, { acknowledgeViolations: true });
     await wipeReport(f.reviewDeps, reportId);
@@ -445,7 +445,7 @@ describe("releaseReport", () => {
 
   it("refuses a report that is not ready", async () => {
     const f = await setup();
-    const interviewId = await f.addInterview(12);
+    const interviewId = await f.addInterview(20);
     const { report } = await f.reportRepo.enqueue({ interviewId, studyId: f.studyId });
 
     await expect(release(f, report.id)).rejects.toThrow(InvalidReportStateError);

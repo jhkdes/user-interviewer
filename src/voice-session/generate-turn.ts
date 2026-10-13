@@ -1,6 +1,11 @@
 import type { Interview, Study } from "@/domain";
 import type { FeedbackAgent } from "@/interview-agent/feedback-agent";
 import type { InterviewAgent } from "@/interview-agent/interview-agent";
+import {
+  createOneQuestionLimiter,
+  limitToOneQuestion,
+  oneQuestionPerTurnEnabled,
+} from "@/interview-agent/one-question";
 import type { TerminationReason } from "@/interview-agent/termination";
 import type { InterviewTurn } from "@/llm";
 import type { InterviewRepository } from "@/repositories/interview-repository";
@@ -157,6 +162,16 @@ async function persistTurnSideEffects(
  * format requires (Vapi: an appended exact-phrase; ElevenLabs: an
  * `end_call` tool call — see each provider's `custom-llm-handler.ts`).
  */
+/**
+ * Whether this study's spoken replies are cut after their first question.
+ * Discovery interviews only: a feedback interview appends its own scripted
+ * "anything else you'd like to add?" question to the model's reply, which a cut
+ * would remove. Turned off by ONE_QUESTION_PER_TURN=false.
+ */
+function limitsToOneQuestion(study: Study): boolean {
+  return study.type !== "feedback" && oneQuestionPerTurnEnabled();
+}
+
 export async function generateTurn(
   deps: GenerateTurnDeps,
   input: GenerateTurnInput,
@@ -176,7 +191,10 @@ export async function generateTurn(
 
   await persistTurnSideEffects(deps, input.interviewId, now, result);
 
-  return { utterance: result.utterance, isInterviewOver: result.isInterviewOver };
+  const utterance = limitsToOneQuestion(study)
+    ? limitToOneQuestion(result.utterance)
+    : result.utterance;
+  return { utterance, isInterviewOver: result.isInterviewOver };
 }
 
 /**
@@ -194,6 +212,9 @@ export async function* generateTurnStreaming(
   const { interview, study } =
     input.preloaded ?? (await loadInterviewAndStudy(deps, input.interviewId));
   const now = deps.now ?? new Date();
+  // Spoken replies are cut after their first question (see one-question.ts).
+  const limiter = limitsToOneQuestion(study) ? createOneQuestionLimiter() : null;
+  const speak = (piece: string) => (limiter ? limiter.push(piece) : piece);
 
   let final:
     | (TurnSideEffects & {
@@ -208,7 +229,9 @@ export async function* generateTurnStreaming(
       buildFeedbackAgentInput(interview, study, input.messages, now),
     )) {
       if (event.type === "text-delta") {
-        yield { type: "text-delta", text: event.text };
+        const text = speak(event.text);
+        // An empty piece is still forwarded; only text after the first question is dropped.
+        if (text || !event.text) yield { type: "text-delta", text };
       } else {
         final = event.result;
       }
@@ -218,7 +241,9 @@ export async function* generateTurnStreaming(
       buildDiscoveryAgentInput(interview, study, input.messages, now),
     )) {
       if (event.type === "text-delta") {
-        yield { type: "text-delta", text: event.text };
+        const text = speak(event.text);
+        // An empty piece is still forwarded; only text after the first question is dropped.
+        if (text || !event.text) yield { type: "text-delta", text };
       } else {
         final = event.result;
       }
@@ -233,7 +258,7 @@ export async function* generateTurnStreaming(
 
   yield {
     type: "done",
-    utterance: final.utterance,
+    utterance: limiter ? limitToOneQuestion(final.utterance) : final.utterance,
     isInterviewOver: final.isInterviewOver,
     terminationReason: final.terminationReason,
   };

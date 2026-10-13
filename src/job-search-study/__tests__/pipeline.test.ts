@@ -16,7 +16,7 @@ import { setup } from "./pipeline-helpers";
 describe("enqueueEligibleReports", () => {
   it("queues completed interviews in job-search studies and records ones that are too short as failed, with the reason", async () => {
     const f = await setup();
-    const long = await f.addInterview(12);
+    const long = await f.addInterview(20);
     const short = await f.addInterview(3);
 
     const summary = await enqueueEligibleReports(f.deps);
@@ -26,7 +26,7 @@ describe("enqueueEligibleReports", () => {
     const tooShort = await f.reportRepo.getByInterviewId(short);
     expect(tooShort?.status).toBe("failed");
     expect(tooShort?.error).toMatch(
-      /Interview too short for a report: 3 participant turns \(needs at least 12\)/,
+      /Interview too short for a report: 3 participant turns \(needs at least 14\)/,
     );
   });
 
@@ -44,7 +44,7 @@ describe("enqueueEligibleReports", () => {
 
   it("ignores studies that do not use the job-search pipeline", async () => {
     const f = await setup({ reportPipeline: null });
-    await f.addInterview(12);
+    await f.addInterview(20);
 
     expect(await enqueueEligibleReports(f.deps)).toEqual({ enqueued: 0, skipped: 0 });
     expect(await f.reportRepo.listByStudyId(f.studyId)).toEqual([]);
@@ -52,7 +52,7 @@ describe("enqueueEligibleReports", () => {
 
   it("is safe to run repeatedly: one report per interview", async () => {
     const f = await setup();
-    await f.addInterview(12);
+    await f.addInterview(20);
 
     await enqueueEligibleReports(f.deps);
     const again = await enqueueEligibleReports(f.deps);
@@ -72,23 +72,23 @@ describe("enqueueEligibleReports", () => {
 });
 
 describe("the minimum interview length", () => {
-  it("is 12 participant turns, shared with the interview page", () => {
-    expect(MIN_PARTICIPANT_TURNS_FOR_REPORT).toBe(12);
+  it("is 14 participant turns, shared with the interview page", () => {
+    expect(MIN_PARTICIPANT_TURNS_FOR_REPORT).toBe(14);
     expect(DEFAULT_MIN_PARTICIPANT_TURNS).toBe(MIN_PARTICIPANT_TURNS_FOR_REPORT);
   });
 
   it("fails an interview one turn short of it and queues one that reaches it", async () => {
     const f = await setup();
-    const eleven = await f.addInterview(11, "Eleven");
-    const twelve = await f.addInterview(12, "Twelve");
+    const thirteen = await f.addInterview(13, "Thirteen");
+    const fourteen = await f.addInterview(14, "Fourteen");
 
     const summary = await enqueueEligibleReports(f.deps);
 
     expect(summary).toEqual({ enqueued: 1, skipped: 1 });
-    const short = (await f.reportRepo.getByInterviewId(eleven))!;
+    const short = (await f.reportRepo.getByInterviewId(thirteen))!;
     expect(short.status).toBe("failed");
-    expect(short.error).toMatch(/11 participant turns \(needs at least 12\)/);
-    expect((await f.reportRepo.getByInterviewId(twelve))?.status).toBe("pending");
+    expect(short.error).toMatch(/13 participant turns \(needs at least 14\)/);
+    expect((await f.reportRepo.getByInterviewId(fourteen))?.status).toBe("pending");
   });
 
   it("is never retried by the sweep, but can be run anyway once a reviewer wipes it", async () => {
@@ -106,7 +106,7 @@ describe("the minimum interview length", () => {
 
 describe("processReport", () => {
   async function claimed(f: Awaited<ReturnType<typeof setup>>) {
-    const interviewId = await f.addInterview(12);
+    const interviewId = await f.addInterview(20);
     await f.reportRepo.enqueue({ interviewId, studyId: f.studyId });
     return (await f.reportRepo.claimNext({ staleBefore: new Date(0) }))!;
   }
@@ -146,7 +146,7 @@ describe("processReport", () => {
 
   it("does not reuse saved extraction runs from a different rubric version", async () => {
     const f = await setup();
-    const interviewId = await f.addInterview(12);
+    const interviewId = await f.addInterview(20);
     await f.reportRepo.enqueue({ interviewId, studyId: f.studyId });
     const first = await processReport(
       f.deps,
@@ -219,7 +219,7 @@ describe("processReport", () => {
 
   it("fails when the interview has no transcript", async () => {
     const f = await setup();
-    const interviewId = await f.addInterview(12);
+    const interviewId = await f.addInterview(20);
     await f.interviewRepo.update(interviewId, { transcript: [] });
     await f.reportRepo.enqueue({ interviewId, studyId: f.studyId });
     const claimedReport = (await f.reportRepo.claimNext({ staleBefore: new Date(0) }))!;
@@ -252,8 +252,8 @@ async function setupWith(
 describe("runSweep", () => {
   it("queues new interviews and processes one report per pass", async () => {
     const f = await setup();
-    await f.addInterview(12, "Avery");
-    await f.addInterview(12, "Blake");
+    await f.addInterview(20, "Avery");
+    await f.addInterview(20, "Blake");
 
     const first = await runSweep(f.deps);
     expect(first.enqueued).toBe(2);
@@ -272,7 +272,7 @@ describe("runSweep", () => {
 
   it("reports a failed report and does not retry it automatically", async () => {
     const f = await setup({ model: { failNarrative: true } });
-    await f.addInterview(12);
+    await f.addInterview(20);
 
     const first = await runSweep(f.deps);
     const second = await runSweep(f.deps);
@@ -284,7 +284,7 @@ describe("runSweep", () => {
   it("picks up a report that was abandoned while generating, once it is stale", async () => {
     let clock = new Date("2026-10-06T12:00:00Z");
     const f = await setup({ now: () => clock });
-    const interviewId = await f.addInterview(12);
+    const interviewId = await f.addInterview(20);
     const { report } = await f.reportRepo.enqueue({ interviewId, studyId: f.studyId });
     await f.reportRepo.update(report.id, { status: "generating" });
 
@@ -314,7 +314,7 @@ describe("automatic release", () => {
 
   it("releases and emails a clean report with no reviewer", async () => {
     const f = await setup();
-    await f.addInterview(12, "Jordan");
+    await f.addInterview(20, "Jordan");
 
     const result = await runSweep(withAutoRelease(f));
 
@@ -333,7 +333,7 @@ describe("automatic release", () => {
 
   it("holds a report with rule violations for a reviewer, and sends nothing", async () => {
     const f = await setup({ model: { executiveSummary: "He has a clear target." } });
-    await f.addInterview(12);
+    await f.addInterview(20);
 
     const result = await runSweep(withAutoRelease(f));
 
@@ -345,7 +345,7 @@ describe("automatic release", () => {
 
   it("holds a report with a low-confidence rating for a reviewer", async () => {
     const f = await setup({ model: { disagree: true } });
-    await f.addInterview(12);
+    await f.addInterview(20);
 
     const result = await runSweep(withAutoRelease(f));
 
@@ -357,7 +357,7 @@ describe("automatic release", () => {
 
   it("does not consider release when it is not wired up", async () => {
     const f = await setup();
-    await f.addInterview(12);
+    await f.addInterview(20);
 
     const result = await runSweep(f.deps);
 
@@ -368,7 +368,7 @@ describe("automatic release", () => {
 
   it("does not consider release for a report that failed", async () => {
     const f = await setup({ model: { failNarrative: true } });
-    await f.addInterview(12);
+    await f.addInterview(20);
 
     const result = await runSweep(withAutoRelease(f));
 
@@ -378,7 +378,7 @@ describe("automatic release", () => {
 
   it("keeps the report released and says why when the email cannot be sent", async () => {
     const f = await setup();
-    await f.addInterview(12);
+    await f.addInterview(20);
     f.emailClient.scriptFailure(new Error("mail server down"));
 
     const result = await runSweep(withAutoRelease(f));
@@ -397,7 +397,7 @@ describe("automatic release", () => {
 
   it("leaves the draft for a reviewer when the release itself throws", async () => {
     const f = await setup();
-    await f.addInterview(12);
+    await f.addInterview(20);
 
     const result = await runSweep({
       ...f.deps,
@@ -415,7 +415,7 @@ describe("automatic release", () => {
 describe("autoReleaseBlockers", () => {
   async function draft(options: Parameters<typeof setup>[0] = {}) {
     const f = await setup(options);
-    await f.addInterview(12);
+    await f.addInterview(20);
     const { processed } = await runSweep(f.deps);
     return (await f.reportRepo.getById(processed!.reportId))!;
   }

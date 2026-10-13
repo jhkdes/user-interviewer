@@ -169,6 +169,47 @@ export function askedSupportProvider(turns: InterviewTurn[]): boolean {
   );
 }
 
+/** An interviewer turn that asks more than one question, which is hard to hold in your head when you are listening. */
+export interface CompoundQuestion {
+  turnIndex: number;
+  /** How many separate questions the turn seems to ask. */
+  questions: number;
+}
+
+/**
+ * A second question tacked onto the first, with no question mark of its own: "and" or "plus"
+ * followed by a question word or a verb that starts a question, or "or" followed by a new
+ * question word. "Is that deliberate, or did it just happen?" is one either/or question.
+ */
+const JOINED_QUESTION =
+  /[,;]?\s+(?:and|plus)\s+(?:also\s+)?(?:what|how|why|when|where|who|which|did|do|does|have|has|had|are|is|was|were|can|could|would|will)\b|\s+or\s+(?:what|how|why|when|where|who|which)\b/i;
+
+/**
+ * Interviewer turns that ask more than one question: two or more question
+ * marks, or one question with a second joined on by "and" or "or". An
+ * either/or about the same thing ("is that open on purpose, or not decided
+ * yet?") is one question and does not count. A heuristic, so it is for
+ * measuring how often it happens, not for judging a single turn.
+ */
+export function findCompoundQuestions(turns: InterviewTurn[]): CompoundQuestion[] {
+  const found: CompoundQuestion[] = [];
+  turns.forEach((turn, turnIndex) => {
+    if (turn.speaker !== "interviewer") return;
+    const marks = (turn.text.match(/\?/g) ?? []).length;
+    let questions = marks;
+    if (marks === 1) {
+      const question = turn.text.slice(0, turn.text.indexOf("?"));
+      // Only the sentence that holds the question mark counts.
+      const sentence = question.split(/(?<=[.!])\s+/).pop() ?? question;
+      if (JOINED_QUESTION.test(sentence)) {
+        questions = 2;
+      }
+    }
+    if (questions >= 2) found.push({ turnIndex, questions });
+  });
+  return found;
+}
+
 /** Whether the interviewer asked how the participant worked out their strengths and what they enjoy. */
 export function askedStrengths(turns: InterviewTurn[]): boolean {
   return turns.some(
@@ -188,6 +229,8 @@ export interface InterviewChecks {
   reportPriority: { turnIndex: number; answered: boolean } | null;
   postingAgeAsked: boolean;
   strengthsAsked: boolean;
+  /** Interviewer turns that asked more than one question. */
+  compoundQuestions: CompoundQuestion[];
   /** True when the screener shows outplacement or a free program and the interviewer never asked which one. */
   supportProviderMissing: boolean;
   /** The last interviewer turn is a statement, not a question (the harness requires a closing turn with no question). */
@@ -212,6 +255,7 @@ export function runInterviewChecks(
     reportPriority: findReportPriorityQuestion(turns),
     postingAgeAsked: askedPostingAge(turns),
     strengthsAsked: askedStrengths(turns),
+    compoundQuestions: findCompoundQuestions(turns),
     supportProviderMissing:
       needsSupportProviderQuestion(screenerAnswers) && !askedSupportProvider(turns),
     closesWithStatement: lastInterviewerTurn
