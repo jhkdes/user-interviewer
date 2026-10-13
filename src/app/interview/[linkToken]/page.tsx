@@ -1,3 +1,4 @@
+import { MIN_PARTICIPANT_TURNS_FOR_REPORT } from "@/job-search-study/min-turns";
 import { isTextInterviewModeEnabled } from "@/lib/feature-flags";
 import { getStudyRepository } from "@/repositories/get-study-repository";
 import { checkLinkValidity } from "@/study-service/link-validity";
@@ -39,6 +40,9 @@ export default async function InterviewPage({
       description={study.description}
       questions={study.preInterviewQuestions}
       copy={study.participantCopy}
+      minParticipantTurns={
+        study.reportPipeline === "job-search" ? MIN_PARTICIPANT_TURNS_FOR_REPORT : undefined
+      }
       textModeEnabled={isTextInterviewModeEnabled()}
     />
   );

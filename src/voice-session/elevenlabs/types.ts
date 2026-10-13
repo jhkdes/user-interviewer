@@ -48,7 +48,14 @@ export interface ElevenLabsPostCallTranscriptionPayload {
     conversation_id: string;
     transcript?: ElevenLabsTranscriptEntry[];
     conversation_initiation_client_data?: ElevenLabsConversationInitiationClientData;
-    metadata?: { start_time_unix_secs?: number; call_duration_secs?: number };
+    /** "done" for a call that ended normally, "failed" for one that did not. */
+    status?: string;
+    metadata?: {
+      start_time_unix_secs?: number;
+      call_duration_secs?: number;
+      termination_reason?: string;
+      error?: { code?: number; reason?: string; error_type?: string } | null;
+    };
     analysis?: { call_successful?: string };
   };
 }

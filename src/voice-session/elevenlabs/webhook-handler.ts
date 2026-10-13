@@ -5,6 +5,7 @@ import {
   startInterview,
   type CallLifecycleDeps,
 } from "../call-lifecycle";
+import { classifyElevenLabsEnd } from "../call-end";
 import { MissingInterviewIdError } from "../errors";
 import type {
   ElevenLabsConversationInitiationClientData,
@@ -86,6 +87,7 @@ async function handleTranscription(
     // request-body size limit for any interview of meaningful length.
     recordingUrl: null,
     endedReason: payload.data.analysis?.call_successful ?? null,
+    ...classifyElevenLabsEnd(payload.data),
     elevenLabsConversationId: payload.data.conversation_id,
     completedAt,
   });

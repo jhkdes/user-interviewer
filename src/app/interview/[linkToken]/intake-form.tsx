@@ -18,6 +18,14 @@ const EMPTY_VALUES: IntakeFormValues = { firstName: "", email: "" };
 
 const OTHER_OPTION = "Other";
 
+/** The request body that creates an interview, kept so a dropped call can be started again without retyping it. */
+export type IntakeSubmission = IntakeFormValues & {
+  consentGiven: true;
+  deviceType: "desktop" | "mobile";
+  screenerAnswers?: Record<string, string | string[]>;
+  trackingId?: string;
+};
+
 /**
  * T11.2 — reached only after the intro screen's consent gate, so every
  * submission sends `consentGiven: true`. Role/responsibility (M13) is no
@@ -33,12 +41,15 @@ export function IntakeForm({
   deviceType,
   questions,
   onStarted,
+  onSubmitted,
 }: {
   linkToken: string;
   trackingId?: string;
   deviceType: "desktop" | "mobile";
   questions: PreInterviewQuestion[];
   onStarted: (interview: Interview) => void;
+  /** Called with exactly what was sent to create the interview, so the flow can start another from it. */
+  onSubmitted?: (submission: IntakeSubmission) => void;
 }) {
   const [values, setValues] = useState<IntakeFormValues>(EMPTY_VALUES);
   const [screenerAnswers, setScreenerAnswers] = useState<Record<string, string | string[]>>({});
@@ -109,16 +120,17 @@ export function IntakeForm({
 
     setErrors([]);
     setSubmitting(true);
+    const submission: IntakeSubmission = {
+      ...values,
+      consentGiven: true,
+      deviceType,
+      screenerAnswers: Object.keys(screenerAnswers).length > 0 ? screenerAnswers : undefined,
+      trackingId,
+    };
     const res = await fetch(`/api/studies/${linkToken}/interviews`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        ...values,
-        consentGiven: true,
-        deviceType,
-        screenerAnswers: Object.keys(screenerAnswers).length > 0 ? screenerAnswers : undefined,
-        trackingId,
-      }),
+      body: JSON.stringify(submission),
     });
     setSubmitting(false);
 
@@ -131,6 +143,7 @@ export function IntakeForm({
       return;
     }
 
+    onSubmitted?.(submission);
     onStarted((await res.json()) as Interview);
   }
 

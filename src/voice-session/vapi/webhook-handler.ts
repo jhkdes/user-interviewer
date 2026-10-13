@@ -5,6 +5,7 @@ import {
   startInterview,
   type CallLifecycleDeps,
 } from "../call-lifecycle";
+import { classifyVapiEnd } from "../call-end";
 import { MissingInterviewIdError } from "../errors";
 import type {
   VapiArtifactMessage,
@@ -91,6 +92,7 @@ export async function handleVapiWebhookMessage(
       transcript: toTranscriptEntries(reportMessage),
       recordingUrl: toRecordingUrl(reportMessage),
       endedReason: reportMessage.endedReason,
+      ...classifyVapiEnd(reportMessage.endedReason),
       vapiCallId: reportMessage.call.id,
     });
   }

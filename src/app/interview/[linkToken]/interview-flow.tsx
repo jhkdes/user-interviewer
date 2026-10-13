@@ -3,9 +3,11 @@
 import { useCallback, useEffect, useState } from "react";
 import type { Interview, ParticipantCopy, PreInterviewQuestion, StudyType } from "@/domain";
 import { isMobileDevice } from "@/lib/device";
+import { endedEarly } from "./call-end-info";
 import { CompletionScreen } from "./completion-screen";
+import { EndedEarlyScreen } from "./ended-early-screen";
 import { FeedbackIntroScreen } from "./feedback-intro-screen";
-import { IntakeForm } from "./intake-form";
+import { IntakeForm, type IntakeSubmission } from "./intake-form";
 import { IntroScreen } from "./intro-screen";
 import { LiveCall } from "./live-call";
 import { MobileBlockedScreen } from "./mobile-blocked-screen";
@@ -29,6 +31,7 @@ type Step =
   | "chat"
   | "resume-error"
   | "timed-out"
+  | "ended-early"
   | "done";
 
 /** The `endedReason` of a typed interview that was ended because the participant stopped responding. */
@@ -49,6 +52,7 @@ export function InterviewFlow({
   description,
   questions,
   copy,
+  minParticipantTurns,
   textModeEnabled = false,
 }: {
   linkToken: string;
@@ -59,6 +63,8 @@ export function InterviewFlow({
   questions: PreInterviewQuestion[];
   /** The study's custom landing and ending page text, if it has any. */
   copy?: ParticipantCopy | null;
+  /** A voice call with fewer participant turns than this is treated as ended early. Defaults to a small number; studies that make a report pass the report's minimum. */
+  minParticipantTurns?: number;
   /** Offer typing as an alternative to the voice interview. Only ever applies to feedback studies — discovery studies stay voice-only whatever this says. */
   textModeEnabled?: boolean;
 }) {
@@ -68,6 +74,10 @@ export function InterviewFlow({
   const [usedTyping, setUsedTyping] = useState(false);
   // Bumped to start a fresh voice call after an error, by remounting it.
   const [callAttempt, setCallAttempt] = useState(0);
+  // What the participant submitted at intake, so a call that dropped early can be started again without retyping it.
+  const [intakeSubmission, setIntakeSubmission] = useState<IntakeSubmission | null>(null);
+  const [restarting, setRestarting] = useState(false);
+  const [restartError, setRestartError] = useState<string | null>(null);
 
   const textAvailable = textModeEnabled && type === "feedback";
 
@@ -123,6 +133,33 @@ export function InterviewFlow({
       setStep("intro");
     }
   }, [textAvailable, resumeOrStart]);
+
+  /** Starts a brand-new interview from the details already given, after a call that ended too early. */
+  async function startAgain() {
+    if (!intakeSubmission) {
+      setStep("intro");
+      return;
+    }
+    setRestarting(true);
+    setRestartError(null);
+    try {
+      const res = await fetch(`/api/studies/${linkToken}/interviews`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(intakeSubmission),
+      });
+      if (!res.ok) throw new Error(String(res.status));
+      setInterview((await res.json()) as Interview);
+      setCallAttempt((n) => n + 1);
+      setStep("call");
+    } catch {
+      setRestartError(
+        "We couldn't start a new interview. Please check your connection and try again.",
+      );
+    } finally {
+      setRestarting(false);
+    }
+  }
 
   /** Opens a fresh typing chat for the interview just created at intake, remembering it for resume. */
   const beginTypingChat = () => {
@@ -196,6 +233,7 @@ export function InterviewFlow({
           trackingId={trackingId}
           deviceType="desktop"
           questions={questions}
+          onSubmitted={setIntakeSubmission}
           onStarted={(createdInterview) => {
             setInterview(createdInterview);
             setStep(textAvailable ? "mode-select" : "call");
@@ -212,7 +250,9 @@ export function InterviewFlow({
           firstName={interview.firstName}
           voiceProvider={interview.voiceProvider}
           type={type}
-          onEnded={() => setStep("done")}
+          onEnded={(info) =>
+            setStep(info && endedEarly(info, minParticipantTurns) ? "ended-early" : "done")
+          }
           // Typing is only ever offered here for feedback studies with text mode on.
           onSwitchedToTyping={textAvailable ? beginTypingChat : undefined}
           onRetry={textAvailable ? () => setCallAttempt((n) => n + 1) : undefined}
@@ -227,6 +267,13 @@ export function InterviewFlow({
         />
       )}
       {step === "timed-out" && <TimedOutScreen />}
+      {step === "ended-early" && (
+        <EndedEarlyScreen
+          onStartAgain={() => void startAgain()}
+          starting={restarting}
+          error={restartError}
+        />
+      )}
       {step === "done" && <CompletionScreen mode={usedTyping ? "text" : "voice"} copy={copy} />}
     </main>
   );

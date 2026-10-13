@@ -27,7 +27,7 @@ afterEach(() => {
 
 async function draft() {
   const f = await setup();
-  await f.addInterview(8, "Jordan");
+  await f.addInterview(12, "Jordan");
   const { processed } = await runSweep(f.deps);
   getRepo.mockReturnValue(f.reportRepo);
   getInterviews.mockReturnValue(f.interviewRepo);

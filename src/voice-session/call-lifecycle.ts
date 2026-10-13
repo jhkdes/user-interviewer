@@ -158,6 +158,8 @@ export async function completeInterview(
       : {}),
     completedAt: event.completedAt ?? deps.now ?? new Date(),
     endedReason: event.endedReason,
+    ...(event.endCause !== undefined ? { endCause: event.endCause } : {}),
+    ...(event.endDetail !== undefined ? { endDetail: event.endDetail } : {}),
   });
 
   if (!completed) {

@@ -4,6 +4,8 @@ import { fetchFreshRecordingUrl } from "@/lib/vapi/client";
 import { formatDuration } from "@/lib/format-duration";
 import { getInterviewRepository } from "@/repositories/get-interview-repository";
 import { getSummaryRepository } from "@/repositories/get-summary-repository";
+import { describeCallEnd } from "@/app/dashboard/call-end-label";
+import { EndCauseBadge } from "@/app/dashboard/end-cause-badge";
 import { InterviewModeBadge } from "@/app/dashboard/interview-mode-badge";
 import { SummarySections } from "@/app/dashboard/summary-sections";
 import { describeTextEndedReason } from "./ended-reason-label";
@@ -28,6 +30,7 @@ export default async function InterviewDetailPage({
   const isTyped = interview.mode === "text";
   const playableRecordingUrl = await getPlayableRecordingUrl(interview, fetchFreshRecordingUrl);
   const typedEndReason = isTyped ? describeTextEndedReason(interview.endedReason) : null;
+  const callEnd = isTyped ? null : describeCallEnd(interview);
 
   const durationSeconds =
     interview.startedAt && interview.completedAt
@@ -47,6 +50,7 @@ export default async function InterviewDetailPage({
         <h1 className="text-xl font-semibold">{interview.firstName}</h1>
         <span className="text-sm">
           <InterviewModeBadge interview={interview} />
+          <EndCauseBadge interview={interview} />
         </span>
       </div>
       <p className="text-sm text-neutral-500 dark:text-neutral-400">
@@ -59,6 +63,7 @@ export default async function InterviewDetailPage({
         {durationSeconds !== null && ` · duration ${formatDuration(durationSeconds)}`}
         {interview.completedAt && ` · completed ${interview.completedAt.toLocaleString()}`}
         {typedEndReason && ` · ended: ${typedEndReason}`}
+        {callEnd && ` · ended: ${callEnd}`}
       </p>
 
       <InterviewRecordingAndTranscript

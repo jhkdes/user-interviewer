@@ -1,4 +1,4 @@
-import type { TranscriptEntry } from "@/domain";
+import type { CallEndCause, CallEndDetail, TranscriptEntry } from "@/domain";
 
 /** Shared OpenAI-compatible chat message shape — both Vapi's and ElevenLabs' custom-LLM integrations send this. */
 export interface OpenAIChatMessage {
@@ -18,6 +18,9 @@ export interface NormalizedCallEndedEvent {
   transcript: TranscriptEntry[];
   recordingUrl: string | null;
   endedReason: string | null;
+  /** How the call ended (see call-end.ts). Left out when the provider did not say. */
+  endCause?: CallEndCause | null;
+  endDetail?: CallEndDetail | null;
   vapiCallId?: string;
   elevenLabsConversationId?: string;
   /** The call's real end time, when the provider's webhook reports one more precisely than "whenever the webhook happened to arrive" — see ElevenLabs' `handleTranscription`, which derives it from `start_time_unix_secs + call_duration_secs`. Falls back to `deps.now ?? new Date()` when omitted. */

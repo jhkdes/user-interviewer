@@ -7,6 +7,7 @@ const elevenLabs = vi.hoisted(() => {
   type Options = {
     onConnect?: () => void;
     onModeChange?: (change: { mode: "speaking" | "listening" }) => void;
+    onMessage?: (message: { source: "user" | "ai"; message: string }) => void;
     onDisconnect?: (details: unknown) => void;
     onError?: (message: string) => void;
   };
@@ -61,7 +62,11 @@ function stubFetch(switchOk: boolean, order?: string[]) {
 }
 
 async function renderCall(
-  props: { onSwitchedToTyping?: () => void; onRetry?: () => void; onEnded?: () => void } = {},
+  props: {
+    onSwitchedToTyping?: () => void;
+    onRetry?: () => void;
+    onEnded?: (info?: unknown) => void;
+  } = {},
 ) {
   const onEnded = props.onEnded ?? vi.fn();
   render(
@@ -84,6 +89,35 @@ function startInterview(session: (typeof elevenLabs.sessions)[number]) {
     session.options.onModeChange?.({ mode: "speaking" });
   });
 }
+
+describe("ElevenLabsLiveCall ending", () => {
+  it("reports how many times the participant spoke, and who closed the connection, when the call ends", async () => {
+    stubFetch(true);
+    const { onEnded, session } = await renderCall();
+    startInterview(session);
+
+    act(() => {
+      session.options.onMessage?.({ source: "ai", message: "Hi Sam" });
+      session.options.onMessage?.({ source: "user", message: "Hello" });
+      session.options.onMessage?.({ source: "ai", message: "How is your week?" });
+      session.options.onMessage?.({ source: "user", message: "Busy" });
+      session.options.onDisconnect?.({ reason: "error", message: "connection lost" });
+    });
+
+    expect(onEnded).toHaveBeenCalledTimes(1);
+    expect(onEnded).toHaveBeenCalledWith({ participantTurns: 2, reason: "error" });
+  });
+
+  it("reports zero turns when the participant never spoke", async () => {
+    stubFetch(true);
+    const { onEnded, session } = await renderCall();
+    startInterview(session);
+
+    act(() => session.options.onDisconnect?.({ reason: "agent" }));
+
+    expect(onEnded).toHaveBeenCalledWith({ participantTurns: 0, reason: "agent" });
+  });
+});
 
 describe("ElevenLabsLiveCall typing restart", () => {
   it("offers nothing extra when typing isn't offered", async () => {

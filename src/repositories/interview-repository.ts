@@ -33,6 +33,8 @@ export type InterviewUpdate = Partial<
     | "roleDescription"
     | "summaryEmailSentAt"
     | "endedReason"
+    | "endCause"
+    | "endDetail"
     | "backgroundedAt"
     | "timeCheckAskedAt"
     | "extensionGranted"

@@ -50,6 +50,8 @@ const baseInterview: Interview = {
   summaryEmailSentAt: null,
   deviceType: null,
   endedReason: null,
+  endCause: null,
+  endDetail: null,
   backgroundedAt: null,
   screenerAnswers: null,
   timeCheckAskedAt: null,

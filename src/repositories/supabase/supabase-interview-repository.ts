@@ -1,5 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type {
+  CallEndCause,
+  CallEndDetail,
   Interview,
   InterviewMode,
   InterviewStatus,
@@ -33,6 +35,8 @@ function toInterview(row: InterviewRow): Interview {
     summaryEmailSentAt: row.summary_email_sent_at ? new Date(row.summary_email_sent_at) : null,
     deviceType: row.device_type,
     endedReason: row.ended_reason,
+    endCause: (row.end_cause as CallEndCause | null) ?? null,
+    endDetail: (row.end_detail as CallEndDetail | null) ?? null,
     backgroundedAt: row.backgrounded_at ? new Date(row.backgrounded_at) : null,
     screenerAnswers: (row.screener_answers as Record<string, string | string[]> | null) ?? null,
     timeCheckAskedAt: row.time_check_asked_at ? new Date(row.time_check_asked_at) : null,
@@ -76,6 +80,8 @@ function toUpdateRow(patch: InterviewUpdate): Record<string, unknown> {
       : null;
   }
   if (patch.endedReason !== undefined) row.ended_reason = patch.endedReason;
+  if (patch.endCause !== undefined) row.end_cause = patch.endCause;
+  if (patch.endDetail !== undefined) row.end_detail = patch.endDetail;
   if (patch.backgroundedAt !== undefined) {
     row.backgrounded_at = patch.backgroundedAt ? patch.backgroundedAt.toISOString() : null;
   }
@@ -106,6 +112,22 @@ function toUpdateRow(patch: InterviewUpdate): Record<string, unknown> {
     row.switched_to_text_at = patch.switchedToTextAt ? patch.switchedToTextAt.toISOString() : null;
   }
   return row;
+}
+
+/**
+ * True when an update failed only because the end_cause/end_detail columns do
+ * not exist yet (migration 0023 not applied). Completing an interview must not
+ * depend on that, so the update is retried without them.
+ */
+export function isMissingEndColumns(error: { message: string } | null): boolean {
+  return error !== null && /end_cause|end_detail/.test(error.message);
+}
+
+export function withoutEndColumns(row: Record<string, unknown>): Record<string, unknown> {
+  const rest = { ...row };
+  delete rest.end_cause;
+  delete rest.end_detail;
+  return rest;
 }
 
 export class SupabaseInterviewRepository implements InterviewRepository {
@@ -183,12 +205,13 @@ export class SupabaseInterviewRepository implements InterviewRepository {
   }
 
   async update(id: string, patch: InterviewUpdate): Promise<Interview> {
-    const { data, error } = await this.client
-      .from("interviews")
-      .update(toUpdateRow(patch))
-      .eq("id", id)
-      .select()
-      .maybeSingle();
+    const run = (row: Record<string, unknown>) =>
+      this.client.from("interviews").update(row).eq("id", id).select().maybeSingle();
+    let { data, error } = await run(toUpdateRow(patch));
+    if (isMissingEndColumns(error)) {
+      console.warn("Interview end_cause/end_detail columns are missing; apply migration 0023.");
+      ({ data, error } = await run(withoutEndColumns(toUpdateRow(patch))));
+    }
 
     if (error) throw new Error(`Failed to update interview: ${error.message}`);
     if (!data) throw new Error(`Interview not found: ${id}`);
@@ -199,13 +222,19 @@ export class SupabaseInterviewRepository implements InterviewRepository {
     // One conditional UPDATE: Postgres re-checks the `status <> 'completed'`
     // filter against the latest committed row after waiting on any concurrent
     // writer's row lock, so only one of two racing callers can match.
-    const { data, error } = await this.client
-      .from("interviews")
-      .update(toUpdateRow(patch))
-      .eq("id", id)
-      .neq("status", "completed")
-      .select()
-      .maybeSingle();
+    const run = (row: Record<string, unknown>) =>
+      this.client
+        .from("interviews")
+        .update(row)
+        .eq("id", id)
+        .neq("status", "completed")
+        .select()
+        .maybeSingle();
+    let { data, error } = await run(toUpdateRow(patch));
+    if (isMissingEndColumns(error)) {
+      console.warn("Interview end_cause/end_detail columns are missing; apply migration 0023.");
+      ({ data, error } = await run(withoutEndColumns(toUpdateRow(patch))));
+    }
 
     if (error) throw new Error(`Failed to update interview: ${error.message}`);
     if (data) return toInterview(data as InterviewRow);

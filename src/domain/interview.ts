@@ -51,6 +51,10 @@ export interface Interview {
   deviceType: string | null;
   /** Vapi's raw `endedReason` from the end-of-call-report (e.g. `"assistant-said-end-call-phrase"`, `"silence-timeout"`) — captured as-is, no in-house taxonomy on top. `null` until the call ends. */
   endedReason: string | null;
+  /** How the voice call ended: "finished" (the interviewer wrapped up) or "interrupted" (any other way: lost connection, long silence, the participant left, a provider error). `null` for typed interviews and ones that ended before this was tracked. */
+  endCause: CallEndCause | null;
+  /** The provider's own words about why the call ended, kept for diagnosing an interrupted call. */
+  endDetail: CallEndDetail | null;
   /** Set client-side the first time the browser tab is backgrounded/hidden while this interview's call is in progress (see live-call.tsx). Overwritten on repeat backgrounding events — holds the most recent one. `null` if backgrounding was never detected. */
   backgroundedAt: Date | null;
   /** Pre-call screener answers (see the study's own preInterviewQuestions — Study.preInterviewQuestions), keyed by question id. Values are a single selected option, or an array for multi-select questions. `null` if the participant answered none of them (they're all optional). Shared with the AI interviewer as context — see system-prompt.ts's formatScreenerContext. */
@@ -90,4 +94,22 @@ export interface InterviewMessage {
   /** Client-generated id making a retried participant message idempotent. `null` for interviewer messages. */
   clientMessageId: string | null;
   createdAt: Date;
+}
+
+export type CallEndCause = "finished" | "interrupted";
+
+export interface CallEndDetail {
+  provider: "elevenlabs" | "vapi";
+  /** ElevenLabs: the conversation's status ("done" or "failed"). */
+  status?: string | null;
+  /** ElevenLabs: its own success verdict ("success" or "failure"). */
+  callSuccessful?: string | null;
+  /** ElevenLabs: why it closed the call, in its words. */
+  terminationReason?: string | null;
+  errorType?: string | null;
+  errorCode?: number | null;
+  errorReason?: string | null;
+  /** Vapi: its raw end reason. */
+  endedReason?: string | null;
+  durationSecs?: number | null;
 }

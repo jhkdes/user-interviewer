@@ -38,6 +38,8 @@ export interface InterviewRow {
   summary_email_sent_at: string | null;
   device_type: string | null;
   ended_reason: string | null;
+  end_cause: string | null;
+  end_detail: unknown;
   backgrounded_at: string | null;
   screener_answers: unknown;
   time_check_asked_at: string | null;

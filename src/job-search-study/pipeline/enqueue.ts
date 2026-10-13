@@ -3,6 +3,7 @@ import { DEFAULT_MIN_PARTICIPANT_TURNS, type PipelineDeps } from "./types";
 
 export interface EnqueueSummary {
   enqueued: number;
+  /** Interviews recorded as failed because they were too short for a report. */
   skipped: number;
 }
 
@@ -12,9 +13,9 @@ export function participantTurnCount(interview: Pick<Interview, "transcript">): 
 
 /**
  * Finds completed interviews in job-search studies that have no report row yet
- * and queues them. An interview with too little to analyze is recorded as
- * skipped, with the reason, so the dashboard shows why it has no report and the
- * sweep does not look at it again. Safe to run repeatedly: a report row is
+ * and queues them. An interview too short for a report (see min-turns.ts) is
+ * recorded as failed, with the reason, so the dashboard shows why it has no
+ * report and the sweep does not look at it again. Safe to run repeatedly: a report row is
  * created at most once per interview.
  */
 export async function enqueueEligibleReports(deps: PipelineDeps): Promise<EnqueueSummary> {
@@ -38,8 +39,8 @@ export async function enqueueEligibleReports(deps: PipelineDeps): Promise<Enqueu
         await deps.reportRepo.enqueue({
           interviewId: interview.id,
           studyId: study.id,
-          status: "skipped",
-          error: `Too short to analyze: ${turns} participant turn${turns === 1 ? "" : "s"} (needs at least ${minTurns}).`,
+          status: "failed",
+          error: `Interview too short for a report: ${turns} participant turn${turns === 1 ? "" : "s"} (needs at least ${minTurns}).`,
         });
         summary.skipped++;
         continue;
