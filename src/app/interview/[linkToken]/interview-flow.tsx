@@ -10,6 +10,7 @@ import { FeedbackIntroScreen } from "./feedback-intro-screen";
 import { IntakeForm, type IntakeSubmission } from "./intake-form";
 import { IntroScreen } from "./intro-screen";
 import { LiveCall } from "./live-call";
+import { MicCheckScreen } from "./mic-check-screen";
 import { MobileBlockedScreen } from "./mobile-blocked-screen";
 import { ModeSelectScreen } from "./mode-select-screen";
 import { messagesFromState, TextChat, type ChatMessage } from "./text-chat";
@@ -27,6 +28,7 @@ type Step =
   | "intro"
   | "intake"
   | "mode-select"
+  | "mic-check"
   | "call"
   | "chat"
   | "resume-error"
@@ -150,8 +152,7 @@ export function InterviewFlow({
       });
       if (!res.ok) throw new Error(String(res.status));
       setInterview((await res.json()) as Interview);
-      setCallAttempt((n) => n + 1);
-      setStep("call");
+      setStep("mic-check");
     } catch {
       setRestartError(
         "We couldn't start a new interview. Please check your connection and try again.",
@@ -236,12 +237,23 @@ export function InterviewFlow({
           onSubmitted={setIntakeSubmission}
           onStarted={(createdInterview) => {
             setInterview(createdInterview);
-            setStep(textAvailable ? "mode-select" : "call");
+            setStep(textAvailable ? "mode-select" : "mic-check");
           }}
         />
       )}
       {step === "mode-select" && interview && (
-        <ModeSelectScreen onStartVoice={() => setStep("call")} onSwitchToTyping={switchToTyping} />
+        <ModeSelectScreen
+          onStartVoice={() => setStep("mic-check")}
+          onSwitchToTyping={switchToTyping}
+        />
+      )}
+      {step === "mic-check" && interview && (
+        <MicCheckScreen
+          onContinue={() => {
+            setCallAttempt((n) => n + 1);
+            setStep("call");
+          }}
+        />
       )}
       {step === "call" && interview && (
         <LiveCall
