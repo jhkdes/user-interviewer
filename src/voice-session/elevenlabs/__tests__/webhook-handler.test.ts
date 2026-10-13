@@ -81,6 +81,108 @@ describe("handleElevenLabsWebhookMessage", () => {
       ]);
     });
 
+    it("records that a call ended normally, when the interviewer ended it", async () => {
+      const { interviewRepo, studyRepo, summaryRepo, llm, emailClient, interview } = await setup();
+
+      await handleElevenLabsWebhookMessage(
+        { interviewRepo, studyRepo, summaryRepo, llm, emailClient },
+        {
+          type: "post_call_transcription",
+          data: {
+            conversation_id: "conv-1",
+            conversation_initiation_client_data: {
+              dynamic_variables: { interviewId: interview.id },
+            },
+            transcript: [
+              {
+                role: "agent",
+                message: "Thank you, that was very helpful.",
+                time_in_call_secs: 800,
+              },
+            ],
+            status: "done",
+            metadata: { termination_reason: "end_call tool was called.", call_duration_secs: 859 },
+            analysis: { call_successful: "success" },
+          },
+        } as ElevenLabsPostCallTranscriptionPayload,
+      );
+
+      const updated = await interviewRepo.getById(interview.id);
+      expect(updated?.endCause).toBe("finished");
+      expect(updated?.endedReason).toBe("success");
+    });
+
+    it("records a dropped call as interrupted, with ElevenLabs' reason, so it can be tracked", async () => {
+      const { interviewRepo, studyRepo, summaryRepo, llm, emailClient, interview } = await setup();
+
+      await handleElevenLabsWebhookMessage(
+        { interviewRepo, studyRepo, summaryRepo, llm, emailClient },
+        {
+          type: "post_call_transcription",
+          data: {
+            conversation_id: "conv-dropped",
+            conversation_initiation_client_data: {
+              dynamic_variables: { interviewId: interview.id },
+            },
+            transcript: [
+              {
+                role: "user",
+                message: "The role I want is product management.",
+                time_in_call_secs: 106,
+              },
+            ],
+            status: "failed",
+            metadata: {
+              call_duration_secs: 209,
+              termination_reason:
+                "No user message received for a long period of time - probably a network error occurred.",
+              error: {
+                code: 1002,
+                reason: "No user message received for 60 seconds",
+                error_type: "client_disconnected",
+              },
+            },
+            analysis: { call_successful: "failure" },
+          },
+        } as ElevenLabsPostCallTranscriptionPayload,
+      );
+
+      const updated = await interviewRepo.getById(interview.id);
+      expect(updated?.status).toBe("completed");
+      expect(updated?.endCause).toBe("interrupted");
+      expect(updated?.endedReason).toBe("failure");
+      expect(updated?.endDetail).toMatchObject({
+        provider: "elevenlabs",
+        status: "failed",
+        errorType: "client_disconnected",
+        errorCode: 1002,
+        durationSecs: 209,
+      });
+      expect(updated?.endDetail?.terminationReason).toMatch(/network error/);
+    });
+
+    it("leaves the end cause unrecorded when the payload does not say how the call ended", async () => {
+      const { interviewRepo, studyRepo, summaryRepo, llm, emailClient, interview } = await setup();
+
+      await handleElevenLabsWebhookMessage(
+        { interviewRepo, studyRepo, summaryRepo, llm, emailClient },
+        {
+          type: "post_call_transcription",
+          data: {
+            conversation_id: "conv-1",
+            conversation_initiation_client_data: {
+              dynamic_variables: { interviewId: interview.id },
+            },
+            transcript: [{ role: "agent", message: "Hi.", time_in_call_secs: 0 }],
+          },
+        } as ElevenLabsPostCallTranscriptionPayload,
+      );
+
+      const updated = await interviewRepo.getById(interview.id);
+      expect(updated?.endCause).toBeNull();
+      expect(updated?.endDetail).toBeNull();
+    });
+
     it("derives startedAt/completedAt from metadata.start_time_unix_secs/call_duration_secs rather than the webhook's arrival time", async () => {
       const { interviewRepo, studyRepo, summaryRepo, llm, emailClient, interview } = await setup();
       // The webhook "arrives" well after the call actually started and ended

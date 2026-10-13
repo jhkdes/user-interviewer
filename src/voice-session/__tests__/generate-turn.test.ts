@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   FeedbackAgent,
   InterviewAgent,
@@ -290,6 +290,120 @@ describe("generateTurn", () => {
 
       expect(llm.calls.generateInterviewerTurn).toHaveLength(1);
     });
+  });
+});
+
+describe("one question per turn", () => {
+  afterEach(() => vi.unstubAllEnvs());
+
+  async function discoveryDeps() {
+    const s = await setup();
+    const now = new Date("2026-08-19T12:01:00.000Z");
+    await s.interviewRepo.update(s.interview.id, { startedAt: now });
+    const deps = {
+      interviewAgent: s.interviewAgent,
+      feedbackAgent: s.feedbackAgent,
+      interviewRepo: s.interviewRepo,
+      studyRepo: s.studyRepo,
+      now,
+    };
+    return { ...s, deps };
+  }
+
+  const STACKED =
+    "Got it. What is your job target? And have you asked your network what you are good at?";
+  const ASKED = [{ role: "user" as const, content: "I mostly use LinkedIn." }];
+
+  it("cuts a spoken reply after its first question when it is not streamed", async () => {
+    const { deps, llm, interview } = await discoveryDeps();
+    llm.scriptInterviewerTurns([{ utterance: STACKED, shouldEndInterview: false }]);
+
+    const result = await generateTurn(deps, inputFor(interview.id, ASKED));
+
+    expect(result.utterance).toBe("Got it. What is your job target?");
+  });
+
+  it("cuts a streamed reply after its first question, piece by piece, and on the done event", async () => {
+    const { deps, llm, interview } = await discoveryDeps();
+    llm.scriptInterviewerTurnStreams([
+      {
+        textChunks: [
+          "Got it. What is ",
+          "your job target",
+          "? And have you ",
+          "asked your network?",
+        ],
+        shouldEndInterview: false,
+      },
+    ]);
+
+    const events = [];
+    for await (const event of generateTurnStreaming(deps, inputFor(interview.id, ASKED))) {
+      events.push(event);
+    }
+
+    const spoken = events.flatMap((e) => (e.type === "text-delta" ? [e.text] : [])).join("");
+    expect(spoken).toBe("Got it. What is your job target?");
+    const done = events.at(-1);
+    expect(done).toMatchObject({ type: "done", utterance: "Got it. What is your job target?" });
+  });
+
+  it("leaves a reply that asks one question, or none, untouched", async () => {
+    const { deps, llm, interview } = await discoveryDeps();
+    llm.scriptInterviewerTurns([
+      { utterance: "Roughly how long did that take you?", shouldEndInterview: false },
+      { utterance: "That was very helpful, thank you.", shouldEndInterview: true },
+    ]);
+
+    expect((await generateTurn(deps, inputFor(interview.id, ASKED))).utterance).toBe(
+      "Roughly how long did that take you?",
+    );
+    expect((await generateTurn(deps, inputFor(interview.id, ASKED))).utterance).toBe(
+      "That was very helpful, thank you.",
+    );
+  });
+
+  it("does nothing when turned off with ONE_QUESTION_PER_TURN=false", async () => {
+    vi.stubEnv("ONE_QUESTION_PER_TURN", "false");
+    const { deps, llm, interview } = await discoveryDeps();
+    llm.scriptInterviewerTurns([{ utterance: STACKED, shouldEndInterview: false }]);
+
+    expect((await generateTurn(deps, inputFor(interview.id, ASKED))).utterance).toBe(STACKED);
+  });
+
+  it("does not cut a feedback interview, which adds its own scripted question to the reply", async () => {
+    const studyRepo = new InMemoryStudyRepository();
+    const interviewRepo = new InMemoryInterviewRepository();
+    const llm = new FakeLLMProvider();
+    const study = await studyRepo.create({
+      type: "feedback",
+      title: "Webinar feedback",
+      description: "today's session",
+      preInterviewQuestions: [],
+      feedbackQuestions: ["What stood out?"],
+      linkToken: "fb",
+    });
+    const interview = await interviewRepo.create({
+      studyId: study.id,
+      firstName: "Sam",
+      email: "sam@example.com",
+    });
+    const now = new Date("2026-08-19T12:01:00.000Z");
+    await interviewRepo.update(interview.id, { startedAt: now });
+    llm.scriptInterviewerTurns([{ utterance: STACKED, shouldEndInterview: false }]);
+
+    const result = await generateTurn(
+      {
+        interviewAgent: new InterviewAgent(llm),
+        feedbackAgent: new FeedbackAgent(llm),
+        interviewRepo,
+        studyRepo,
+        now,
+      },
+      inputFor(interview.id, ASKED),
+    );
+
+    expect(result.utterance).toContain("And have you asked your network");
   });
 });
 

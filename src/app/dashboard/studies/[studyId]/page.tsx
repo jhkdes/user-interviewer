@@ -4,6 +4,7 @@ import { getInterviewRepository } from "@/repositories/get-interview-repository"
 import { getStudyRepository } from "@/repositories/get-study-repository";
 import { getStudyReportRepository } from "@/repositories/get-study-report-repository";
 import { getLinkExpiryInfo } from "@/study-service";
+import { EndCauseBadge } from "../../end-cause-badge";
 import { InterviewModeBadge } from "../../interview-mode-badge";
 import { StudyLink } from "../../study-link";
 import { CopyParticipantEmailsButton } from "./copy-participant-emails-button";
@@ -34,6 +35,7 @@ export default async function StudyDetailPage({ params }: { params: { studyId: s
     (a, b) => b.createdAt.getTime() - a.createdAt.getTime(),
   );
   const participantEmails = [...new Set(sortedInterviews.map((i) => i.email))];
+  const droppedCalls = sortedInterviews.filter((i) => i.endCause === "interrupted").length;
 
   return (
     <div>
@@ -79,6 +81,14 @@ export default async function StudyDetailPage({ params }: { params: { studyId: s
       >
         Edit questions →
       </Link>
+      {study.type === "discovery" && (
+        <Link
+          href={`/dashboard/studies/${study.id}/participant-pages`}
+          className="mt-2 ml-4 inline-block text-sm underline hover:no-underline"
+        >
+          Edit landing and ending pages →
+        </Link>
+      )}
 
       <div className="mt-4">
         <StudyLink linkToken={study.linkToken} />
@@ -108,7 +118,14 @@ export default async function StudyDetailPage({ params }: { params: { studyId: s
 
       <section className="mt-8">
         <div className="flex items-center justify-between">
-          <h2 className="font-semibold">Interviews</h2>
+          <h2 className="font-semibold">
+            Interviews
+            {droppedCalls > 0 && (
+              <span className="ml-2 text-sm font-normal text-amber-700 dark:text-amber-400">
+                {droppedCalls} call{droppedCalls === 1 ? "" : "s"} dropped
+              </span>
+            )}
+          </h2>
           <div className="flex items-center gap-4">
             {participantEmails.length > 0 && (
               <CopyParticipantEmailsButton emails={participantEmails} />
@@ -150,6 +167,7 @@ export default async function StudyDetailPage({ params }: { params: { studyId: s
                   </div>
                   <div className="flex items-center gap-3 text-sm">
                     <InterviewModeBadge interview={interview} />
+                    <EndCauseBadge interview={interview} />
                     <span
                       className={`rounded-full px-2 py-0.5 ${STATUS_STYLES[interview.status] ?? ""}`}
                     >

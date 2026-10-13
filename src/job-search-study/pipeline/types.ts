@@ -1,6 +1,7 @@
 import type { EmailClient } from "@/lib/email";
 import type { InterviewRepository } from "@/repositories/interview-repository";
 import type { StudyRepository } from "@/repositories/study-repository";
+import { MIN_PARTICIPANT_TURNS_FOR_REPORT } from "../min-turns";
 import type { StructuredCompletion } from "../extraction/extract";
 import type { PdfRenderer } from "../report/render-pdf";
 import type { Rubric } from "../rubric/rubric";
@@ -19,7 +20,7 @@ export interface PipelineDeps {
   now?: () => Date;
   /** How many independent extraction runs to combine. Default 3. */
   extractionRuns?: number;
-  /** Interviews with fewer participant turns than this are skipped as too short to analyze. Default 6. */
+  /** Interviews with fewer participant turns than this are recorded as failed: too short for a report. Default 12. */
   minParticipantTurns?: number;
   /**
    * Releases a report and emails the participant, without a reviewer. When set,
@@ -43,7 +44,7 @@ export interface ReviewDeps {
 }
 
 export const DEFAULT_EXTRACTION_RUNS = 3;
-export const DEFAULT_MIN_PARTICIPANT_TURNS = 6;
+export const DEFAULT_MIN_PARTICIPANT_TURNS = MIN_PARTICIPANT_TURNS_FOR_REPORT;
 /** A generating report untouched for this long is treated as abandoned and picked up again. */
 export const STALE_AFTER_MS = 10 * 60 * 1000;
 /** At least this many valid extraction runs are needed to score an interview. */

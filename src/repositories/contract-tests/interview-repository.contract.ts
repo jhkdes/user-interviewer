@@ -414,6 +414,36 @@ export function runInterviewRepositoryContractTests(
       expect(reloaded?.backgroundedAt).toEqual(backgroundedAt);
     });
 
+    it("update records how the call ended, with the provider's detail, and a new interview has none", async () => {
+      const repo = await makeRepository();
+      const created = await repo.create({
+        studyId: getStudyId(),
+        firstName: "Sam",
+        email: "sam@example.com",
+      });
+      expect(created.endCause).toBeNull();
+      expect(created.endDetail).toBeNull();
+
+      const detail = {
+        provider: "elevenlabs" as const,
+        status: "failed",
+        errorType: "client_disconnected",
+        errorCode: 1002,
+        durationSecs: 209,
+      };
+      const updated = await repo.updateIfNotCompleted(created.id, {
+        status: "completed",
+        endCause: "interrupted",
+        endDetail: detail,
+      });
+
+      expect(updated?.endCause).toBe("interrupted");
+      expect(updated?.endDetail).toEqual(detail);
+      const reloaded = await repo.getById(created.id);
+      expect(reloaded?.endCause).toBe("interrupted");
+      expect(reloaded?.endDetail).toEqual(detail);
+    });
+
     it("update can record timeCheckAskedAt", async () => {
       const repo = await makeRepository();
       const created = await repo.create({

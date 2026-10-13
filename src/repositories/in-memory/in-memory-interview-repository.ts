@@ -29,6 +29,8 @@ export class InMemoryInterviewRepository implements InterviewRepository {
       summaryEmailSentAt: null,
       deviceType: input.deviceType ?? null,
       endedReason: null,
+      endCause: null,
+      endDetail: null,
       backgroundedAt: null,
       screenerAnswers: input.screenerAnswers ?? null,
       timeCheckAskedAt: null,

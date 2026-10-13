@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type {
+  ParticipantCopy,
   PreInterviewQuestion,
   ReportPipeline,
   Study,
@@ -25,6 +26,7 @@ function toStudy(row: StudyRow): Study {
     researchTopic: row.research_topic,
     customPrompt: row.custom_prompt,
     reportPipeline: (row.report_pipeline as ReportPipeline | null) ?? null,
+    participantCopy: (row.participant_copy as ParticipantCopy | null) ?? null,
     linkToken: row.link_token,
     status: row.status as StudyStatus,
     voiceProvider: row.voice_provider as VoiceProvider,
@@ -49,6 +51,8 @@ export class SupabaseStudyRepository implements StudyRepository {
         research_topic: input.researchTopic ?? null,
         custom_prompt: input.customPrompt ?? null,
         report_pipeline: input.reportPipeline ?? null,
+        // Only sent when set, so creating a study works before the participant_copy migration is applied.
+        ...(input.participantCopy ? { participant_copy: input.participantCopy } : {}),
         link_token: input.linkToken,
         voice_provider: input.voiceProvider ?? "vapi",
       })
@@ -123,6 +127,7 @@ export class SupabaseStudyRepository implements StudyRepository {
     if (patch.feedbackQuestions !== undefined) row.feedback_questions = patch.feedbackQuestions;
     if (patch.researchTopic !== undefined) row.research_topic = patch.researchTopic;
     if (patch.customPrompt !== undefined) row.custom_prompt = patch.customPrompt;
+    if (patch.participantCopy !== undefined) row.participant_copy = patch.participantCopy;
 
     const { data, error } = await this.client
       .from("studies")

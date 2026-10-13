@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Conversation } from "@elevenlabs/client";
 import type { StudyType } from "@/domain";
+import type { CallEndInfo } from "./call-end-info";
 import { CallShell, reportBackgrounded, requestWakeLock, type CallStatus } from "./call-shell";
 import { requestSwitchToText } from "./switch-to-text-client";
 
@@ -31,7 +32,8 @@ export function ElevenLabsLiveCall({
   interviewId: string;
   firstName: string;
   type: StudyType;
-  onEnded: () => void;
+  /** Called when the call ends, with what the browser knows about how (see call-end-info.ts). */
+  onEnded: (info?: CallEndInfo) => void;
   /** Present only when typing is offered: called after the interview was restarted as a typing interview and this call was stopped. */
   onSwitchedToTyping?: () => void;
   /** Present only when a retry is offered after an error before the call began. */
@@ -45,6 +47,8 @@ export function ElevenLabsLiveCall({
   const callActiveRef = useRef(false);
   const wakeLockRef = useRef<WakeLockSentinel | null>(null);
   const hasStartedSpeakingRef = useRef(false);
+  // How many times the participant spoke, to tell a finished interview from one cut short.
+  const participantTurnsRef = useRef(0);
   // Set while the participant restarts as a typing interview — see
   // vapi-live-call.tsx.
   const switchingRef = useRef(false);
@@ -113,6 +117,9 @@ export function ElevenLabsLiveCall({
               wakeLockRef.current = lock;
             });
           },
+          onMessage: ({ source }: { source: "user" | "ai" }) => {
+            if (source === "user") participantTurnsRef.current += 1;
+          },
           onModeChange: ({ mode }: { mode: "speaking" | "listening" }) => {
             if (mode !== "speaking" || hasStartedSpeakingRef.current) return;
             hasStartedSpeakingRef.current = true;
@@ -135,7 +142,7 @@ export function ElevenLabsLiveCall({
             if (elapsedIntervalId) clearInterval(elapsedIntervalId);
             if (switchingRef.current) return;
             setStatus("ended");
-            onEnded();
+            onEnded({ participantTurns: participantTurnsRef.current, reason: details.reason });
           },
           onError: (message: string) => {
             callActiveRef.current = false;

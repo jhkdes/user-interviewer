@@ -1,4 +1,5 @@
 import type {
+  ParticipantCopy,
   PreInterviewQuestion,
   ReportPipeline,
   Study,
@@ -6,6 +7,7 @@ import type {
   VoiceProvider,
 } from "@/domain";
 import type { StudyRepository } from "@/repositories/study-repository";
+import { JOB_SEARCH_PARTICIPANT_COPY } from "@/job-search-study/participant-copy";
 import { JOB_SEARCH_SCREENER } from "@/job-search-study/study-config";
 import { generateLinkToken } from "./link-token";
 import { validateStudyInput } from "./study-input-validation";
@@ -27,6 +29,8 @@ export interface CreateStudyInput {
   researchTopic?: string;
   customPrompt?: string;
   reportPipeline?: ReportPipeline;
+  /** Custom landing and ending page text. The job-search pipeline defaults to its own wording. */
+  participantCopy?: ParticipantCopy;
   voiceProvider?: VoiceProvider;
 }
 
@@ -52,6 +56,11 @@ export async function createStudy(
     researchTopic: input.researchTopic,
     customPrompt: input.customPrompt,
     reportPipeline: input.reportPipeline,
+    participantCopy:
+      input.participantCopy ??
+      (input.reportPipeline === "job-search" && (input.type ?? "discovery") === "discovery"
+        ? JOB_SEARCH_PARTICIPANT_COPY
+        : undefined),
     voiceProvider: input.voiceProvider,
     linkToken: generateLinkToken(),
   });

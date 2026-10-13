@@ -24,7 +24,7 @@ const rubric = loadRubric();
 /** A fixture with one interview already turned into a draft report. */
 async function withDraft(options: Parameters<typeof setup>[0] = {}) {
   const f = await setup(options);
-  await f.addInterview(8, "Jordan");
+  await f.addInterview(20, "Jordan");
   const result = await runSweep(f.deps);
   return { f, reportId: result.processed!.reportId };
 }
@@ -271,17 +271,17 @@ describe("wipeReport", () => {
     expect(regenerated.report?.bottomLine).not.toBe("My own takeaway.");
   });
 
-  it("works for a failed or skipped report", async () => {
+  it("works for a failed report, including one that was too short", async () => {
     const f = await setup({ model: { failNarrative: true } });
-    await f.addInterview(8);
+    await f.addInterview(20);
     const swept = await runSweep(f.deps);
     expect((await wipeReport(f.reviewDeps, swept.processed!.reportId)).status).toBe("pending");
 
     const short = await f.addInterview(2, "Short");
     await runSweep(f.deps);
-    const skipped = (await f.reportRepo.getByInterviewId(short))!;
-    expect(skipped.status).toBe("skipped");
-    expect((await wipeReport(f.reviewDeps, skipped.id)).status).toBe("pending");
+    const tooShort = (await f.reportRepo.getByInterviewId(short))!;
+    expect(tooShort.status).toBe("failed");
+    expect((await wipeReport(f.reviewDeps, tooShort.id)).status).toBe("pending");
   });
 
   it("works for a report that was already emailed, and keeps when it was emailed", async () => {
@@ -297,7 +297,7 @@ describe("wipeReport", () => {
 
   it("refuses while the report is waiting or being worked on", async () => {
     const f = await setup();
-    const interviewId = await f.addInterview(8);
+    const interviewId = await f.addInterview(20);
     const { report } = await f.reportRepo.enqueue({ interviewId, studyId: f.studyId });
 
     await expect(wipeReport(f.reviewDeps, report.id)).rejects.toThrow(/pending/);
@@ -336,7 +336,7 @@ describe("wipeReport", () => {
 
   it("is released automatically when the new report is clean, like any other", async () => {
     const f = await setup();
-    await f.addInterview(8, "Jordan");
+    await f.addInterview(20, "Jordan");
     const autoDeps = {
       ...f.deps,
       autoRelease: (id: string) =>
@@ -356,7 +356,7 @@ describe("wipeReport", () => {
 
   it("waits for a reviewer when the new report is not clean", async () => {
     const f = await setup({ model: { disagree: true } });
-    await f.addInterview(8, "Jordan");
+    await f.addInterview(20, "Jordan");
     const reportId = (await runSweep(f.deps)).processed!.reportId;
     await release(f, reportId, { acknowledgeViolations: true });
     await wipeReport(f.reviewDeps, reportId);
@@ -445,7 +445,7 @@ describe("releaseReport", () => {
 
   it("refuses a report that is not ready", async () => {
     const f = await setup();
-    const interviewId = await f.addInterview(8);
+    const interviewId = await f.addInterview(20);
     const { report } = await f.reportRepo.enqueue({ interviewId, studyId: f.studyId });
 
     await expect(release(f, report.id)).rejects.toThrow(InvalidReportStateError);

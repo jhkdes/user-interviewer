@@ -50,8 +50,8 @@ export interface JobSearchReport {
 export interface EnqueueJobSearchReportInput {
   interviewId: string;
   studyId: string;
-  /** "skipped" records an interview that will not be analyzed, with the reason in `error`. Defaults to "pending". */
-  status?: "pending" | "skipped";
+  /** "failed" (or "skipped") records an interview that will not be analyzed, with the reason in `error`. Defaults to "pending". */
+  status?: "pending" | "failed" | "skipped";
   error?: string;
 }
 

@@ -151,6 +151,35 @@ export function runStudyRepositoryContractTests(
       expect(study.customPrompt).toBe("You are a research interviewer for {{participant_name}}...");
     });
 
+    it("stores custom participant-page copy, updates it, and clears it back to null", async () => {
+      const repo = await makeRepository();
+      const plain = await repo.create({
+        title: sampleTitle,
+        description: sampleDescription,
+        preInterviewQuestions: sampleQuestions,
+        linkToken: "token-no-copy",
+      });
+      expect(plain.participantCopy).toBeNull();
+
+      const created = await repo.create({
+        title: sampleTitle,
+        description: sampleDescription,
+        preInterviewQuestions: sampleQuestions,
+        participantCopy: { completion: { title: "Thanks" } },
+        linkToken: "token-with-copy",
+      });
+      expect(created.participantCopy).toEqual({ completion: { title: "Thanks" } });
+
+      const updated = await repo.updateDetails(created.id, {
+        participantCopy: { intro: { facts: ["Free report"] } },
+      });
+      expect(updated.participantCopy).toEqual({ intro: { facts: ["Free report"] } });
+      expect((await repo.getById(created.id))?.participantCopy).toEqual(updated.participantCopy);
+
+      const cleared = await repo.updateDetails(created.id, { participantCopy: null });
+      expect(cleared.participantCopy).toBeNull();
+    });
+
     it("getById returns the created study", async () => {
       const repo = await makeRepository();
       const created = await repo.create({

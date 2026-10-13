@@ -1,6 +1,7 @@
 "use client";
 
 import type { StudyType, VoiceProvider } from "@/domain";
+import type { CallEndInfo } from "./call-end-info";
 import { ElevenLabsLiveCall } from "./elevenlabs-live-call";
 import { VapiLiveCall } from "./vapi-live-call";
 
@@ -25,7 +26,8 @@ export function LiveCall({
   firstName: string;
   voiceProvider: VoiceProvider;
   type: StudyType;
-  onEnded: () => void;
+  /** Called when the call ends. Only the ElevenLabs call reports how it ended. */
+  onEnded: (info?: CallEndInfo) => void;
   /** Typing is offered (feedback studies with text mode on): called once the interview was restarted as a typing interview. */
   onSwitchedToTyping?: () => void;
   /** A retry is offered after an error before the call began. */

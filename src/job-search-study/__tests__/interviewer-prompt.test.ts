@@ -41,8 +41,31 @@ describe("loadJobSearchInterviewerPrompt", () => {
 
   it("asks how they found the role and how old the posting was, but not for alerts or sources the screener covers", () => {
     expect(prompt).toContain("how old the posting was");
-    expect(prompt).toContain("about how long had it been posted when you applied");
+    expect(prompt).toContain("About how long had it been posted when you applied?");
     expect(prompt).toContain("alerts or saved searches");
+  });
+
+  it("tells the interviewer to ask one simple question per turn, with an example", () => {
+    expect(prompt).toContain("## One question at a time");
+    expect(prompt).toContain("Ask exactly one question per turn");
+    expect(prompt).toContain("Never ask two questions in one turn");
+    expect(prompt).toContain("Wrong:");
+    expect(prompt).toContain("Right:");
+  });
+
+  it("no longer scripts any question with two question marks", () => {
+    // Every scripted question is a single question, so the model is not shown stacked ones to copy.
+    const scripted = prompt.split("\n").filter((line) => line.startsWith("> "));
+    expect(scripted.length).toBeGreaterThan(10);
+    for (const line of scripted) {
+      expect(line.match(/\?/g)?.length ?? 0, line).toBeLessThanOrEqual(1);
+    }
+  });
+
+  it("asks the strengths questions one at a time", () => {
+    expect(prompt).toContain("what would you say you are best at?");
+    expect(prompt).not.toContain("what you enjoy and don't? Did you ask anyone else");
+    expect(prompt).toContain("Have you asked anyone else what they think you are best at?");
   });
 
   it("includes the closing and time-check guidance", () => {
