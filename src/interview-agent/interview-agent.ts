@@ -1,4 +1,5 @@
 import type { InterviewerTurnStreamEvent, InterviewTurn, LLMProviderAdapter } from "@/llm";
+import { silenceNotice } from "./silence";
 import { buildInterviewSystemPrompt, type InterviewPromptContext } from "./system-prompt";
 import {
   checkTermination,
@@ -177,6 +178,18 @@ export class InterviewAgent {
           secondTimeCheckJustAsked: true,
         };
       }
+    }
+
+    // ---- The participant cannot be heard: say so instead of asking again ----
+    const cannotHear = silenceNotice(history);
+    if (cannotHear) {
+      return {
+        utterance: cannotHear,
+        isInterviewOver: false,
+        terminationReason: null,
+        timeCheckJustAsked: false,
+        secondTimeCheckJustAsked: false,
+      };
     }
 
     return null;
