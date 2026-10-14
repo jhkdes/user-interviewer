@@ -18,6 +18,8 @@ export interface TextState {
   endedReason: string | null;
   firstName: string;
   startedAt: string | null;
+  /** The server's clock when this was read, so the chat's countdown doesn't depend on the participant's own clock being right. */
+  serverTime: string;
   messages: TextStateMessage[];
 }
 
@@ -55,6 +57,7 @@ export async function getTextState(
     endedReason: interview.endedReason,
     firstName: interview.firstName,
     startedAt: interview.startedAt ? interview.startedAt.toISOString() : null,
+    serverTime: new Date().toISOString(),
   };
 
   if (interview.status === "completed" && interview.transcript) {

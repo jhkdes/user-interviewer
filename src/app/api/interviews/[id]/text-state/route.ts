@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getTextState } from "@/text-session";
+import { closeIfCapped } from "@/text-session/close-if-capped";
 import { getTextSessionDeps } from "@/text-session/get-text-session-deps";
 
 export const dynamic = "force-dynamic";
@@ -18,12 +19,21 @@ export async function GET(request: Request, { params }: { params: { id: string }
   }
 
   try {
-    const { interviewRepo, studyRepo, messageRepo } = getTextSessionDeps();
-    const state = await getTextState(
-      { interviewRepo, studyRepo, messageRepo },
-      { interviewId: params.id, linkToken },
-    );
+    const sessionDeps = getTextSessionDeps();
+    const { interviewRepo, studyRepo, messageRepo } = sessionDeps;
+    const read = () =>
+      getTextState(
+        { interviewRepo, studyRepo, messageRepo },
+        { interviewId: params.id, linkToken },
+      );
+
+    let state = await read();
     if (!state) return NextResponse.json({ error: "Interview not found" }, { status: 404 });
+    // A typed discovery session that has reached its time limit closes now,
+    // so the open chat doesn't wait for the next scheduled sweep.
+    if (state.status === "in-progress" && (await closeIfCapped(sessionDeps, params.id))) {
+      state = (await read()) ?? state;
+    }
     return NextResponse.json(state, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     console.error("Failed to read text-interview state:", error);

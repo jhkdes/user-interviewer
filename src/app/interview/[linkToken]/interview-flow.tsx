@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import type { Interview, ParticipantCopy, PreInterviewQuestion, StudyType } from "@/domain";
+import { DISCOVERY_TEXT_HARD_CAP_MS } from "@/interview-agent/termination";
 import { isMobileDevice } from "@/lib/device";
 import { endedEarly } from "./call-end-info";
 import { CompletionScreen } from "./completion-screen";
@@ -13,7 +14,14 @@ import { LiveCall } from "./live-call";
 import { MicCheckScreen } from "./mic-check-screen";
 import { MobileBlockedScreen } from "./mobile-blocked-screen";
 import { ModeSelectScreen } from "./mode-select-screen";
-import { messagesFromState, TextChat, type ChatMessage } from "./text-chat";
+import { SessionEndedScreen } from "./session-ended-screen";
+import {
+  clockFromState,
+  messagesFromState,
+  TextChat,
+  type ChatClock,
+  type ChatMessage,
+} from "./text-chat";
 import {
   clearSavedInterviewId,
   loadSavedInterviewId,
@@ -33,16 +41,22 @@ type Step =
   | "chat"
   | "resume-error"
   | "timed-out"
+  | "session-ended"
   | "ended-early"
   | "done";
 
 /** The `endedReason` of a typed interview that was ended because the participant stopped responding. */
 const INACTIVE_REASON = "participant-inactive";
 
+/** The `endedReason` of a typed interview that was ended because it reached its time limit. */
+const TIME_CAP_REASON = "time-cap";
+
 /** What the typing chat needs to start (a new text interview) or resume (a saved one). */
 interface ChatSession {
   interviewId: string;
   initialMessages: ChatMessage[];
+  /** When the interview started, for a resumed one; a new one learns it after its first reply. */
+  initialClock: ChatClock | null;
 }
 
 /** Orchestrates T11.1–T11.4 as one client-side flow (no page reloads between steps). */
@@ -54,6 +68,7 @@ export function InterviewFlow({
   description,
   questions,
   copy,
+  channel = "voice",
   minParticipantTurns,
   textModeEnabled = false,
 }: {
@@ -65,15 +80,23 @@ export function InterviewFlow({
   questions: PreInterviewQuestion[];
   /** The study's custom landing and ending page text, if it has any. */
   copy?: ParticipantCopy | null;
+  /**
+   * Which of the study's links this is. `"text"` is a discovery study's
+   * text-only link: no voice call, no mode choice — after intake the participant
+   * goes straight into a typed chat that has a time limit. Defaults to the
+   * voice link.
+   */
+  channel?: "voice" | "text";
   /** A voice call with fewer participant turns than this is treated as ended early. Defaults to a small number; studies that make a report pass the report's minimum. */
   minParticipantTurns?: number;
-  /** Offer typing as an alternative to the voice interview. Only ever applies to feedback studies — discovery studies stay voice-only whatever this says. */
+  /** Typed interviews are switched on for this deploy. On a feedback study's link it offers typing as an alternative to voice; a discovery study's voice link stays voice-only whatever this says, and its text link needs it. */
   textModeEnabled?: boolean;
 }) {
   const [step, setStep] = useState<Step>("loading");
   const [interview, setInterview] = useState<Interview | null>(null);
   const [chatSession, setChatSession] = useState<ChatSession | null>(null);
-  const [usedTyping, setUsedTyping] = useState(false);
+  const textChannel = channel === "text";
+  const [usedTyping, setUsedTyping] = useState(textChannel);
   // Bumped to start a fresh voice call after an error, by remounting it.
   const [callAttempt, setCallAttempt] = useState(0);
   // What the participant submitted at intake, so a call that dropped early can be started again without retyping it.
@@ -81,7 +104,17 @@ export function InterviewFlow({
   const [restarting, setRestarting] = useState(false);
   const [restartError, setRestartError] = useState<string | null>(null);
 
-  const textAvailable = textModeEnabled && type === "feedback";
+  const textAvailable = textModeEnabled && (type === "feedback" || textChannel);
+
+  /** Where an interview that has ended for this reason goes: a typed one that ran out of time, or went quiet, gets its own screen. */
+  const endStep = useCallback(
+    (endedReason: string | null): Step => {
+      if (endedReason === INACTIVE_REASON) return "timed-out";
+      if (textChannel && endedReason === TIME_CAP_REASON) return "session-ended";
+      return "done";
+    },
+    [textChannel],
+  );
 
   /** Puts a participant who was mid-chat back into it; anything else starts at the intro as usual. */
   const resumeOrStart = useCallback(async () => {
@@ -104,19 +137,23 @@ export function InterviewFlow({
     }
     const { state } = result;
     if (state.status === "in-progress") {
-      setChatSession({ interviewId: savedId, initialMessages: messagesFromState(state) });
+      setChatSession({
+        interviewId: savedId,
+        initialMessages: messagesFromState(state),
+        initialClock: clockFromState(state),
+      });
       setUsedTyping(true);
       setStep("chat");
     } else if (state.status === "completed" || state.status === "expired") {
       clearSavedInterviewId(linkToken);
       setUsedTyping(true);
-      setStep(state.endedReason === INACTIVE_REASON ? "timed-out" : "done");
+      setStep(endStep(state.endedReason));
     } else {
       // Still pending: the chat never started, so there is nothing to resume.
       clearSavedInterviewId(linkToken);
       setStep("intro");
     }
-  }, [linkToken]);
+  }, [linkToken, endStep]);
 
   useEffect(() => {
     // Device detection needs `navigator`, unavailable during SSR — determined
@@ -163,10 +200,10 @@ export function InterviewFlow({
   }
 
   /** Opens a fresh typing chat for the interview just created at intake, remembering it for resume. */
-  const beginTypingChat = () => {
-    if (!interview) return;
-    saveInterviewId(linkToken, interview.id);
-    setChatSession({ interviewId: interview.id, initialMessages: [] });
+  const beginTypingChat = (created: Interview | null = interview) => {
+    if (!created) return;
+    saveInterviewId(linkToken, created.id);
+    setChatSession({ interviewId: created.id, initialMessages: [], initialClock: null });
     setUsedTyping(true);
     setStep("chat");
   };
@@ -180,13 +217,13 @@ export function InterviewFlow({
     } catch {
       return false;
     }
-    beginTypingChat();
+    beginTypingChat(interview);
     return true;
   };
 
   const finishChat = (endedReason: string | null) => {
     clearSavedInterviewId(linkToken);
-    setStep(endedReason === INACTIVE_REASON ? "timed-out" : "done");
+    setStep(endStep(endedReason));
   };
 
   // The chat needs more room than the centered single-column screens.
@@ -197,7 +234,7 @@ export function InterviewFlow({
 
   return (
     <main className={mainClassName}>
-      {step === "mobile-blocked" && <MobileBlockedScreen type={type} />}
+      {step === "mobile-blocked" && <MobileBlockedScreen type={type} channel={channel} />}
       {step === "resume-error" && (
         <div className="text-center">
           <h1 className="text-xl font-semibold">We couldn&apos;t reconnect to your interview</h1>
@@ -225,6 +262,7 @@ export function InterviewFlow({
             title={title}
             description={description}
             copy={copy}
+            channel={channel}
             onAgree={() => setStep("intake")}
           />
         ))}
@@ -237,6 +275,11 @@ export function InterviewFlow({
           onSubmitted={setIntakeSubmission}
           onStarted={(createdInterview) => {
             setInterview(createdInterview);
+            if (textChannel) {
+              // The text link's interviews are typed from the start: no mode choice, no call.
+              beginTypingChat(createdInterview);
+              return;
+            }
             setStep(textAvailable ? "mode-select" : "mic-check");
           }}
         />
@@ -266,7 +309,7 @@ export function InterviewFlow({
             setStep(info && endedEarly(info, minParticipantTurns) ? "ended-early" : "done")
           }
           // Typing is only ever offered here for feedback studies with text mode on.
-          onSwitchedToTyping={textAvailable ? beginTypingChat : undefined}
+          onSwitchedToTyping={textAvailable ? () => beginTypingChat() : undefined}
           onRetry={textAvailable ? () => setCallAttempt((n) => n + 1) : undefined}
         />
       )}
@@ -276,9 +319,13 @@ export function InterviewFlow({
           linkToken={linkToken}
           initialMessages={chatSession.initialMessages}
           onEnded={finishChat}
+          heading={textChannel ? "Interview chat" : undefined}
+          sessionLimitMs={textChannel ? DISCOVERY_TEXT_HARD_CAP_MS : undefined}
+          initialClock={chatSession.initialClock}
         />
       )}
       {step === "timed-out" && <TimedOutScreen />}
+      {step === "session-ended" && <SessionEndedScreen copy={copy} />}
       {step === "ended-early" && (
         <EndedEarlyScreen
           onStartAgain={() => void startAgain()}

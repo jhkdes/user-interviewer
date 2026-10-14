@@ -6,7 +6,7 @@ Give every **discovery** study a second participant link that runs the interview
 
 This builds on [TEXT_INTERVIEW_MODE.md](TEXT_INTERVIEW_MODE.md) (feedback studies). That engine (`interview_messages`, `text-turn`, `text-state`, typing signals, idle sweep, chat UI, resume) is reused. What is new is the discovery agent in text mode, a second link, and discovery-specific limits.
 
-**Status:** phases 1 (foundation) and 2 (agent and limits, no UI) built on branch `add-text-discovery-interview`; phases 3-6 not started.
+**Status:** phases 1-3 (foundation, agent and limits, participant flow) built on branch `add-text-discovery-interview`; phases 4-6 not started.
 
 ## Decisions (agreed)
 
@@ -23,7 +23,7 @@ This builds on [TEXT_INTERVIEW_MODE.md](TEXT_INTERVIEW_MODE.md) (feedback studie
 | Message cap | 100 participant messages per interview, as an abuse limit. Ends with `endedReason: 'message-limit'`. Other limits (2,000 chars, rate limit, one turn at a time) unchanged. |
 | Idle | One nudge after 5 minutes without activity. No separate inactivity end for discovery: the 60-minute cap is the only thing that ends a silent interview. Feedback keeps its 5 / 10 nudge and inactivity end. |
 | Device | Desktop only (existing mobile block applies). |
-| Copy | Text link has its own editable landing and ending text. When it is empty it falls back to the voice link's text. |
+| Copy | Text link has its own editable landing and ending text, merged field by field: its own copy, else the voice link's custom copy, else text-specific defaults (never the voice defaults, which say "Voice, not text" and "the call is recorded"). |
 | Flag | Reuses `TEXT_INTERVIEW_MODE_ENABLED`. Off = the text link shows an "unavailable" page and the typing routes refuse. |
 
 ## Assumptions to confirm
@@ -63,8 +63,8 @@ Domain / repositories: `Study.textLinkToken`, `Study.participantCopyText`. Add `
 `loading → mobile-blocked | intro → intake → chat → done | timed-out | session-ended` (no `mode-select` or `call`).
 
 - `interview-flow.tsx` gets a `channel: 'text'` path for discovery: after intake, go straight to `chat`. Reuse `text-chat.tsx`, resume (`localStorage` keyed by the text link token), the "tell the interviewer you need to go" help line, the character counter, and the idle nudge.
-- New discovery text intro (a variant of the discovery intro): "about a 15-minute AI-run interview", written chat, **no microphone or recording**, the conversation is saved as a transcript, and **the session ends automatically after 60 minutes**. Landing and ending text come from `participantCopyText ?? participantCopy`.
-- **Countdown:** the chat shows a discreet gray "Time remaining 42:15" (muted text, no color change until the final minutes), driven by the interview's `startedAt` from `text-state` so it survives a refresh. It is informational only. At 0:00 the input is disabled and the client re-reads `text-state` until the sweep or the next turn closes the interview (up to about a minute), then shows the session-ended screen.
+- New discovery text intro (a variant of the discovery intro): "about a 15-minute AI-run interview", written chat, **no microphone or recording**, the conversation is saved as a transcript, and **the session ends automatically after 60 minutes**. Landing and ending text come from `mergeTextCopy(participantCopyText, participantCopy)`.
+- **Countdown (built):** the chat shows a discreet gray "Time remaining 42:15" (amber for the last five minutes), computed from the interview's `startedAt` and the server's clock (`serverTime` in `text-state`), so it survives a refresh and a wrong device clock. At 0:00 the input is disabled and the chat asks `text-state` every 3 seconds; `text-state` itself closes a discovery session past its cap (`closeIfCapped`), so the session-ended screen appears within seconds even before the cron is scheduled.
 - New `session-ended-screen` for the 60-minute cap.
 - Desktop only: existing mobile-blocked step.
 

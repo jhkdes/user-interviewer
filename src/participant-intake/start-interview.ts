@@ -1,7 +1,7 @@
 import type { Interview } from "@/domain";
 import type { InterviewRepository } from "@/repositories/interview-repository";
 import type { StudyRepository } from "@/repositories/study-repository";
-import { checkLinkValidity, type LinkValidity } from "@/study-service";
+import { checkLinkValidity, resolveLink, type LinkValidity } from "@/study-service";
 import { validateIntake, type IntakeInput } from "./intake-validation";
 
 export class StudyLinkNotFoundError extends Error {
@@ -43,6 +43,8 @@ export interface StartInterviewInput extends IntakeInput {
 export interface StartInterviewDeps {
   studyRepo: StudyRepository;
   interviewRepo: InterviewRepository;
+  /** Whether typed interviews are switched on for this deploy (TEXT_INTERVIEW_MODE_ENABLED). A study's text link is treated as unknown while this is off. */
+  textEnabled?: boolean;
   /** Defaults to `new Date()` — overridable so tests can simulate elapsed time deterministically. */
   now?: Date;
 }
@@ -59,8 +61,13 @@ export async function startInterview(
 ): Promise<Interview> {
   const now = deps.now ?? new Date();
 
-  const study = await deps.studyRepo.getByLinkToken(input.linkToken);
-  if (!study) throw new StudyLinkNotFoundError(input.linkToken);
+  // Either of the study's two links: the voice link, or the text-only link of a
+  // discovery study, whose interviews are typed from the start.
+  const resolved = await resolveLink(deps.studyRepo, input.linkToken);
+  if (!resolved || (resolved.channel === "text" && !deps.textEnabled)) {
+    throw new StudyLinkNotFoundError(input.linkToken);
+  }
+  const { study, channel } = resolved;
 
   const validity = checkLinkValidity(study, now);
   if (validity !== "valid") throw new StudyLinkInvalidError(validity);
@@ -78,6 +85,7 @@ export async function startInterview(
     screenerAnswers: input.screenerAnswers,
     voiceProvider: study.voiceProvider,
     trackingId: input.trackingId,
+    mode: channel === "text" ? "text" : "voice",
   });
 
   return deps.interviewRepo.update(interview.id, { consentGivenAt: now });
