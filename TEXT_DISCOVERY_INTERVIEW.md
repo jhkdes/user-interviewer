@@ -6,7 +6,7 @@ Give every **discovery** study a second participant link that runs the interview
 
 This builds on [TEXT_INTERVIEW_MODE.md](TEXT_INTERVIEW_MODE.md) (feedback studies). That engine (`interview_messages`, `text-turn`, `text-state`, typing signals, idle sweep, chat UI, resume) is reused. What is new is the discovery agent in text mode, a second link, and discovery-specific limits.
 
-**Status:** phases 1-5 built on branch `add-text-discovery-interview` (phase 5 = automated verification; the manual pass on Preview is still to do); phase 6 not started.
+**Status:** phases 1-5 built on branch `add-text-discovery-interview`; phase 6 (rollout) prepared, not yet shipped. Migration 0024 is applied in Supabase.
 
 ## Decisions (agreed)
 
@@ -147,3 +147,19 @@ Prerequisites: migration `0024` applied in Supabase (Preview and Production shar
 6. **Both links, one study.** The study page lists both links under one expiry; "Extend link" extends both; the voice link still works exactly as before; a voice interview and a typed one appear in the same list and the same study report.
 7. **Flag off.** With `TEXT_INTERVIEW_MODE_ENABLED` unset, the text link shows "not found" and the study page says so.
 8. **Production.** After 0024 is applied there, run the script with `--base-url` set to the Production URL, and make sure the scheduler (cron) is wired before real participants use the link (see Rollout in TEXT_INTERVIEW_MODE.md).
+
+## Phase 6: rollout runbook
+
+State when this was written (2026-10-13): migration `0024` applied in Supabase (checked). Preview and Production share that one Supabase project, so no migration step is left. The study to get the first text link is `51076f81-38f6-401a-9a12-f0487a019b98` ("How AI Actually Shows Up in a PM's Day": discovery, no report pipeline, no custom landing copy, so its text link shows the text-specific defaults and nothing about voice). `origin/main` is this branch's base plus merge commits, so shipping is five commits.
+
+Every step below is outward-facing or changes real data; each is done on request, in this order.
+
+1. **Preview.** Merge `add-text-discovery-interview` into `preview` and push (see PREVIEW_TESTING.md). Vercel builds it at `https://user-interviewer-git-preview-df-dc33.vercel.app`.
+2. **Text link for the study, then the manual pass.** `npx tsx --env-file=.env.local scripts/add-study-text-link.ts --study-id=51076f81-38f6-401a-9a12-f0487a019b98 --base-url=<site>`. Because Preview and Production share the database, this creates the link for both. It stays dormant on Production until the flag is on there: the text link shows "not found" and the study page says so. Then work through "Manual end-to-end pass" above on Preview.
+3. **Scheduler.** `.github/workflows/text-idle-sweep.yml` calls the sweep every 5 minutes. It only runs from `main`, so it starts after step 4. Before that, add the repository secret `TEXT_IDLE_SWEEP_URL` (`https://<production site>/api/internal/text-idle-sweep`). `CRON_SECRET` is already a repository secret (the job-search sweep uses it). Confirm `CRON_SECRET` is set in Vercel Production.
+4. **Ship.** Open a pull request from `add-text-discovery-interview` (or `preview`) into `main`, let CI pass, merge. Production deploys.
+5. **Check the sweep.** Actions tab, "Typed-interview sweep", Run workflow. Expect a green run and a body like `{"checked":0,"nudged":[],"completed":[],"deferred":0,"cleanedUp":[]}`. Calling the URL without the header must answer 401.
+6. **Turn it on.** `TEXT_INTERVIEW_MODE_ENABLED=true` in Vercel Production (it may already be set from the feedback rollout; the flag is deploy-wide, so setting it also enables typing on feedback studies), then redeploy Production, because env vars only apply to new builds.
+7. **Smoke test on Production** with your own email (completing an interview sends the summary email there): open the text link, run a short typed interview, say you need to go; check the thank-you screen, the dashboard ("Typed", transcript, no recording), the email, and that the voice link still works. Then share the text link.
+
+**Turning it off.** Unset `TEXT_INTERVIEW_MODE_ENABLED` and redeploy: the text link shows "not found" and new typed interviews stop; keep the scheduler and `CRON_SECRET` so typed interviews already running still get closed. Full rollback is reverting the merge on `main`; migration 0024 is additive and can stay.
