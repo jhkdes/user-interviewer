@@ -88,6 +88,8 @@ export interface InterviewPromptContext {
    * interview-agent.ts's TEXT_TIME_CAP_UTTERANCE).
    */
   timeUp?: boolean;
+  /** Text channel only: how many participant messages must come before the AI may wrap up. Defaults to DISCOVERY_TEXT_MIN_PARTICIPANT_TURNS. */
+  minParticipantTurns?: number;
 }
 
 /**
@@ -156,7 +158,10 @@ Either way, when you do close: that turn's utterance must be a closing statement
  * Everything above it that mentions a call, speaking, or hearing is meant for
  * this written chat instead. Same approach as feedback's TEXT_CHANNEL_GUIDANCE.
  */
-export const DISCOVERY_TEXT_CHANNEL_GUIDANCE = `## This is a written chat
+export function discoveryTextChannelGuidance(
+  minParticipantTurns: number = DISCOVERY_TEXT_MIN_PARTICIPANT_TURNS,
+): string {
+  return `## This is a written chat
 Everything above that mentions a call, speaking, or hearing applies to a written chat instead: the participant is reading your messages and typing their replies. Casual spoken rapport doesn't carry over to typing, so write for someone reading on a screen:
 
 - Keep every message short: one question per message, usually one to three short sentences, well under about 50 words.
@@ -168,7 +173,11 @@ Everything above that mentions a call, speaking, or hearing applies to a written
 - No spoken-style filler, and don't refer to talking, hearing, or listening ("thanks for sharing that" is fine; "I hear you" is not).
 - If the participant gives a short answer, accept it and move on, or ask one small follow-up. Don't pad.
 - There are no time-check questions in this chat. Don't ask whether they can keep going, and don't mention how long it has been.
-- Do not set shouldEndInterview to true until the participant has sent at least ${DISCOVERY_TEXT_MIN_PARTICIPANT_TURNS} messages, and don't say goodbye or hint that you are wrapping up before then. The exception is a participant who says they need to go or want to stop: honour that straight away with a short, friendly goodbye, no further question, and set participantRequestedEnd.`;
+- Do not set shouldEndInterview to true until the participant has sent at least ${minParticipantTurns} messages, and don't say goodbye or hint that you are wrapping up before then. The exception is a participant who says they need to go or want to stop: honour that straight away with a short, friendly goodbye, no further question, and set participantRequestedEnd.`;
+}
+
+/** The guidance with the standard minimum; studies whose reports need more turns pass their own to `buildInterviewSystemPrompt`. */
+export const DISCOVERY_TEXT_CHANNEL_GUIDANCE = discoveryTextChannelGuidance();
 
 /**
  * Prepended, same positioning rationale as the voice time-check guidance. Used
@@ -219,8 +228,10 @@ export function buildInterviewSystemPrompt(context: InterviewPromptContext): str
     isFinalWrapTurn,
     channel = "voice",
     timeUp = false,
+    minParticipantTurns,
   } = context;
   const isText = channel === "text";
+  const textGuidance = discoveryTextChannelGuidance(minParticipantTurns);
   const screenerContext = formatScreenerContext(screenerAnswers);
   // A written chat has no check-ins, so the two voice time-check turns never apply to it.
   const timeCheckGuidance = isText
@@ -238,7 +249,7 @@ export function buildInterviewSystemPrompt(context: InterviewPromptContext): str
       participant_name: participantFirstName,
     });
     if (isText) {
-      return `${timeCheckGuidance}${interpolated}${screenerContext}\n\n${DISCOVERY_TEXT_CHANNEL_GUIDANCE}\n\n${TEXT_RESPONSE_CONTRACT}`;
+      return `${timeCheckGuidance}${interpolated}${screenerContext}\n\n${textGuidance}\n\n${TEXT_RESPONSE_CONTRACT}`;
     }
     return `${timeCheckGuidance}${interpolated}${screenerContext}\n\n${RESPONSE_CONTRACT}`;
   }
@@ -269,7 +280,7 @@ ${buildTextOpeningSection(participantFirstName, researchTopic)}
 ## Tone
 Neutral, curious, conversational — not interrogative. Keep your own messages brief: short acknowledgments, one question at a time, no long monologues.
 
-${DISCOVERY_TEXT_CHANNEL_GUIDANCE}
+${textGuidance}
 
 ${TEXT_RESPONSE_CONTRACT}${screenerContext}`;
   }

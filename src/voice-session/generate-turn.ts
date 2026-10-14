@@ -6,7 +6,11 @@ import {
   limitToOneQuestion,
   oneQuestionPerTurnEnabled,
 } from "@/interview-agent/one-question";
-import type { TerminationReason } from "@/interview-agent/termination";
+import {
+  DISCOVERY_TEXT_MIN_PARTICIPANT_TURNS,
+  type TerminationReason,
+} from "@/interview-agent/termination";
+import { MIN_PARTICIPANT_TURNS_FOR_REPORT } from "@/job-search-study/min-turns";
 import type { InterviewTurn } from "@/llm";
 import type { InterviewRepository } from "@/repositories/interview-repository";
 import type { StudyRepository } from "@/repositories/study-repository";
@@ -78,6 +82,18 @@ export async function loadInterviewAndStudy(
   return { interview, study };
 }
 
+/**
+ * How many participant messages a typed discovery interview needs before the AI
+ * may end it on its own. A study that turns interviews into reports must not be
+ * ended before the interview is long enough to make one (the report's own
+ * minimum), or the participant is thanked for an interview that then fails.
+ */
+export function discoveryTextMinTurns(study: Study): number {
+  return study.reportPipeline === "job-search"
+    ? Math.max(DISCOVERY_TEXT_MIN_PARTICIPANT_TURNS, MIN_PARTICIPANT_TURNS_FOR_REPORT)
+    : DISCOVERY_TEXT_MIN_PARTICIPANT_TURNS;
+}
+
 function buildDiscoveryAgentInput(
   interview: Interview,
   study: Study,
@@ -101,6 +117,7 @@ function buildDiscoveryAgentInput(
     interviewStartedAt: interview.startedAt ?? interview.createdAt,
     extensionGranted: interview.extensionGranted,
     now,
+    minParticipantTurns: discoveryTextMinTurns(study),
   };
 }
 

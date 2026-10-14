@@ -53,6 +53,8 @@ export interface InterviewAgentTurnInput {
   extensionGranted?: boolean | null;
   /** Defaults to `new Date()` — overridable so tests can simulate elapsed time deterministically. */
   now?: Date;
+  /** Text channel only: how many participant messages must come before the AI may end the interview on its own. Defaults to DISCOVERY_TEXT_MIN_PARTICIPANT_TURNS; a study whose reports need more turns passes that. */
+  minParticipantTurns?: number;
 }
 
 export type InterviewAgentStreamEvent =
@@ -223,6 +225,7 @@ export class InterviewAgent {
     history: InterviewTurn[],
     interviewStartedAt: Date,
     now: Date,
+    minParticipantTurns: number,
     llmOutput: {
       utterance: string;
       shouldEndInterview: boolean;
@@ -240,7 +243,7 @@ export class InterviewAgent {
       llmSuggestsEnd,
       participantRequestedEnd: participantRequestedEnd ?? false,
       hardCapMs: DISCOVERY_TEXT_HARD_CAP_MS,
-      minParticipantTurnsBeforeLlmCanEnd: DISCOVERY_TEXT_MIN_PARTICIPANT_TURNS,
+      minParticipantTurnsBeforeLlmCanEnd: minParticipantTurns,
     });
 
     return {
@@ -374,16 +377,18 @@ export class InterviewAgent {
     const interviewStartedAt = input.interviewStartedAt;
 
     if (input.context.channel === "text") {
+      const minTurns = input.minParticipantTurns ?? DISCOVERY_TEXT_MIN_PARTICIPANT_TURNS;
       const llmOutput = await this.llm.generateInterviewerTurn({
         systemPrompt: buildInterviewSystemPrompt({
           ...input.context,
           isDecisionTurn: false,
           isFinalWrapTurn: false,
           timeUp: this.isTextTimeUp(input, now),
+          minParticipantTurns: minTurns,
         }),
         conversationHistory: history,
       });
-      return this.finalizeTextTurn(history, interviewStartedAt, now, llmOutput);
+      return this.finalizeTextTurn(history, interviewStartedAt, now, minTurns, llmOutput);
     }
 
     const scripted = this.resolveScriptedTurn(input, history, now, interviewStartedAt);
@@ -432,6 +437,7 @@ export class InterviewAgent {
     const interviewStartedAt = input.interviewStartedAt;
 
     if (input.context.channel === "text") {
+      const minTurns = input.minParticipantTurns ?? DISCOVERY_TEXT_MIN_PARTICIPANT_TURNS;
       let textOutput: Extract<InterviewerTurnStreamEvent, { type: "done" }> | undefined;
       for await (const event of this.llm.generateInterviewerTurnStreaming({
         systemPrompt: buildInterviewSystemPrompt({
@@ -439,6 +445,7 @@ export class InterviewAgent {
           isDecisionTurn: false,
           isFinalWrapTurn: false,
           timeUp: this.isTextTimeUp(input, now),
+          minParticipantTurns: minTurns,
         }),
         conversationHistory: history,
       })) {
@@ -451,7 +458,7 @@ export class InterviewAgent {
       if (!textOutput) {
         throw new Error("generateNextTurnStreaming: LLM stream ended without a done event");
       }
-      const result = this.finalizeTextTurn(history, interviewStartedAt, now, textOutput);
+      const result = this.finalizeTextTurn(history, interviewStartedAt, now, minTurns, textOutput);
       if (result.terminationReason === "time-cap") {
         yield { type: "text-delta", text: ` ${DISCOVERY_TEXT_TIME_CAP_UTTERANCE}` };
       }

@@ -6,7 +6,7 @@ Give every **discovery** study a second participant link that runs the interview
 
 This builds on [TEXT_INTERVIEW_MODE.md](TEXT_INTERVIEW_MODE.md) (feedback studies). That engine (`interview_messages`, `text-turn`, `text-state`, typing signals, idle sweep, chat UI, resume) is reused. What is new is the discovery agent in text mode, a second link, and discovery-specific limits.
 
-**Status:** phases 1-4 (foundation, agent and limits, participant flow, dashboard) built on branch `add-text-discovery-interview`; phases 5-6 not started.
+**Status:** phases 1-5 built on branch `add-text-discovery-interview` (phase 5 = automated verification; the manual pass on Preview is still to do); phase 6 not started.
 
 ## Decisions (agreed)
 
@@ -113,3 +113,37 @@ One-off script (not a migration) that generates a `text_link_token` for study `5
 - **Editing landing and ending pages:** a Voice link / Text link switch on the participant-pages page (`?channel=text`). The text form starts from what the text link really shows (its own copy, else the voice link's, else the text defaults) and saves only the fields that differ from that, so untouched fields keep following the voice link. Buttons: "Use the job-search wording", "Match the voice link" (saves null), "Reset to the standard text wording". A warning reminds the editor that inherited voice wording may talk about a call.
 - **API:** `PUT /api/studies/[id]/participant-copy` takes an optional `"channel": "text"`; null on the text channel means "follow the voice link". A study with no text link is refused.
 - **Job-search studies:** new ones get `JOB_SEARCH_TEXT_PARTICIPANT_COPY` for the text link at creation. For an existing study, open the Text link editor and click "Use the job-search wording", then Save.
+
+## Phase 5: verification results
+
+**Checked by reading the code and by test (no change needed)**
+
+- Dashboard: the interview list and detail page already hide the recording and show the "Typed" badge and the end reason for any typed interview, including `time-cap` ("the time limit was reached") and `message-limit`. A typed interview is never counted as a "dropped call".
+- Transcript download marks a typed participant with "Interview mode: typed (written chat), not voice." Redaction, the printable export, the participant email list, the study report, the summary, the summary email and the completion webhook all work from the stored transcript and need no recording.
+- One end-to-end test (`discovery-end-to-end.test.ts`) drives a whole typed interview through the study's text link with only the model scripted: intake creates a typed interview of the study, a transcript is stored, the summary and email are produced, the raw messages are deleted, the transcript export is marked, and the job-search report queue counts the typed turns.
+- `next build` succeeds.
+
+**Changed**
+
+- **A job-search study's typed interview cannot be ended by the AI before 14 participant messages** (the report's own minimum), not 12. Without this a participant could be thanked after 12 or 13 messages and the report would then fail as "too short". Studies without a report pipeline keep 12. The chat prompt is told the study's number.
+- **The report extraction prompt has a typed variant.** It called every transcript "a spoken interview" with "speech-to-text" errors. For a typed interview those two sentences say it is typed (typos, abbreviations). The spoken prompt is unchanged, byte for byte.
+
+**Known gaps (accepted for now)**
+
+- A participant who types "I need to go" before the report minimum on a job-search study sees the normal thank-you screen, not the "ended early" screen with a way to start again that voice participants get. The job-search ending text already says an early finish may not get a report.
+- The quote check in the job-search ledger is built for spoken text (it ignores filler words and run-together words). Typed text matches under the same rules, so nothing breaks, but it has only been exercised on spoken transcripts.
+- Not yet run against a real model: the discovery chat prompt, the extraction on a typed transcript, and the report on one. Read the first few real typed transcripts for message length, tone, and spoken-style wording.
+- Supabase integration tests for the new columns are skipped without credentials. Run `npx vitest run src/repositories/supabase` with `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` set once migration 0024 is applied.
+
+## Manual end-to-end pass (on Preview, before Production)
+
+Prerequisites: migration `0024` applied in Supabase (Preview and Production share one project, so study creation fails everywhere until it is); this branch merged into `preview`; `TEXT_INTERVIEW_MODE_ENABLED=true` and `CRON_SECRET` set on Preview (they are, from the feedback rollout).
+
+1. **Give the study its text link.** `npx tsx --env-file=.env.local scripts/add-study-text-link.ts --study-id=51076f81-38f6-401a-9a12-f0487a019b98 --base-url=<preview URL>` prints both URLs. On the study page, open Edit landing and ending pages, choose Text link, and if the study is the job-search one click "Use the job-search wording" and Save.
+2. **Landing page.** Open the text link on a desktop: written wording, "ends automatically after 60 minutes", no FAQ link, no "Voice, not text". On a phone: blocked with the written-interview message.
+3. **Typed interview.** Intake goes straight into the chat; the opening message greets by name with no small talk; the gray countdown starts near 60:00; refresh mid-chat and it comes back with the right time. Say you need to go: it ends at once and shows the thank-you screen. Check the transcript, summary, email, and that the dashboard shows "Typed" with no recording player.
+4. **Floor.** On a second interview, keep answering briefly: the AI should not wrap up before 12 messages (14 on the job-search study).
+5. **Time cap and idle (shift timestamps in SQL).** Set `started_at` to 59 minutes ago and watch the countdown reach 0:00: the input disables and the "session has ended" screen appears within a few seconds. Set `last_activity_at` to 6 minutes ago and run the sweep by hand: the nudge appears. Set `last_activity_at` to 40 minutes ago: it is NOT ended for inactivity.
+6. **Both links, one study.** The study page lists both links under one expiry; "Extend link" extends both; the voice link still works exactly as before; a voice interview and a typed one appear in the same list and the same study report.
+7. **Flag off.** With `TEXT_INTERVIEW_MODE_ENABLED` unset, the text link shows "not found" and the study page says so.
+8. **Production.** After 0024 is applied there, run the script with `--base-url` set to the Production URL, and make sure the scheduler (cron) is wired before real participants use the link (see Rollout in TEXT_INTERVIEW_MODE.md).
