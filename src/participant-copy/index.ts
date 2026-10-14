@@ -244,29 +244,36 @@ export function validateParticipantCopy(raw: unknown): CopyValidation {
 }
 
 /**
- * Drops every field that equals its default, so a study that saves the text
- * it started with keeps following the defaults instead of freezing them.
- * Returns null when nothing differs.
+ * Drops every field that equals what the page would show anyway, so a study
+ * that saves the text it started with keeps following it instead of freezing
+ * it. For the voice link that is the standard wording. For the text link it is
+ * what the text link shows with no copy of its own: the voice link's custom
+ * copy (pass it as `fallback`), then the text defaults. Returns null when
+ * nothing differs.
  */
 export function withoutDefaults(
   copy: ParticipantCopy,
   description: string,
+  channel: "voice" | "text" = "voice",
+  fallback: ParticipantCopy | null = null,
 ): ParticipantCopy | null {
   const same = <T>(a: T, b: T) => JSON.stringify(a) === JSON.stringify(b);
+  const baseIntro = resolveIntroCopy(fallback, description, channel);
+  const baseCompletion = resolveCompletionCopy(fallback, channel);
   const out: ParticipantCopy = {};
 
   if (copy.intro) {
     const intro: NonNullable<ParticipantCopy["intro"]> = {};
-    if (copy.intro.tagline && copy.intro.tagline !== defaultTagline(description)) {
+    if (copy.intro.tagline && copy.intro.tagline !== baseIntro.tagline) {
       intro.tagline = copy.intro.tagline;
     }
-    if (copy.intro.facts?.length && !same(copy.intro.facts, DEFAULT_INTRO_FACTS)) {
+    if (copy.intro.facts?.length && !same(copy.intro.facts, baseIntro.facts)) {
       intro.facts = copy.intro.facts;
     }
-    if (copy.intro.steps?.length && !same(copy.intro.steps, DEFAULT_INTRO_STEPS)) {
+    if (copy.intro.steps?.length && !same(copy.intro.steps, baseIntro.steps)) {
       intro.steps = copy.intro.steps;
     }
-    if (copy.intro.consentNote && copy.intro.consentNote !== DEFAULT_CONSENT_NOTE) {
+    if (copy.intro.consentNote && copy.intro.consentNote !== baseIntro.consentNote) {
       intro.consentNote = copy.intro.consentNote;
     }
     if (Object.keys(intro).length > 0) out.intro = intro;
@@ -274,10 +281,10 @@ export function withoutDefaults(
 
   if (copy.completion) {
     const completion: NonNullable<ParticipantCopy["completion"]> = {};
-    if (copy.completion.title && copy.completion.title !== DEFAULT_COMPLETION_TITLE) {
+    if (copy.completion.title && copy.completion.title !== baseCompletion.title) {
       completion.title = copy.completion.title;
     }
-    if (copy.completion.message && copy.completion.message !== defaultCompletionMessage("voice")) {
+    if (copy.completion.message && copy.completion.message !== baseCompletion.message) {
       completion.message = copy.completion.message;
     }
     if (Object.keys(completion).length > 0) out.completion = completion;

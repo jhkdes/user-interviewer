@@ -21,7 +21,7 @@ export class InMemoryStudyRepository implements StudyRepository {
       customPrompt: input.customPrompt ?? null,
       reportPipeline: input.reportPipeline ?? null,
       participantCopy: input.participantCopy ?? null,
-      participantCopyText: null,
+      participantCopyText: input.participantCopyText ?? null,
       linkToken: input.linkToken,
       textLinkToken: input.textLinkToken ?? null,
       voiceProvider: input.voiceProvider ?? "vapi",

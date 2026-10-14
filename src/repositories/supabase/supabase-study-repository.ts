@@ -56,6 +56,7 @@ export class SupabaseStudyRepository implements StudyRepository {
         report_pipeline: input.reportPipeline ?? null,
         // Only sent when set, so creating a study works before the participant_copy migration is applied.
         ...(input.participantCopy ? { participant_copy: input.participantCopy } : {}),
+        ...(input.participantCopyText ? { participant_copy_text: input.participantCopyText } : {}),
         link_token: input.linkToken,
         // Only sent when set, so creating a study works before the text-link migration is applied.
         ...(input.textLinkToken ? { text_link_token: input.textLinkToken } : {}),

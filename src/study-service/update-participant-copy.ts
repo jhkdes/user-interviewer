@@ -8,11 +8,14 @@ import { InvalidStudyInputError } from "./create-study";
  * copy with nothing in it) returns the study to the standard wording. Only
  * discovery studies have these pages to customize; a feedback study keeps its
  * own simpler intro. Editable at any time, unlike a study's type or pipeline.
+ * `channel` picks which of the study's two links the text is for; `null` on the
+ * text link makes it follow the voice link's wording again.
  */
 export async function updateParticipantCopy(
   repo: StudyRepository,
   studyId: string,
   rawCopy: unknown,
+  channel: "voice" | "text" = "voice",
 ): Promise<Study> {
   const existing = await repo.getById(studyId);
   if (!existing) throw new Error(`Study not found: ${studyId}`);
@@ -22,7 +25,14 @@ export async function updateParticipantCopy(
     ]);
   }
 
+  if (channel === "text" && !existing.textLinkToken) {
+    throw new InvalidStudyInputError(["this study has no text link to customize"]);
+  }
+
   const result = validateParticipantCopy(rawCopy);
   if (!result.valid) throw new InvalidStudyInputError(result.errors);
-  return repo.updateDetails(studyId, { participantCopy: result.value });
+  return repo.updateDetails(
+    studyId,
+    channel === "text" ? { participantCopyText: result.value } : { participantCopy: result.value },
+  );
 }

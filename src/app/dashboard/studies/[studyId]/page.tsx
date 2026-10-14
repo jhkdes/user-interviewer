@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { isTextInterviewModeEnabled } from "@/lib/feature-flags";
 import { getInterviewRepository } from "@/repositories/get-interview-repository";
 import { getStudyRepository } from "@/repositories/get-study-repository";
 import { getStudyReportRepository } from "@/repositories/get-study-report-repository";
@@ -91,7 +92,21 @@ export default async function StudyDetailPage({ params }: { params: { studyId: s
       )}
 
       <div className="mt-4">
-        <StudyLink linkToken={study.linkToken} />
+        <StudyLink
+          linkToken={study.linkToken}
+          label={study.textLinkToken ? "Voice interview link" : undefined}
+        />
+        {study.textLinkToken && (
+          <div className="mt-3">
+            <StudyLink linkToken={study.textLinkToken} label="Text interview link" />
+            <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
+              A written chat with a 60-minute limit, desktop only. Interviews from either link
+              appear below, and the text ones are marked &ldquo;Typed&rdquo;.
+              {!isTextInterviewModeEnabled() &&
+                " Typed interviews are switched off for this site right now, so this link shows \u201cnot found\u201d until they are turned on."}
+            </p>
+          </div>
+        )}
         {linkExpiry.expiresAt && (
           <p
             className={
@@ -106,7 +121,7 @@ export default async function StudyDetailPage({ params }: { params: { studyId: s
               ? `This link expired on ${linkExpiry.expiresAt.toLocaleDateString()}. Extend it to let participants use it again.`
               : linkExpiry.isExpiringSoon
                 ? `Link expires in ${linkExpiry.daysRemaining} day${linkExpiry.daysRemaining === 1 ? "" : "s"}, on ${linkExpiry.expiresAt.toLocaleDateString()} — extend it soon to keep it active.`
-                : `Link expires ${linkExpiry.expiresAt.toLocaleDateString()} (in ${linkExpiry.daysRemaining} days).`}
+                : `${study.textLinkToken ? "Links expire" : "Link expires"} ${linkExpiry.expiresAt.toLocaleDateString()} (in ${linkExpiry.daysRemaining} days).`}
           </p>
         )}
         {study.status !== "closed" && (

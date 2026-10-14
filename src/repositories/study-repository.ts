@@ -23,6 +23,8 @@ export interface CreateStudyInput {
   reportPipeline?: ReportPipeline;
   /** Custom landing and ending page text. Omit for the standard wording. */
   participantCopy?: ParticipantCopy;
+  /** Custom landing and ending page text for the text link. Omit to follow the voice link's. */
+  participantCopyText?: ParticipantCopy;
   linkToken: string;
   /** Discovery-type only. Omit for a study without a text link. */
   textLinkToken?: string;

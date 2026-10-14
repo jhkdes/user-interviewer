@@ -14,7 +14,7 @@ import { useEffect, useState } from "react";
  * first place that convention is established; M11 must serve its
  * intro/consent screen at this path.
  */
-export function StudyLink({ linkToken }: { linkToken: string }) {
+export function StudyLink({ linkToken, label }: { linkToken: string; label?: string }) {
   const [origin, setOrigin] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
@@ -35,14 +35,20 @@ export function StudyLink({ linkToken }: { linkToken: string }) {
   }
 
   return (
-    <div className="flex items-center gap-2 rounded border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm dark:border-neutral-800 dark:bg-neutral-900">
-      <code className="flex-1 overflow-x-auto whitespace-nowrap">{url}</code>
-      <button
-        onClick={handleCopy}
-        className="shrink-0 rounded border border-neutral-300 px-2 py-1 text-xs hover:bg-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-800"
-      >
-        {copied ? "Copied!" : "Copy"}
-      </button>
+    <div>
+      {label && (
+        <p className="mb-1 text-xs font-medium text-neutral-500 dark:text-neutral-400">{label}</p>
+      )}
+      <div className="flex items-center gap-2 rounded border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm dark:border-neutral-800 dark:bg-neutral-900">
+        <code className="flex-1 overflow-x-auto whitespace-nowrap">{url}</code>
+        <button
+          onClick={handleCopy}
+          aria-label={label ? `Copy ${label.toLowerCase()}` : undefined}
+          className="shrink-0 rounded border border-neutral-300 px-2 py-1 text-xs hover:bg-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-800"
+        >
+          {copied ? "Copied!" : "Copy"}
+        </button>
+      </div>
     </div>
   );
 }

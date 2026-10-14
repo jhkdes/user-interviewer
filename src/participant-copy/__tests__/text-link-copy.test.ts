@@ -1,17 +1,21 @@
 import { describe, expect, it } from "vitest";
+import type { ParticipantCopy } from "@/domain";
 import { JOB_SEARCH_PARTICIPANT_COPY } from "@/job-search-study/participant-copy";
 import {
+  DEFAULT_COMPLETION_TITLE,
   DEFAULT_CONSENT_NOTE,
   DEFAULT_INTRO_FACTS,
   DEFAULT_INTRO_STEPS,
   DEFAULT_TEXT_CONSENT_NOTE,
   DEFAULT_TEXT_INTRO_FACTS,
   DEFAULT_TEXT_INTRO_STEPS,
+  defaultCompletionMessage,
   defaultTagline,
   mergeTextCopy,
   resolveCompletionCopy,
   resolveIntroCopy,
   resolveSessionEndedCopy,
+  withoutDefaults,
 } from "../index";
 
 describe("the text link's default landing wording", () => {
@@ -100,5 +104,70 @@ describe("ending text for a typed session", () => {
     expect(ended.title).toBe("This session has ended");
     expect(ended.message).toContain("60-minute limit");
     expect(ended.message).toContain("saved");
+  });
+});
+
+describe("withoutDefaults for the text link", () => {
+  const description = "how you work";
+  const textState = (overrides: ParticipantCopy = {}): ParticipantCopy => ({
+    intro: {
+      tagline: defaultTagline(description, "text"),
+      facts: DEFAULT_TEXT_INTRO_FACTS,
+      steps: DEFAULT_TEXT_INTRO_STEPS,
+      consentNote: DEFAULT_TEXT_CONSENT_NOTE,
+      ...overrides.intro,
+    },
+    completion: {
+      title: DEFAULT_COMPLETION_TITLE,
+      message: defaultCompletionMessage("text"),
+      ...overrides.completion,
+    },
+  });
+
+  it("saves nothing for text left at the text defaults", () => {
+    expect(withoutDefaults(textState(), description, "text")).toBeNull();
+  });
+
+  it("keeps only what differs from the text defaults", () => {
+    expect(
+      withoutDefaults(textState({ completion: { title: "Typed thanks" } }), description, "text"),
+    ).toEqual({ completion: { title: "Typed thanks" } });
+  });
+
+  it("saves nothing for text left matching the voice link's copy", () => {
+    const shown = resolveIntroCopy(
+      mergeTextCopy(null, JOB_SEARCH_PARTICIPANT_COPY),
+      description,
+      "text",
+    );
+    const completion = resolveCompletionCopy(
+      mergeTextCopy(null, JOB_SEARCH_PARTICIPANT_COPY),
+      "text",
+    );
+
+    expect(
+      withoutDefaults(
+        { intro: shown, completion },
+        description,
+        "text",
+        JOB_SEARCH_PARTICIPANT_COPY,
+      ),
+    ).toBeNull();
+  });
+
+  it("still treats voice wording as the baseline for the voice link", () => {
+    expect(
+      withoutDefaults(
+        {
+          intro: { facts: DEFAULT_INTRO_FACTS },
+          completion: { message: defaultCompletionMessage("voice") },
+        },
+        description,
+      ),
+    ).toBeNull();
+    // Text wording is not the voice link's default, so it is kept there.
+    expect(withoutDefaults({ intro: { facts: DEFAULT_TEXT_INTRO_FACTS } }, description)).toEqual({
+      intro: { facts: DEFAULT_TEXT_INTRO_FACTS },
+    });
   });
 });

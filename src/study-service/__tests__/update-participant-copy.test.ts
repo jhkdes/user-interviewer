@@ -82,3 +82,54 @@ describe("createStudy and participant copy", () => {
     expect(custom.participantCopy).toEqual({ completion: { title: "Mine" } });
   });
 });
+
+describe("updateParticipantCopy for the text link", () => {
+  it("saves the text link's copy without touching the voice link's", async () => {
+    const repo = new InMemoryStudyRepository();
+    const study = await createStudy(repo, input);
+    await updateParticipantCopy(repo, study.id, { completion: { title: "Thanks for talking" } });
+
+    const updated = await updateParticipantCopy(
+      repo,
+      study.id,
+      { completion: { title: "Thanks for typing" } },
+      "text",
+    );
+
+    expect(updated.participantCopyText).toEqual({ completion: { title: "Thanks for typing" } });
+    expect(updated.participantCopy).toEqual({ completion: { title: "Thanks for talking" } });
+  });
+
+  it("clears the text link's copy with null, so it follows the voice link again", async () => {
+    const repo = new InMemoryStudyRepository();
+    const study = await createStudy(repo, input);
+    await updateParticipantCopy(repo, study.id, { completion: { title: "Typed" } }, "text");
+
+    const cleared = await updateParticipantCopy(repo, study.id, null, "text");
+
+    expect(cleared.participantCopyText).toBeNull();
+  });
+
+  it("validates the text link's copy like the voice link's", async () => {
+    const repo = new InMemoryStudyRepository();
+    const study = await createStudy(repo, input);
+
+    await expect(
+      updateParticipantCopy(repo, study.id, { intro: { tagline: "x".repeat(400) } }, "text"),
+    ).rejects.toBeInstanceOf(InvalidStudyInputError);
+  });
+
+  it("refuses a study that has no text link", async () => {
+    const repo = new InMemoryStudyRepository();
+    const study = await repo.create({
+      title: "Old study",
+      description: "old",
+      preInterviewQuestions: [],
+      linkToken: "voice-only",
+    });
+
+    await expect(
+      updateParticipantCopy(repo, study.id, { completion: { title: "x" } }, "text"),
+    ).rejects.toThrow(/no text link/);
+  });
+});

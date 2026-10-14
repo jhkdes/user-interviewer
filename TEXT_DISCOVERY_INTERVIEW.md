@@ -6,7 +6,7 @@ Give every **discovery** study a second participant link that runs the interview
 
 This builds on [TEXT_INTERVIEW_MODE.md](TEXT_INTERVIEW_MODE.md) (feedback studies). That engine (`interview_messages`, `text-turn`, `text-state`, typing signals, idle sweep, chat UI, resume) is reused. What is new is the discovery agent in text mode, a second link, and discovery-specific limits.
 
-**Status:** phases 1-3 (foundation, agent and limits, participant flow) built on branch `add-text-discovery-interview`; phases 4-6 not started.
+**Status:** phases 1-4 (foundation, agent and limits, participant flow, dashboard) built on branch `add-text-discovery-interview`; phases 5-6 not started.
 
 ## Decisions (agreed)
 
@@ -106,3 +106,10 @@ One-off script (not a migration) that generates a `text_link_token` for study `5
 - **Cron dependency.** Without the scheduled sweep, nothing ends idle or capped discovery text interviews.
 - **Link spread.** Two public URLs for one study; either can be shared. Both die with the same expiry or closing.
 - **Mismatch between "about 15 minutes" and the real length.** Participants may be surprised by a long interview; the prompt, not the cap, is what keeps most near 15 minutes. Review in phase 5.
+
+## Phase 4 as built
+
+- **Study page:** a discovery study shows "Voice interview link" and "Text interview link", each with its own Copy button, under the one shared expiry note ("Links expire …"); "Extend link" extends both. When `TEXT_INTERVIEW_MODE_ENABLED` is off the page says the text link shows "not found" until it is turned on. The new-study confirmation shows both links.
+- **Editing landing and ending pages:** a Voice link / Text link switch on the participant-pages page (`?channel=text`). The text form starts from what the text link really shows (its own copy, else the voice link's, else the text defaults) and saves only the fields that differ from that, so untouched fields keep following the voice link. Buttons: "Use the job-search wording", "Match the voice link" (saves null), "Reset to the standard text wording". A warning reminds the editor that inherited voice wording may talk about a call.
+- **API:** `PUT /api/studies/[id]/participant-copy` takes an optional `"channel": "text"`; null on the text channel means "follow the voice link". A study with no text link is refused.
+- **Job-search studies:** new ones get `JOB_SEARCH_TEXT_PARTICIPANT_COPY` for the text link at creation. For an existing study, open the Text link editor and click "Use the job-search wording", then Save.

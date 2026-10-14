@@ -192,6 +192,24 @@ export function runStudyRepositoryContractTests(
       expect(plain.participantCopyText).toBeNull();
     });
 
+    it("stores text-link copy given at creation", async () => {
+      const repo = await makeRepository();
+      const created = await repo.create({
+        title: sampleTitle,
+        description: sampleDescription,
+        preInterviewQuestions: sampleQuestions,
+        participantCopy: { completion: { title: "Thanks for talking" } },
+        participantCopyText: { completion: { title: "Thanks for typing" } },
+        linkToken: "voice-token-with-text-copy",
+      });
+
+      expect(created.participantCopyText).toEqual({ completion: { title: "Thanks for typing" } });
+      expect((await repo.getById(created.id))?.participantCopyText).toEqual(
+        created.participantCopyText,
+      );
+      expect(created.participantCopy).toEqual({ completion: { title: "Thanks for talking" } });
+    });
+
     it("stores a text link token and finds the study by it, separately from the voice link", async () => {
       const repo = await makeRepository();
       const created = await repo.create({
