@@ -77,6 +77,18 @@ export const FEEDBACK_HARD_CAP_MS = FEEDBACK_HARD_CAP_MINUTES * 60 * 1000;
 export const FEEDBACK_TEXT_HARD_CAP_MINUTES = 15;
 export const FEEDBACK_TEXT_HARD_CAP_MS = FEEDBACK_TEXT_HARD_CAP_MINUTES * 60 * 1000;
 
+/**
+ * Discovery interviews taken as a typed chat (the study's text link — see
+ * TEXT_DISCOVERY_INTERVIEW.md). One hard cap from the start of the chat: no
+ * soft cap, no check-in, no extension. Participants are told "about 15
+ * minutes"; this is only the upper bound, which the chat shows as a countdown.
+ */
+export const DISCOVERY_TEXT_HARD_CAP_MINUTES = 60;
+export const DISCOVERY_TEXT_HARD_CAP_MS = DISCOVERY_TEXT_HARD_CAP_MINUTES * 60 * 1000;
+
+/** A typed discovery interview may only be ended by the AI's own judgment after this many participant messages (an explicit request to leave is honored at any point). */
+export const DISCOVERY_TEXT_MIN_PARTICIPANT_TURNS = 12;
+
 /** The hard cap for a feedback interview taken over the given channel. */
 export function feedbackHardCapMs(channel: "voice" | "text"): number {
   return channel === "text" ? FEEDBACK_TEXT_HARD_CAP_MS : FEEDBACK_HARD_CAP_MS;

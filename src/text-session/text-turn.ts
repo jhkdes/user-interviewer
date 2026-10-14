@@ -7,10 +7,10 @@ import {
   isIdleNudge,
   MAX_CLIENT_MESSAGE_ID_CHARS,
   MAX_MESSAGE_CHARS,
-  MAX_PARTICIPANT_MESSAGES,
   MAX_PARTICIPANT_MESSAGES_PER_MINUTE,
   MIN_MS_BETWEEN_PARTICIPANT_MESSAGES,
   STALE_REPLY_MS,
+  textLimitsFor,
 } from "./constants";
 import { messagesToOpenAI } from "./messages-to-openai";
 import type {
@@ -222,9 +222,6 @@ export async function startTextTurn(
   if (!interview) return fail(404, "interview-not-found", "We couldn't find this interview.");
   const study = await deps.studyRepo.getById(interview.studyId);
   if (!study) return fail(404, "interview-not-found", "We couldn't find this interview.");
-  if (study.type !== "feedback") {
-    return fail(403, "not-supported", "Typing isn't available for this interview.");
-  }
   if (interview.mode !== "text") {
     return fail(409, "not-text-interview", "This interview isn't a typing interview.");
   }
@@ -288,7 +285,7 @@ export async function startTextTurn(
   if (last?.speaker === "participant") return STILL_REPLYING;
 
   const participantMessages = messages.filter((message) => message.speaker === "participant");
-  if (participantMessages.length >= MAX_PARTICIPANT_MESSAGES) {
+  if (participantMessages.length >= textLimitsFor(study.type).maxParticipantMessages) {
     await completeTextInterview(deps, {
       interviewId: interview.id,
       endedReason: "message-limit",

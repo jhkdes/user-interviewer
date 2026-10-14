@@ -6,7 +6,7 @@ Give every **discovery** study a second participant link that runs the interview
 
 This builds on [TEXT_INTERVIEW_MODE.md](TEXT_INTERVIEW_MODE.md) (feedback studies). That engine (`interview_messages`, `text-turn`, `text-state`, typing signals, idle sweep, chat UI, resume) is reused. What is new is the discovery agent in text mode, a second link, and discovery-specific limits.
 
-**Status:** phase 1 (foundation) built on branch `add-text-discovery-interview`; later phases not started.
+**Status:** phases 1 (foundation) and 2 (agent and limits, no UI) built on branch `add-text-discovery-interview`; phases 3-6 not started.
 
 ## Decisions (agreed)
 

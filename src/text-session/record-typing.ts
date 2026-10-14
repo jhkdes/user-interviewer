@@ -33,7 +33,7 @@ export async function recordTyping(
   const interview = await deps.interviewRepo.getById(interviewId);
   if (!interview) return { ok: false, status: 404, code: "interview-not-found" };
   const study = await deps.studyRepo.getById(interview.studyId);
-  if (!study || study.type !== "feedback" || interview.mode !== "text") {
+  if (!study || interview.mode !== "text") {
     return { ok: false, status: 409, code: "not-text-interview" };
   }
   if (interview.status !== "in-progress") {

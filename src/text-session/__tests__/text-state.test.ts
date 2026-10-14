@@ -109,9 +109,13 @@ describe("getTextState", () => {
     ).toBeNull();
   });
 
-  it("answers null for a discovery study", async () => {
+  it("answers a discovery study's text interview only for its text link token", async () => {
     const { deps, interview } = await setupTextSession({ studyType: "discovery" });
 
+    expect(
+      await getTextState(deps, { interviewId: interview.id, linkToken: "text-token" }),
+    ).toMatchObject({ mode: "text", firstName: "Sam" });
+    // The voice link must not expose a typed interview.
     expect(
       await getTextState(deps, { interviewId: interview.id, linkToken: "feedback-token" }),
     ).toBeNull();

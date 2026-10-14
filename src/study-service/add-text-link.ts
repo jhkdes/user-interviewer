@@ -11,7 +11,9 @@ export async function addTextLink(repo: StudyRepository, studyId: string): Promi
   const study = await repo.getById(studyId);
   if (!study) throw new Error(`Study not found: ${studyId}`);
   if (study.type !== "discovery") {
-    throw new Error("Only discovery studies have a text link; feedback studies offer typing inside their one link.");
+    throw new Error(
+      "Only discovery studies have a text link; feedback studies offer typing inside their one link.",
+    );
   }
   if (study.textLinkToken) return study;
 

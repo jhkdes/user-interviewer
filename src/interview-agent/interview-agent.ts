@@ -3,6 +3,8 @@ import { silenceNotice } from "./silence";
 import { buildInterviewSystemPrompt, type InterviewPromptContext } from "./system-prompt";
 import {
   checkTermination,
+  DISCOVERY_TEXT_HARD_CAP_MS,
+  DISCOVERY_TEXT_MIN_PARTICIPANT_TURNS,
   EXTENDED_HARD_CAP_MS,
   EXTENDED_SOFT_CAP_MS,
   HARD_CAP_MS,
@@ -27,8 +29,18 @@ export const TIME_CHECK_UTTERANCE =
 export const SECOND_TIME_CHECK_UTTERANCE =
   "We're almost at the end of our time together — let's use these last couple minutes to wrap up. Is there anything else important you want to make sure I know before we close?";
 
+/**
+ * Text channel only. Appended to the model's reply on the turn the hard cap
+ * ends a typed interview, so the chat closes with a clear note instead of
+ * stopping after a reply that may look like an unanswered question. Same
+ * append-not-substitute approach as the feedback agent's text closing line,
+ * so the streaming and non-streaming paths behave identically.
+ */
+export const DISCOVERY_TEXT_TIME_CAP_UTTERANCE =
+  "We've reached the end of the time for this session, so we'll wrap up here. Thank you so much for your time and for sharing your experience!";
+
 export interface InterviewAgentTurnInput {
-  context: Omit<InterviewPromptContext, "isDecisionTurn" | "isFinalWrapTurn">;
+  context: Omit<InterviewPromptContext, "isDecisionTurn" | "isFinalWrapTurn" | "timeUp">;
   conversationHistory: InterviewTurn[];
   interviewStartedAt: Date;
   /**
@@ -195,6 +207,54 @@ export class InterviewAgent {
     return null;
   }
 
+  /** Text channel only: true once the hard cap has already passed when the turn starts — see InterviewPromptContext.timeUp. */
+  private isTextTimeUp(input: InterviewAgentTurnInput, now: Date): boolean {
+    return now.getTime() - input.interviewStartedAt.getTime() >= DISCOVERY_TEXT_HARD_CAP_MS;
+  }
+
+  /**
+   * A typed interview has one hard cap and no check-ins or extension, so none
+   * of the voice machinery (scripted time checks, decision turns, "cannot hear
+   * you" notices) applies. The AI can end it on its own only after
+   * DISCOVERY_TEXT_MIN_PARTICIPANT_TURNS participant messages; an explicit
+   * request to leave is honored at any point.
+   */
+  private finalizeTextTurn(
+    history: InterviewTurn[],
+    interviewStartedAt: Date,
+    now: Date,
+    llmOutput: {
+      utterance: string;
+      shouldEndInterview: boolean;
+      participantRequestedEnd?: boolean;
+    },
+  ): InterviewAgentTurnOutput {
+    const { utterance, shouldEndInterview, participantRequestedEnd } = llmOutput;
+    // A message that asks the participant something can never also be the closing one.
+    const llmSuggestsEnd = shouldEndInterview && !utterance.trim().endsWith("?");
+
+    const terminationReason = checkTermination({
+      conversationHistory: history,
+      interviewStartedAt,
+      now,
+      llmSuggestsEnd,
+      participantRequestedEnd: participantRequestedEnd ?? false,
+      hardCapMs: DISCOVERY_TEXT_HARD_CAP_MS,
+      minParticipantTurnsBeforeLlmCanEnd: DISCOVERY_TEXT_MIN_PARTICIPANT_TURNS,
+    });
+
+    return {
+      utterance:
+        terminationReason === "time-cap"
+          ? `${utterance} ${DISCOVERY_TEXT_TIME_CAP_UTTERANCE}`
+          : utterance,
+      isInterviewOver: terminationReason !== null,
+      terminationReason,
+      timeCheckJustAsked: false,
+      secondTimeCheckJustAsked: false,
+    };
+  }
+
   private computeTurnFlags(
     history: InterviewTurn[],
     extensionGranted: boolean | null | undefined,
@@ -313,6 +373,19 @@ export class InterviewAgent {
     const history = input.conversationHistory;
     const interviewStartedAt = input.interviewStartedAt;
 
+    if (input.context.channel === "text") {
+      const llmOutput = await this.llm.generateInterviewerTurn({
+        systemPrompt: buildInterviewSystemPrompt({
+          ...input.context,
+          isDecisionTurn: false,
+          isFinalWrapTurn: false,
+          timeUp: this.isTextTimeUp(input, now),
+        }),
+        conversationHistory: history,
+      });
+      return this.finalizeTextTurn(history, interviewStartedAt, now, llmOutput);
+    }
+
     const scripted = this.resolveScriptedTurn(input, history, now, interviewStartedAt);
     if (scripted) return scripted;
 
@@ -357,6 +430,34 @@ export class InterviewAgent {
     const now = input.now ?? new Date();
     const history = input.conversationHistory;
     const interviewStartedAt = input.interviewStartedAt;
+
+    if (input.context.channel === "text") {
+      let textOutput: Extract<InterviewerTurnStreamEvent, { type: "done" }> | undefined;
+      for await (const event of this.llm.generateInterviewerTurnStreaming({
+        systemPrompt: buildInterviewSystemPrompt({
+          ...input.context,
+          isDecisionTurn: false,
+          isFinalWrapTurn: false,
+          timeUp: this.isTextTimeUp(input, now),
+        }),
+        conversationHistory: history,
+      })) {
+        if (event.type === "text-delta") {
+          yield { type: "text-delta", text: event.text };
+        } else {
+          textOutput = event;
+        }
+      }
+      if (!textOutput) {
+        throw new Error("generateNextTurnStreaming: LLM stream ended without a done event");
+      }
+      const result = this.finalizeTextTurn(history, interviewStartedAt, now, textOutput);
+      if (result.terminationReason === "time-cap") {
+        yield { type: "text-delta", text: ` ${DISCOVERY_TEXT_TIME_CAP_UTTERANCE}` };
+      }
+      yield { type: "done", result };
+      return;
+    }
 
     const scripted = this.resolveScriptedTurn(input, history, now, interviewStartedAt);
     if (scripted) {

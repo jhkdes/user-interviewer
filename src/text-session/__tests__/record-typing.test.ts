@@ -93,8 +93,8 @@ describe("recordTyping", () => {
     ).toEqual({ ok: false, status: 409, code: "not-text-interview" });
   });
 
-  it("rejects a discovery study's interview", async () => {
-    const s = await setupTextSession({ studyType: "discovery" });
+  it("rejects a voice interview of a discovery study", async () => {
+    const s = await setupTextSession({ studyType: "discovery", mode: "voice" });
 
     expect(
       await recordTyping(
@@ -102,5 +102,17 @@ describe("recordTyping", () => {
         s.interview.id,
       ),
     ).toEqual({ ok: false, status: 409, code: "not-text-interview" });
+  });
+
+  it("records typing in a discovery study's text interview", async () => {
+    const s = await setupTextSession({ studyType: "discovery" });
+    await s.interviewRepo.update(s.interview.id, { status: "in-progress" });
+
+    expect(
+      await recordTyping(
+        { interviewRepo: s.interviewRepo, studyRepo: s.studyRepo },
+        s.interview.id,
+      ),
+    ).toEqual({ ok: true, recorded: true });
   });
 });

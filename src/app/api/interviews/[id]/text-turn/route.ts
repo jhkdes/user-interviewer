@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
  * Text-interview turn: the participant sends a message (or asks for the
  * opening greeting) and the interviewer's reply streams back as
  * newline-delimited JSON events (`text-delta`, then `done`, or `error`).
- * Only feedback-study interviews in text mode are accepted — everything else
+ * Only text-mode interviews of feedback or discovery studies are accepted — everything else
  * is rejected before any reply is generated. See TEXT_INTERVIEW_MODE.md.
  */
 export async function POST(request: Request, { params }: { params: { id: string } }) {

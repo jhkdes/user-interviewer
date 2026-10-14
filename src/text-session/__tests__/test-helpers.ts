@@ -15,6 +15,13 @@ export const scriptedFeedbackSummary = {
   suggestions: ["Leave more time for questions."],
 };
 
+export const scriptedDiscoverySummary = {
+  painPoints: ["Reconciliation takes days."],
+  notableQuotes: ["It's all spreadsheets."],
+  takeaways: ["Manual month-end close is the main pain."],
+  roleDescription: "Controller",
+};
+
 /** A time `ms` from the real clock — the in-memory repositories stamp messages with the real clock, so tests move the "current time" relative to it. */
 export function inMs(ms: number): Date {
   return new Date(Date.now() + ms);
@@ -31,6 +38,7 @@ export async function setupTextSession(
   const emailClient = new FakeEmailClient();
   const webhookClient = new FakeCompletionWebhookClient();
   llm.scriptFeedbackSummary(scriptedFeedbackSummary);
+  llm.scriptSummary(scriptedDiscoverySummary);
 
   const study: Study = await studyRepo.create({
     type: options.studyType ?? "feedback",
@@ -42,6 +50,8 @@ export async function setupTextSession(
         ? ["What stood out from today's session?"]
         : undefined,
     linkToken: "feedback-token",
+    // A discovery study's typed interviews come in through its text link.
+    textLinkToken: (options.studyType ?? "feedback") === "discovery" ? "text-token" : undefined,
   });
   const interview: Interview = await interviewRepo.create({
     studyId: study.id,
