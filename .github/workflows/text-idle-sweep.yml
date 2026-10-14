@@ -1,0 +1,38 @@
+name: Typed-interview sweep
+
+# Calls the typed-interview sweep route, which nudges a quiet participant, ends
+# a typed discovery session at its 60-minute limit, ends a quiet feedback chat,
+# and deletes leftover raw messages. See TEXT_INTERVIEW_MODE.md and
+# TEXT_DISCOVERY_INTERVIEW.md. Safe to run repeatedly.
+#
+# Needs two repository secrets (Settings > Secrets and variables > Actions):
+#   TEXT_IDLE_SWEEP_URL  the production sweep address, for example
+#                        https://yourapp.com/api/internal/text-idle-sweep
+#   CRON_SECRET          the same value as the CRON_SECRET environment variable
+#                        in Vercel (the job-search sweep uses the same secret)
+#
+# GitHub runs scheduled workflows only from the default branch (main), and
+# pauses them after 60 days without repository activity.
+
+on:
+  schedule:
+    # Every 5 minutes, in UTC. GitHub does not run schedules more often than
+    # every 5 minutes, and may delay a run when it is busy, so a "5 minutes
+    # quiet" nudge arrives between 5 and about 10 minutes in.
+    - cron: "*/5 * * * *"
+  # Adds a "Run workflow" button on the Actions tab, for testing by hand.
+  workflow_dispatch:
+
+jobs:
+  sweep:
+    runs-on: ubuntu-latest
+    # The route allows 60 seconds; this stops a hung run.
+    timeout-minutes: 3
+    steps:
+      - name: Call the sweep
+        env:
+          TEXT_IDLE_SWEEP_URL: ${{ secrets.TEXT_IDLE_SWEEP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          curl --fail-with-body --silent --show-error --max-time 90 -X POST \
+            -H "Authorization: Bearer $CRON_SECRET" "$TEXT_IDLE_SWEEP_URL"

@@ -5,9 +5,13 @@ import { useRouter } from "next/navigation";
 import type { IntroStep, ParticipantCopy } from "@/domain";
 import { CompletionScreen } from "@/app/interview/[linkToken]/completion-screen";
 import { IntroScreen } from "@/app/interview/[linkToken]/intro-screen";
-import { JOB_SEARCH_PARTICIPANT_COPY } from "@/job-search-study/participant-copy";
+import {
+  JOB_SEARCH_PARTICIPANT_COPY,
+  JOB_SEARCH_TEXT_PARTICIPANT_COPY,
+} from "@/job-search-study/participant-copy";
 import {
   LIMITS,
+  mergeTextCopy,
   resolveCompletionCopy,
   resolveIntroCopy,
   withoutDefaults,
@@ -29,9 +33,13 @@ interface FormState {
 }
 
 /** The fields as a participant would see them: the custom copy where there is any, the standard wording otherwise. */
-function stateFrom(copy: ParticipantCopy | null, description: string): FormState {
-  const intro = resolveIntroCopy(copy, description);
-  const completion = resolveCompletionCopy(copy, "voice");
+function stateFrom(
+  copy: ParticipantCopy | null,
+  description: string,
+  channel: "voice" | "text",
+): FormState {
+  const intro = resolveIntroCopy(copy, description, channel);
+  const completion = resolveCompletionCopy(copy, channel);
   return {
     tagline: intro.tagline,
     facts: intro.facts,
@@ -60,15 +68,28 @@ export function ParticipantPagesForm({
   description,
   linkToken,
   initialCopy,
+  channel = "voice",
+  voiceCopy = null,
 }: {
   studyId: string;
   title: string;
   description: string;
+  /** The token of the link being edited, for the "open the live page" link. */
   linkToken: string;
+  /** The stored copy of the link being edited. */
   initialCopy: ParticipantCopy | null;
+  /** Which of the study's two links this edits. The text link's pages follow the voice link's wherever they have no copy of their own. */
+  channel?: "voice" | "text";
+  /** The voice link's stored copy: what the text link shows where it has none of its own. */
+  voiceCopy?: ParticipantCopy | null;
 }) {
   const router = useRouter();
-  const [state, setState] = useState<FormState>(() => stateFrom(initialCopy, description));
+  const isText = channel === "text";
+  /** What the pages show when this link has no copy of its own: the standard wording, or for the text link the voice link's. */
+  const fallbackCopy = isText ? voiceCopy : null;
+  const [state, setState] = useState<FormState>(() =>
+    stateFrom(isText ? mergeTextCopy(initialCopy, voiceCopy) : initialCopy, description, channel),
+  );
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [errors, setErrors] = useState<string[]>([]);
@@ -83,7 +104,10 @@ export function ParticipantPagesForm({
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       // Text that equals the standard wording is not saved, so it keeps following the standard.
-      body: JSON.stringify({ participantCopy: withoutDefaults(copyFrom(state), description) }),
+      body: JSON.stringify({
+        participantCopy: withoutDefaults(copyFrom(state), description, channel, fallbackCopy),
+        channel,
+      }),
     });
     setSaving(false);
     if (!res.ok) {
@@ -94,7 +118,11 @@ export function ParticipantPagesForm({
       setErrors(body?.fields ?? [body?.error ?? "Failed to save."]);
       return;
     }
-    setMessage("Saved. Participants see this wording the next time they open the link.");
+    setMessage(
+      isText
+        ? "Saved. Participants see this wording the next time they open the text link."
+        : "Saved. Participants see this wording the next time they open the link.",
+    );
     router.refresh();
   }
 
@@ -209,7 +237,9 @@ export function ParticipantPagesForm({
         </fieldset>
 
         <label className="block text-sm">
-          Recording and consent note (under the Start button)
+          {isText
+            ? "Consent note (under the Start button)"
+            : "Recording and consent note (under the Start button)"}
           <textarea
             className={FIELD}
             rows={3}
@@ -261,22 +291,50 @@ export function ParticipantPagesForm({
         <button
           type="button"
           className={SECONDARY}
-          onClick={() => setState(stateFrom(JOB_SEARCH_PARTICIPANT_COPY, description))}
+          onClick={() =>
+            setState(
+              stateFrom(
+                isText ? JOB_SEARCH_TEXT_PARTICIPANT_COPY : JOB_SEARCH_PARTICIPANT_COPY,
+                description,
+                channel,
+              ),
+            )
+          }
         >
           Use the job-search wording
         </button>
+        {isText && (
+          <button
+            type="button"
+            className={SECONDARY}
+            onClick={() =>
+              setState(stateFrom(mergeTextCopy(null, voiceCopy), description, channel))
+            }
+          >
+            Match the voice link
+          </button>
+        )}
         <button
           type="button"
           className={SECONDARY}
-          onClick={() => setState(stateFrom(null, description))}
+          onClick={() => setState(stateFrom(null, description, channel))}
         >
-          Reset to the standard wording
+          {isText ? "Reset to the standard text wording" : "Reset to the standard wording"}
         </button>
       </div>
       <p className="text-xs text-neutral-500 dark:text-neutral-400">
         The wording buttons fill in the fields above; nothing changes for participants until you
         click Save.
+        {isText &&
+          " Anything you leave as it is follows the voice link's wording, so later changes to the voice link carry over."}
       </p>
+      {isText && (
+        <p className="rounded border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-200">
+          The text link starts from the voice link&apos;s wording. If that wording talks about a
+          call, speaking, or a recording (for example &ldquo;Voice, not text&rdquo;), change it here
+          before you share the text link.
+        </p>
+      )}
 
       <section>
         <div className="flex items-baseline justify-between">
@@ -287,7 +345,7 @@ export function ParticipantPagesForm({
             rel="noreferrer"
             className="text-sm underline hover:no-underline"
           >
-            Open the live landing page
+            {isText ? "Open the live text landing page" : "Open the live landing page"}
           </a>
         </div>
         <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
@@ -304,6 +362,7 @@ export function ParticipantPagesForm({
             title={title}
             description={description}
             copy={copyFrom(state)}
+            channel={channel}
             onAgree={() => undefined}
           />
         </div>
@@ -314,7 +373,7 @@ export function ParticipantPagesForm({
           data-testid="ending-preview"
           className="mt-2 rounded border border-neutral-200 p-6 dark:border-neutral-800"
         >
-          <CompletionScreen copy={copyFrom(state)} />
+          <CompletionScreen mode={channel} copy={copyFrom(state)} />
         </div>
       </section>
     </div>

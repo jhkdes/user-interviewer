@@ -44,7 +44,30 @@ function renderEvidenceBases(rubric: Rubric): string {
     .join("\n");
 }
 
-export function buildExtractionSystemPrompt(rubric: Rubric): string {
+export function buildExtractionSystemPrompt(
+  rubric: Rubric,
+  channel: "voice" | "text" = "voice",
+): string {
+  const voicePrompt = buildVoiceExtractionSystemPrompt(rubric);
+  if (channel === "voice") return voicePrompt;
+  // A typed interview differs from a spoken one in two sentences only; the rubric and rules are shared.
+  return swapRequired(
+    swapRequired(
+      voicePrompt,
+      "the transcript of a spoken interview about",
+      "the transcript of a typed chat interview about",
+    ),
+    "The transcript is speech-to-text: it has filler words, stutters, and occasional recognition errors. Interpret generously.",
+    "The transcript is typed: it may have typos, abbreviations, and informal punctuation. Interpret generously.",
+  );
+}
+
+function swapRequired(text: string, from: string, to: string): string {
+  if (!text.includes(from)) throw new Error(`Expected the extraction prompt to contain: ${from}`);
+  return text.replace(from, () => to);
+}
+
+function buildVoiceExtractionSystemPrompt(rubric: Rubric): string {
   return `You are a research analyst. You read the transcript of a spoken interview about how a person searches for a job, and you code what they said against a rubric. You are not the interviewer, and you never give advice. Your output is a structured evidence ledger that other code will score and turn into a report, so accuracy and traceability matter more than completeness.
 
 # What you are given

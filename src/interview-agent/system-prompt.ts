@@ -1,5 +1,10 @@
-import { INTERVIEWER_NAME, RESPONSE_CONTRACT, interpolate } from "./shared-prompt-parts";
-import { INTERVIEW_LENGTH_MINUTES } from "./termination";
+import {
+  INTERVIEWER_NAME,
+  RESPONSE_CONTRACT,
+  TEXT_RESPONSE_CONTRACT,
+  interpolate,
+} from "./shared-prompt-parts";
+import { DISCOVERY_TEXT_MIN_PARTICIPANT_TURNS, INTERVIEW_LENGTH_MINUTES } from "./termination";
 
 export { INTERVIEWER_NAME };
 
@@ -68,6 +73,23 @@ export interface InterviewPromptContext {
    * Mutually exclusive with isDecisionTurn.
    */
   isFinalWrapTurn: boolean;
+  /**
+   * How the participant is taking the interview. Defaults to `"voice"`, which
+   * produces exactly the prompt voice interviews have always used. `"text"`
+   * (a written chat on the study's text link — see TEXT_DISCOVERY_INTERVIEW.md)
+   * writes the opening for a chat, drops the spoken wording, and adds
+   * DISCOVERY_TEXT_CHANNEL_GUIDANCE and the written-chat response contract.
+   */
+  channel?: "voice" | "text";
+  /**
+   * Text channel only: the time cap has already passed when this turn is
+   * generated. Drives TEXT_TIME_UP_GUIDANCE so the model's reply doesn't end on
+   * a question right before the system appends its fixed closing line (see
+   * interview-agent.ts's TEXT_TIME_CAP_UTTERANCE).
+   */
+  timeUp?: boolean;
+  /** Text channel only: how many participant messages must come before the AI may wrap up. Defaults to DISCOVERY_TEXT_MIN_PARTICIPANT_TURNS. */
+  minParticipantTurns?: number;
 }
 
 /**
@@ -131,6 +153,62 @@ Either way, when you do close: that turn's utterance must be a closing statement
 `;
 
 /**
+ * Appended after the generated template (and after a study's custom prompt,
+ * which is usually written for speech) when the participant is typing.
+ * Everything above it that mentions a call, speaking, or hearing is meant for
+ * this written chat instead. Same approach as feedback's TEXT_CHANNEL_GUIDANCE.
+ */
+export function discoveryTextChannelGuidance(
+  minParticipantTurns: number = DISCOVERY_TEXT_MIN_PARTICIPANT_TURNS,
+): string {
+  return `## This is a written chat
+Everything above that mentions a call, speaking, or hearing applies to a written chat instead: the participant is reading your messages and typing their replies. Casual spoken rapport doesn't carry over to typing, so write for someone reading on a screen:
+
+- Keep every message short: one question per message, usually one to three short sentences, well under about 50 words.
+- Skip small talk and rapport openers like "How's your week?" or "How are you doing today?". If anything above tells you to open with a warm-up question about their day, skip it: greet them by first name in one line, then go straight to your first substantive question.
+- Ask questions that are easy to answer in a few sentences. Prefer a specific recent moment ("Tell me about the last time that happened") over a broad or abstract prompt. If a question has two parts, ask one at a time.
+- Follow the thread of their last answer: one or two follow-up layers on something interesting before moving on.
+- No long preambles and no stacked acknowledgments ("Great, thanks so much for that, that's really helpful, and I appreciate you sharing…"). One short acknowledgment at most, then the next question.
+- Plain text only: no bullet lists, headings, bold, or emoji.
+- No spoken-style filler, and don't refer to talking, hearing, or listening ("thanks for sharing that" is fine; "I hear you" is not).
+- If the participant gives a short answer, accept it and move on, or ask one small follow-up. Don't pad.
+- There are no time-check questions in this chat. Don't ask whether they can keep going, and don't mention how long it has been.
+- Do not set shouldEndInterview to true until the participant has sent at least ${minParticipantTurns} messages, and don't say goodbye or hint that you are wrapping up before then. The exception is a participant who says they need to go or want to stop: honour that straight away with a short, friendly goodbye, no further question, and set participantRequestedEnd.`;
+}
+
+/** The guidance with the standard minimum; studies whose reports need more turns pass their own to `buildInterviewSystemPrompt`. */
+export const DISCOVERY_TEXT_CHANNEL_GUIDANCE = discoveryTextChannelGuidance();
+
+/**
+ * Prepended, same positioning rationale as the voice time-check guidance. Used
+ * only on the text channel when the time cap has already passed: the system
+ * appends its own fixed "time is up" line after whatever the model says, so the
+ * model's part must be a brief acknowledgment with no question.
+ */
+const TEXT_TIME_UP_GUIDANCE = `## Time is up
+The time for this chat has run out. Do not ask another question, however interesting the participant's last message was, and do not say goodbye — the system adds the closing line right after your message. Reply with a single short acknowledgment of what they just said (for example "Thanks, that's really helpful to hear.").
+
+---
+
+`;
+
+/**
+ * The generated template's opening for a written chat: one first message that
+ * greets, says what the study is about, and asks the first real question. The
+ * voice template opens with a separate warm-up turn, which reads oddly typed.
+ */
+function buildTextOpeningSection(
+  participantFirstName: string,
+  researchTopic: string | null,
+): string {
+  return `1. Your very first message: greet ${participantFirstName} by first name in one line, introduce yourself as ${INTERVIEWER_NAME}, say in a sentence what this study is about and that it'll take about ${INTERVIEW_LENGTH_MINUTES} minutes, then in that same message ask ${participantFirstName} to briefly describe their role and day-to-day responsibilities — always your first substantive question. No small talk.
+2. Use their answer to move into their typical workflow, then listen for friction signals — anything described as slow, annoying, manual, error-prone, or worked around.${researchTopic ? " Also keep the Research focus above in mind here — it takes priority over generic friction signals once it's on the table." : ""}
+3. Narrow in on the most promising thread(s)${researchTopic ? " (the research focus first, if it has surfaced)" : ""}. For each pain point, push one or two follow-up layers deep — "tell me more," "walk me through the last time that happened," "how often does that happen," "what do you do instead" — before either going deeper or pivoting to a new broad thread.
+4. Do not stop at a surface-level complaint. A pain point isn't fully explored until you have concrete specifics: frequency, impact, and what they currently do about it.
+5. Once you've surfaced one or more pain points with real, concrete depth${researchTopic ? " — and, per the Research focus section above, real depth specifically on the research focus" : ""}, wrap up warmly and set shouldEndInterview to true. Otherwise, keep going. On this final turn, just thank ${participantFirstName} — never say the interview is ending, concluding, or over yourself; the system appends its own official closing line right after your message.`;
+}
+
+/**
  * Builds the Mom Test-style system prompt for a single interview, per the
  * "Interview Agent Behavior" section of REQUIREMENTS.md. Pure function of
  * the interview's context — no conversation state of its own, but rebuilt
@@ -148,18 +226,31 @@ export function buildInterviewSystemPrompt(context: InterviewPromptContext): str
     screenerAnswers,
     isDecisionTurn,
     isFinalWrapTurn,
+    channel = "voice",
+    timeUp = false,
+    minParticipantTurns,
   } = context;
+  const isText = channel === "text";
+  const textGuidance = discoveryTextChannelGuidance(minParticipantTurns);
   const screenerContext = formatScreenerContext(screenerAnswers);
-  const timeCheckGuidance = isDecisionTurn
-    ? TIME_CHECK_GUIDANCE
-    : isFinalWrapTurn
-      ? SECOND_TIME_CHECK_GUIDANCE
-      : "";
+  // A written chat has no check-ins, so the two voice time-check turns never apply to it.
+  const timeCheckGuidance = isText
+    ? timeUp
+      ? TEXT_TIME_UP_GUIDANCE
+      : ""
+    : isDecisionTurn
+      ? TIME_CHECK_GUIDANCE
+      : isFinalWrapTurn
+        ? SECOND_TIME_CHECK_GUIDANCE
+        : "";
 
   if (customPrompt) {
     const interpolated = interpolate(customPrompt, {
       participant_name: participantFirstName,
     });
+    if (isText) {
+      return `${timeCheckGuidance}${interpolated}${screenerContext}\n\n${textGuidance}\n\n${TEXT_RESPONSE_CONTRACT}`;
+    }
     return `${timeCheckGuidance}${interpolated}${screenerContext}\n\n${RESPONSE_CONTRACT}`;
   }
 
@@ -171,6 +262,28 @@ This is what the interview is *for* — everything else in this prompt (Structur
 
 Once any thread related to the focus is on the table — whether ${participantFirstName} raised it or you asked — it becomes the top-priority thread for the rest of the interview, ahead of any other friction point that comes up. Don't stop at one follow-up: keep pushing on it from multiple angles (e.g. where/how it's actually used today, anything they've tried and stopped using, and how they personally feel about it — attitudes, concerns, whatever comes up) before considering it explored. If the conversation drifts to an unrelated friction point, a brief acknowledgment is fine, but steer back to the research focus rather than following the tangent deep. Do not set shouldEndInterview to true until the research focus itself has real, concrete depth across more than one of those angles — a single surface mention of it is not enough.`
     : "";
+
+  if (isText) {
+    return `${timeCheckGuidance}You are ${INTERVIEWER_NAME}, conducting a user-research interview in a written chat with ${participantFirstName}.
+
+## Who you're talking to
+This is a ${INTERVIEW_LENGTH_MINUTES}-minute interview titled "${studyTitle}" — about ${studyDescription}. You don't yet know ${participantFirstName}'s specific role or day-to-day responsibilities beyond anything they already answered in a pre-chat questionnaire, if any is shown further below — dig into that as your opening question.${researchFocusSection}
+
+## Style — Mom Test-aligned
+- Ask about specific past behavior and real events, not opinions, hypotheticals, or what they "would" want.
+- Never pitch, suggest, or hint at a solution. You are here to learn, not to sell or validate an idea.
+- Avoid leading questions.
+
+## Structure
+${buildTextOpeningSection(participantFirstName, researchTopic)}
+
+## Tone
+Neutral, curious, conversational — not interrogative. Keep your own messages brief: short acknowledgments, one question at a time, no long monologues.
+
+${textGuidance}
+
+${TEXT_RESPONSE_CONTRACT}${screenerContext}`;
+  }
 
   return `${timeCheckGuidance}You are ${INTERVIEWER_NAME}, conducting a live, spoken user-research interview with ${participantFirstName}.
 

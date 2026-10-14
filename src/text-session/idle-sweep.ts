@@ -1,12 +1,10 @@
 import type { Interview } from "@/domain";
-import { FEEDBACK_TEXT_HARD_CAP_MS } from "@/interview-agent/termination";
 import { completeTextInterview } from "./complete-text-interview";
 import {
-  IDLE_END_AFTER_MS,
-  IDLE_NUDGE_AFTER_MS,
   IDLE_NUDGE_TEXT,
   MAX_COMPLETIONS_PER_SWEEP,
-  MAX_INTERVIEW_AGE_MS,
+  textLimitsFor,
+  type TextLimits,
 } from "./constants";
 import type { TextSessionDeps } from "./types";
 
@@ -26,45 +24,52 @@ export interface IdleSweepResult {
 type IdleDecision =
   | { action: "none" }
   | { action: "nudge" }
-  | { action: "complete"; endedReason: "participant-inactive" };
+  | { action: "complete"; endedReason: TextLimits["maxAgeEndedReason"] };
 
 /**
  * What the sweep should do about one running text interview.
  *
  * "Active" means the participant sent a message or was typing, or the
- * interviewer just finished a reply (`lastActivityAt`). In priority order:
+ * interviewer just finished a reply (`lastActivityAt`). The limits come from
+ * the study type (see `textLimitsFor`). In priority order:
  *   1. Older than the absolute backstop: end it, however active it looks.
- *   2. No activity for IDLE_END_AFTER_MS (10 minutes): end it.
- *   3. No activity for IDLE_NUDGE_AFTER_MS (5 minutes) and the time cap
- *      (15 minutes) has already passed: end it without a nudge, since a nudge
- *      would only invite a reply that ends the interview anyway.
- *   4. No activity for IDLE_NUDGE_AFTER_MS, not nudged yet, and the
- *      participant has something to answer: send the nudge.
+ *      Feedback: 30 minutes, recorded as `participant-inactive`. Discovery:
+ *      the 60-minute cap, recorded as `time-cap` (the participant is shown a
+ *      countdown to it, so it is the expected end of a long session).
+ *   2. No activity for the inactivity limit (feedback: 10 minutes; discovery
+ *      has none): end it as `participant-inactive`.
+ *   3. No activity for the nudge delay (5 minutes) and the time cap has
+ *      already passed: end it without a nudge, since a nudge would only invite
+ *      a reply that ends the interview anyway.
+ *   4. No activity for the nudge delay, not nudged yet, and the participant
+ *      has something to answer: send the nudge.
  *
- * Every ending decided here is `participant-inactive`, so the participant
- * sees the "ended due to inactivity" screen. An interview whose cap runs out
- * while the participant is still replying ends in the turn itself (with the
- * closing line and reason `time-cap`), never here.
+ * An interview whose cap runs out while the participant is still replying ends
+ * in the turn itself (with the closing line and reason `time-cap`), never here.
  */
 export function decideIdleAction(
   interview: Interview,
   lastMessageSpeaker: "interviewer" | "participant" | null,
   now: Date,
+  limits: TextLimits = textLimitsFor("feedback"),
 ): IdleDecision {
   const startedAt = interview.startedAt ?? interview.createdAt;
   const lastActivity = interview.lastActivityAt ?? startedAt;
   const idleMs = now.getTime() - lastActivity.getTime();
   const ageMs = now.getTime() - startedAt.getTime();
-  const capPassed = ageMs >= FEEDBACK_TEXT_HARD_CAP_MS;
+  const capPassed = ageMs >= limits.hardCapMs;
 
-  if (ageMs >= MAX_INTERVIEW_AGE_MS) {
-    return { action: "complete", endedReason: "participant-inactive" };
+  if (ageMs >= limits.maxInterviewAgeMs) {
+    return { action: "complete", endedReason: limits.maxAgeEndedReason };
   }
-  if (idleMs >= IDLE_END_AFTER_MS || (idleMs >= IDLE_NUDGE_AFTER_MS && capPassed)) {
+  if (
+    (limits.idleEndAfterMs !== null && idleMs >= limits.idleEndAfterMs) ||
+    (idleMs >= limits.nudgeAfterMs && capPassed)
+  ) {
     return { action: "complete", endedReason: "participant-inactive" };
   }
   if (
-    idleMs >= IDLE_NUDGE_AFTER_MS &&
+    idleMs >= limits.nudgeAfterMs &&
     interview.idleNudgeSentAt === null &&
     // Not while the participant is waiting on a reply that never came: a
     // "still there?" would be wrong when they are the ones waiting.
@@ -102,7 +107,19 @@ export async function runTextIdleSweep(
     try {
       const messages = await deps.messageRepo.listByInterviewId(interview.id);
       const last = messages.length === 0 ? undefined : messages[messages.length - 1];
-      const decision = decideIdleAction(interview, last?.speaker ?? null, now);
+      const study = await deps.studyRepo.getById(interview.studyId);
+      if (!study) {
+        console.error(
+          `Idle sweep: study ${interview.studyId} of interview ${interview.id} not found`,
+        );
+        continue;
+      }
+      const decision = decideIdleAction(
+        interview,
+        last?.speaker ?? null,
+        now,
+        textLimitsFor(study.type),
+      );
 
       if (decision.action === "nudge") {
         const appended = await deps.messageRepo.append({

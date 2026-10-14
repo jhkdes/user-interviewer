@@ -76,10 +76,16 @@ export interface Study {
    */
   customPrompt: string | null;
   linkToken: string;
+  /**
+   * Token of the study's second, text-only link (discovery studies only). `null` when the study has no text link. Shares the study's expiry and open/closed state with `linkToken`. See TEXT_DISCOVERY_INTERVIEW.md.
+   */
+  textLinkToken: string | null;
   /** Which post-interview report pipeline, if any, runs for this study's interviews. */
   reportPipeline: ReportPipeline | null;
   /** Custom text for the landing and ending pages; null keeps the standard wording. Editable any time. */
   participantCopy: ParticipantCopy | null;
+  /** Landing and ending page text for the text link; `null` falls back to `participantCopy`. */
+  participantCopyText: ParticipantCopy | null;
   status: StudyStatus;
   /** Which voice platform runs this study's interview calls — set at creation by the researcher, lets whole studies be A/B tested against each other. */
   voiceProvider: VoiceProvider;

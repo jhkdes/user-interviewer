@@ -42,7 +42,10 @@ export async function processReport(
     if (missing > 0) {
       const results = await Promise.allSettled(
         Array.from({ length: missing }, () =>
-          extractEvidence({ complete: deps.complete, rubric }, { transcript, screenerAnswers }),
+          extractEvidence(
+            { complete: deps.complete, rubric },
+            { transcript, screenerAnswers, channel: interview.mode },
+          ),
         ),
       );
       const valid = results.flatMap((result) =>

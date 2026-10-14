@@ -141,15 +141,28 @@ describe("startTextTurn", () => {
       expect(result).toMatchObject({ ok: false, status: 404, code: "interview-not-found" });
     });
 
-    it("rejects a discovery study's interview, even one marked as text", async () => {
-      const { deps, interview } = await setupTextSession({ studyType: "discovery" });
+    it("accepts a discovery study's text interview", async () => {
+      const { deps, interview, llm } = await setupTextSession({ studyType: "discovery" });
+      llm.scriptInterviewerTurnStreams([reply("Hi Sam! What do you do?")]);
 
       const result = await startTextTurn(deps, {
         interviewId: interview.id,
         clientMessageId: "m-1",
       });
 
-      expect(result).toMatchObject({ ok: false, status: 403, code: "not-supported" });
+      expect(result.ok).toBe(true);
+      await drain(result);
+    });
+
+    it("rejects a voice interview of a discovery study", async () => {
+      const { deps, interview } = await setupTextSession({ studyType: "discovery", mode: "voice" });
+
+      const result = await startTextTurn(deps, {
+        interviewId: interview.id,
+        clientMessageId: "m-1",
+      });
+
+      expect(result).toMatchObject({ ok: false, status: 409, code: "not-text-interview" });
     });
 
     it("rejects a voice interview of a feedback study", async () => {

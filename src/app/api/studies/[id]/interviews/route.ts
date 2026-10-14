@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { isTextInterviewModeEnabled } from "@/lib/feature-flags";
 import { getInterviewRepository } from "@/repositories/get-interview-repository";
 import { getStudyRepository } from "@/repositories/get-study-repository";
 import {
@@ -33,7 +34,11 @@ export async function POST(request: Request, { params }: { params: { id: string 
 
   try {
     const interview = await startInterview(
-      { studyRepo: getStudyRepository(), interviewRepo: getInterviewRepository() },
+      {
+        studyRepo: getStudyRepository(),
+        interviewRepo: getInterviewRepository(),
+        textEnabled: isTextInterviewModeEnabled(),
+      },
       {
         linkToken: params.id,
         firstName: body.firstName ?? "",

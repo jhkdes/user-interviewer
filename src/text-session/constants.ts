@@ -1,3 +1,9 @@
+import type { StudyType } from "@/domain";
+import {
+  DISCOVERY_TEXT_HARD_CAP_MS,
+  FEEDBACK_TEXT_HARD_CAP_MS,
+} from "@/interview-agent/termination";
+
 /** Longest participant message accepted, in Unicode characters. Enforced here (server) and in the chat input (client). */
 export const MAX_MESSAGE_CHARS = 2000;
 
@@ -65,3 +71,47 @@ export const SWITCH_TO_TEXT_WINDOW_MS = 30_000;
  * itself.
  */
 export const SWITCH_TO_TEXT_GRACE_MS = 15_000;
+
+/**
+ * Limits that differ by study type. Feedback chats are short: a 15-minute cap,
+ * and a participant who walks away is ended after 10 idle minutes. Discovery
+ * chats (the study's text link) are long: a 60-minute cap that ends the session
+ * whatever the participant is doing, so there is no separate inactivity end —
+ * a silent participant just runs into the cap. See TEXT_DISCOVERY_INTERVIEW.md.
+ */
+export interface TextLimits {
+  /** Most participant messages one interview may contain. */
+  maxParticipantMessages: number;
+  /** No activity for this long: send the one-time nudge. */
+  nudgeAfterMs: number;
+  /** No activity for this long: end as `participant-inactive`. `null` = no inactivity end. */
+  idleEndAfterMs: number | null;
+  /** The interview's time cap, measured from `startedAt` (enforced in the turn itself, and here for a participant who has gone silent). */
+  hardCapMs: number;
+  /** Age at which the sweep ends an interview whatever its activity. */
+  maxInterviewAgeMs: number;
+  /** Why the sweep records an interview it ends for reaching `maxInterviewAgeMs`. */
+  maxAgeEndedReason: "participant-inactive" | "time-cap";
+}
+
+const FEEDBACK_TEXT_LIMITS: TextLimits = {
+  maxParticipantMessages: MAX_PARTICIPANT_MESSAGES,
+  hardCapMs: FEEDBACK_TEXT_HARD_CAP_MS,
+  nudgeAfterMs: IDLE_NUDGE_AFTER_MS,
+  idleEndAfterMs: IDLE_END_AFTER_MS,
+  maxInterviewAgeMs: MAX_INTERVIEW_AGE_MS,
+  maxAgeEndedReason: "participant-inactive",
+};
+
+const DISCOVERY_TEXT_LIMITS: TextLimits = {
+  maxParticipantMessages: 100,
+  hardCapMs: DISCOVERY_TEXT_HARD_CAP_MS,
+  nudgeAfterMs: IDLE_NUDGE_AFTER_MS,
+  idleEndAfterMs: null,
+  maxInterviewAgeMs: DISCOVERY_TEXT_HARD_CAP_MS,
+  maxAgeEndedReason: "time-cap",
+};
+
+export function textLimitsFor(studyType: StudyType): TextLimits {
+  return studyType === "discovery" ? DISCOVERY_TEXT_LIMITS : FEEDBACK_TEXT_LIMITS;
+}

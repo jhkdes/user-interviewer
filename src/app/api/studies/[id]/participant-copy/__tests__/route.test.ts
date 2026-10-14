@@ -59,3 +59,38 @@ describe("PUT /api/studies/[id]/participant-copy", () => {
     expect((await put("missing", { participantCopy: null })).status).toBe(404);
   });
 });
+
+describe("PUT /api/studies/[id]/participant-copy with a channel", () => {
+  it("saves the text link's copy when channel is text", async () => {
+    const study = await newStudy();
+
+    const res = await put(study.id, {
+      participantCopy: { completion: { title: "Thanks for typing" } },
+      channel: "text",
+    });
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.participantCopyText).toEqual({ completion: { title: "Thanks for typing" } });
+    expect(body.participantCopy).toBeNull();
+  });
+
+  it("saves the voice link's copy for channel voice or no channel", async () => {
+    const study = await newStudy();
+
+    const res = await put(study.id, {
+      participantCopy: { completion: { title: "Thanks" } },
+      channel: "voice",
+    });
+
+    expect((await res.json()).participantCopy).toEqual({ completion: { title: "Thanks" } });
+  });
+
+  it("answers 400 for an unknown channel", async () => {
+    const study = await newStudy();
+
+    const res = await put(study.id, { participantCopy: null, channel: "carrier-pigeon" });
+
+    expect(res.status).toBe(400);
+  });
+});

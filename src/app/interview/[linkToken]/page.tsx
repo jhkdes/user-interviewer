@@ -1,7 +1,9 @@
 import { MIN_PARTICIPANT_TURNS_FOR_REPORT } from "@/job-search-study/min-turns";
 import { isTextInterviewModeEnabled } from "@/lib/feature-flags";
 import { getStudyRepository } from "@/repositories/get-study-repository";
+import { mergeTextCopy } from "@/participant-copy";
 import { checkLinkValidity } from "@/study-service/link-validity";
+import { resolveLink } from "@/study-service/resolve-link";
 import { InterviewFlow } from "./interview-flow";
 import { LinkInvalidScreen } from "./link-invalid-screen";
 
@@ -20,8 +22,13 @@ export default async function InterviewPage({
   params: { linkToken: string };
   searchParams: { [key: string]: string | string[] | undefined };
 }) {
-  const study = await getStudyRepository().getByLinkToken(params.linkToken);
-  if (!study) return <LinkInvalidScreen reason="not-found" />;
+  const textModeEnabled = isTextInterviewModeEnabled();
+  const resolved = await resolveLink(getStudyRepository(), params.linkToken);
+  // A study's text link only works while typed interviews are switched on.
+  if (!resolved || (resolved.channel === "text" && !textModeEnabled)) {
+    return <LinkInvalidScreen reason="not-found" />;
+  }
+  const { study, channel } = resolved;
 
   const validity = checkLinkValidity(study);
   if (validity !== "valid") return <LinkInvalidScreen reason={validity} />;
@@ -39,11 +46,16 @@ export default async function InterviewPage({
       title={study.title}
       description={study.description}
       questions={study.preInterviewQuestions}
-      copy={study.participantCopy}
+      channel={channel}
+      copy={
+        channel === "text"
+          ? mergeTextCopy(study.participantCopyText, study.participantCopy)
+          : study.participantCopy
+      }
       minParticipantTurns={
         study.reportPipeline === "job-search" ? MIN_PARTICIPANT_TURNS_FOR_REPORT : undefined
       }
-      textModeEnabled={isTextInterviewModeEnabled()}
+      textModeEnabled={textModeEnabled}
     />
   );
 }

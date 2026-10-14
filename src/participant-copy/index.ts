@@ -22,10 +22,39 @@ export const DEFAULT_INTRO_STEPS: IntroStep[] = [
 export const DEFAULT_CONSENT_NOTE =
   "The call is recorded (audio and transcript) so we can review it afterward. Starting means you're okay with that.";
 
+/**
+ * The landing page's default wording for a study's text link (a typed chat, no
+ * audio). Used for any field the study has no custom copy for; see
+ * `mergeTextCopy` for how the text link's custom copy and the voice link's
+ * combine.
+ */
+export const DEFAULT_TEXT_INTRO_FACTS = [
+  "~15 minutes",
+  "Typed chat, not voice",
+  "No login",
+  "Confidential",
+];
+
+export const DEFAULT_TEXT_INTRO_STEPS: IntroStep[] = [
+  { title: "Click the link", body: "No signup — just your name and a few quick questions." },
+  {
+    title: "Chat with an AI",
+    body: "A real ~15-minute written conversation, not a script. You type, it replies.",
+  },
+  {
+    title: "Share freely",
+    body: "Nothing goes to your employer; quotes are never attributed to you.",
+  },
+  { title: "Get something back", body: "Your own summary now, the full report once it's done." },
+];
+
+export const DEFAULT_TEXT_CONSENT_NOTE =
+  "No audio is recorded. The conversation is saved as a transcript so we can review it afterward. Starting means you're okay with that.";
+
 export const DEFAULT_COMPLETION_TITLE = "Thank you, you're done!";
 
-export const defaultTagline = (description: string): string =>
-  `A 15-minute AI-run interview about ${description || "your day-to-day work"}.`;
+export const defaultTagline = (description: string, channel: "voice" | "text" = "voice"): string =>
+  `A 15-minute AI-run ${channel === "text" ? "written " : ""}interview about ${description || "your day-to-day work"}.`;
 
 export const defaultCompletionMessage = (mode: "voice" | "text" = "voice"): string =>
   `We really appreciate you taking the time to ${mode === "text" ? "chat" : "talk"} with us. We'll follow up by email with what we learn — thanks for being a part of this.`;
@@ -48,13 +77,56 @@ const text = (value: string | undefined): string | null => (value?.trim() ? valu
 export function resolveIntroCopy(
   copy: ParticipantCopy | null | undefined,
   description: string,
+  channel: "voice" | "text" = "voice",
 ): ResolvedIntroCopy {
   const intro = copy?.intro;
+  const isText = channel === "text";
   return {
-    tagline: text(intro?.tagline) ?? defaultTagline(description),
-    facts: intro?.facts?.length ? intro.facts : DEFAULT_INTRO_FACTS,
-    steps: intro?.steps?.length ? intro.steps : DEFAULT_INTRO_STEPS,
-    consentNote: text(intro?.consentNote) ?? DEFAULT_CONSENT_NOTE,
+    tagline: text(intro?.tagline) ?? defaultTagline(description, channel),
+    facts: intro?.facts?.length
+      ? intro.facts
+      : isText
+        ? DEFAULT_TEXT_INTRO_FACTS
+        : DEFAULT_INTRO_FACTS,
+    steps: intro?.steps?.length
+      ? intro.steps
+      : isText
+        ? DEFAULT_TEXT_INTRO_STEPS
+        : DEFAULT_INTRO_STEPS,
+    consentNote:
+      text(intro?.consentNote) ?? (isText ? DEFAULT_TEXT_CONSENT_NOTE : DEFAULT_CONSENT_NOTE),
+  };
+}
+
+/**
+ * The copy a study's text link shows: its own text copy where it has any,
+ * otherwise the voice link's custom copy (so by default the two match), and
+ * for anything neither sets, the text link's own default wording (the resolve
+ * functions above). Merged field by field, so setting only the text link's
+ * ending leaves its landing page following the voice link.
+ */
+export function mergeTextCopy(
+  textCopy: ParticipantCopy | null | undefined,
+  voiceCopy: ParticipantCopy | null | undefined,
+): ParticipantCopy | null {
+  const intro = { ...voiceCopy?.intro, ...textCopy?.intro };
+  const completion = { ...voiceCopy?.completion, ...textCopy?.completion };
+  const out: ParticipantCopy = {};
+  if (Object.keys(intro).length > 0) out.intro = intro;
+  if (Object.keys(completion).length > 0) out.completion = completion;
+  return Object.keys(out).length > 0 ? out : null;
+}
+
+export interface ResolvedSessionEndedCopy {
+  title: string;
+  message: string;
+}
+
+/** What a typed session shows when it reaches its time limit. The ending copy follows, so the study's own "what happens next" still reaches the participant. */
+export function resolveSessionEndedCopy(limitMinutes: number): ResolvedSessionEndedCopy {
+  return {
+    title: "This session has ended",
+    message: `Your session reached its ${limitMinutes}-minute limit and has ended. What you shared has been saved.`,
   };
 }
 
@@ -172,29 +244,36 @@ export function validateParticipantCopy(raw: unknown): CopyValidation {
 }
 
 /**
- * Drops every field that equals its default, so a study that saves the text
- * it started with keeps following the defaults instead of freezing them.
- * Returns null when nothing differs.
+ * Drops every field that equals what the page would show anyway, so a study
+ * that saves the text it started with keeps following it instead of freezing
+ * it. For the voice link that is the standard wording. For the text link it is
+ * what the text link shows with no copy of its own: the voice link's custom
+ * copy (pass it as `fallback`), then the text defaults. Returns null when
+ * nothing differs.
  */
 export function withoutDefaults(
   copy: ParticipantCopy,
   description: string,
+  channel: "voice" | "text" = "voice",
+  fallback: ParticipantCopy | null = null,
 ): ParticipantCopy | null {
   const same = <T>(a: T, b: T) => JSON.stringify(a) === JSON.stringify(b);
+  const baseIntro = resolveIntroCopy(fallback, description, channel);
+  const baseCompletion = resolveCompletionCopy(fallback, channel);
   const out: ParticipantCopy = {};
 
   if (copy.intro) {
     const intro: NonNullable<ParticipantCopy["intro"]> = {};
-    if (copy.intro.tagline && copy.intro.tagline !== defaultTagline(description)) {
+    if (copy.intro.tagline && copy.intro.tagline !== baseIntro.tagline) {
       intro.tagline = copy.intro.tagline;
     }
-    if (copy.intro.facts?.length && !same(copy.intro.facts, DEFAULT_INTRO_FACTS)) {
+    if (copy.intro.facts?.length && !same(copy.intro.facts, baseIntro.facts)) {
       intro.facts = copy.intro.facts;
     }
-    if (copy.intro.steps?.length && !same(copy.intro.steps, DEFAULT_INTRO_STEPS)) {
+    if (copy.intro.steps?.length && !same(copy.intro.steps, baseIntro.steps)) {
       intro.steps = copy.intro.steps;
     }
-    if (copy.intro.consentNote && copy.intro.consentNote !== DEFAULT_CONSENT_NOTE) {
+    if (copy.intro.consentNote && copy.intro.consentNote !== baseIntro.consentNote) {
       intro.consentNote = copy.intro.consentNote;
     }
     if (Object.keys(intro).length > 0) out.intro = intro;
@@ -202,10 +281,10 @@ export function withoutDefaults(
 
   if (copy.completion) {
     const completion: NonNullable<ParticipantCopy["completion"]> = {};
-    if (copy.completion.title && copy.completion.title !== DEFAULT_COMPLETION_TITLE) {
+    if (copy.completion.title && copy.completion.title !== baseCompletion.title) {
       completion.title = copy.completion.title;
     }
-    if (copy.completion.message && copy.completion.message !== defaultCompletionMessage("voice")) {
+    if (copy.completion.message && copy.completion.message !== baseCompletion.message) {
       completion.message = copy.completion.message;
     }
     if (Object.keys(completion).length > 0) out.completion = completion;

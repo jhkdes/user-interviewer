@@ -40,6 +40,34 @@ interface Notice {
   retry?: () => void;
 }
 
+/** When the interview started by the server's clock, and how far the participant's clock is from it. Drives the countdown. */
+export interface ChatClock {
+  startedAtMs: number;
+  /** Server time minus participant-device time, in ms, as of the moment the state was read. */
+  offsetMs: number;
+}
+
+export function clockFromState(state: TextState): ChatClock | null {
+  if (!state.startedAt) return null;
+  const startedAtMs = Date.parse(state.startedAt);
+  if (Number.isNaN(startedAtMs)) return null;
+  const serverMs = Date.parse(state.serverTime);
+  return { startedAtMs, offsetMs: Number.isNaN(serverMs) ? 0 : serverMs - Date.now() };
+}
+
+/** "42:15" — minutes and seconds left, never negative. */
+export function formatRemaining(remainingMs: number): string {
+  const totalSeconds = Math.max(0, Math.ceil(remainingMs / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${String(seconds).padStart(2, "0")}`;
+}
+
+/** The last stretch in which the countdown stops being quite so quiet. */
+const COUNTDOWN_WARNING_MS = 5 * 60_000;
+/** While the time is up, how often to ask the server whether the session has closed. */
+const TIME_UP_POLL_INTERVAL_MS = 3000;
+
 export function messagesFromState(state: TextState): ChatMessage[] {
   return state.messages.map((m) => ({
     key: `seq-${m.seq}`,
@@ -106,18 +134,29 @@ export function TextChat({
   linkToken,
   initialMessages,
   onEnded,
+  heading = "Feedback chat",
+  sessionLimitMs,
+  initialClock = null,
 }: {
   interviewId: string;
   linkToken: string;
   /** Messages already in the interview — non-empty when resuming. Empty for a new interview, which asks for the opening greeting. */
   initialMessages: ChatMessage[];
   onEnded: (endedReason: string | null) => void;
+  /** The title above the chat. */
+  heading?: string;
+  /** When set, the chat shows a countdown to this limit (measured from the interview's start) and stops accepting messages once it reaches zero. */
+  sessionLimitMs?: number;
+  /** The interview's start, when resuming one that has already begun. A new interview learns it after the first reply. */
+  initialClock?: ChatClock | null;
 }) {
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
   const [streaming, setStreaming] = useState<string | null>(null);
   const [status, setStatus] = useState<Status>(initialMessages.length === 0 ? "starting" : "idle");
   const [draft, setDraft] = useState("");
   const [notice, setNotice] = useState<Notice | null>(null);
+  const [clock, setClock] = useState<ChatClock | null>(initialClock);
+  const [nowMs, setNowMs] = useState(() => Date.now());
 
   const localCounter = useRef(0);
   const started = useRef(false);
@@ -126,11 +165,38 @@ export function TextChat({
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const lastTypingSignal = useRef(0);
+  const clockRef = useRef<ChatClock | null>(initialClock);
   // Latest values for the poll below, which must not act on a stale view.
   const statusRef = useRef<Status>(status);
   const messagesRef = useRef<ChatMessage[]>(messages);
   statusRef.current = status;
   messagesRef.current = messages;
+  clockRef.current = clock;
+
+  /** Keeps the countdown's start and clock offset up to date from any read of the interview. */
+  const noteState = useCallback(
+    (state: TextState) => {
+      if (sessionLimitMs === undefined) return;
+      const next = clockFromState(state);
+      if (next) setClock(next);
+    },
+    [sessionLimitMs],
+  );
+
+  // Tick once a second while there is a countdown to show.
+  useEffect(() => {
+    if (sessionLimitMs === undefined || !clock) return;
+    const interval = setInterval(() => setNowMs(Date.now()), 1000);
+    return () => clearInterval(interval);
+  }, [sessionLimitMs, clock]);
+
+  const remainingMs =
+    sessionLimitMs === undefined
+      ? null
+      : clock
+        ? clock.startedAtMs + sessionLimitMs - (nowMs + clock.offsetMs)
+        : sessionLimitMs;
+  const timeUp = remainingMs !== null && clock !== null && remainingMs <= 0 && status !== "ended";
 
   useEffect(() => {
     unmounted.current = false;
@@ -166,12 +232,13 @@ export function TextChat({
     const result = await fetchTextState(interviewId, linkToken);
     if (unmounted.current) return null;
     if (result.kind !== "ok") return null;
+    noteState(result.state);
     setMessages(messagesFromState(result.state));
     if (result.state.status === "completed" || result.state.status === "expired") {
       finish(result.state.endedReason, 0);
     }
     return result.state;
-  }, [finish, interviewId, linkToken]);
+  }, [finish, interviewId, linkToken, noteState]);
 
   const runTurn = useCallback(
     async (request: TextTurnRequest): Promise<void> => {
@@ -231,6 +298,12 @@ export function TextChat({
             finish(outcome.endedReason, END_SCREEN_DELAY_MS);
           } else {
             setStatus("idle");
+            // A new interview's start time is set by the server on its first turn.
+            if (sessionLimitMs !== undefined && !clockRef.current) {
+              void fetchTextState(interviewId, linkToken).then((read) => {
+                if (!unmounted.current && read.kind === "ok") noteState(read.state);
+              });
+            }
           }
           return;
         }
@@ -288,7 +361,7 @@ export function TextChat({
         }
       }
     },
-    [finish, interviewId, resync],
+    [finish, interviewId, linkToken, noteState, resync, sessionLimitMs],
   );
 
   // New interview: ask for the opening greeting. Resumed interview whose last
@@ -316,6 +389,7 @@ export function TextChat({
       const result = await fetchTextState(interviewId, linkToken);
       if (unmounted.current || result.kind !== "ok" || statusRef.current !== "idle") return;
       const { state } = result;
+      noteState(state);
       if (state.status === "completed" || state.status === "expired") {
         finish(state.endedReason, 0);
         return;
@@ -335,7 +409,23 @@ export function TextChat({
       clearInterval(interval);
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [status, interviewId, linkToken, finish]);
+  }, [status, interviewId, linkToken, finish, noteState]);
+
+  // Time is up: the server closes the session (the countdown only reflects
+  // that), so ask it every few seconds until it has, then show how it ended.
+  useEffect(() => {
+    if (!timeUp) return;
+    const interval = setInterval(async () => {
+      if (statusRef.current === "waiting" || document.visibilityState !== "visible") return;
+      const result = await fetchTextState(interviewId, linkToken);
+      if (unmounted.current || result.kind !== "ok") return;
+      if (result.state.status === "completed" || result.state.status === "expired") {
+        setMessages(messagesFromState(result.state));
+        finish(result.state.endedReason, 0);
+      }
+    }, TIME_UP_POLL_INTERVAL_MS);
+    return () => clearInterval(interval);
+  }, [timeUp, interviewId, linkToken, finish]);
 
   // The box is disabled while the interviewer is replying, and a disabled
   // element loses focus — so put the cursor back as soon as the participant
@@ -360,7 +450,7 @@ export function TextChat({
 
   const length = countCharacters(draft.trim());
   const overLimit = length > MAX_MESSAGE_CHARS;
-  const canSend = status === "idle" && draft.trim() !== "" && !overLimit;
+  const canSend = status === "idle" && !timeUp && draft.trim() !== "" && !overLimit;
 
   const send = () => {
     if (!canSend) return;
@@ -377,11 +467,26 @@ export function TextChat({
 
   return (
     <div className="flex h-[100dvh] w-full flex-col py-4">
-      <header className="border-b border-neutral-200 pb-3 dark:border-neutral-800">
-        <h1 className="text-lg font-semibold">Feedback chat</h1>
-        <p className="text-xs text-neutral-500 dark:text-neutral-400">
-          You&apos;re chatting with {INTERVIEWER_NAME}, an AI interviewer.
-        </p>
+      <header className="flex items-start justify-between gap-4 border-b border-neutral-200 pb-3 dark:border-neutral-800">
+        <div>
+          <h1 className="text-lg font-semibold">{heading}</h1>
+          <p className="text-xs text-neutral-500 dark:text-neutral-400">
+            You&apos;re chatting with {INTERVIEWER_NAME}, an AI interviewer.
+          </p>
+        </div>
+        {remainingMs !== null && status !== "ended" && (
+          <p
+            role="timer"
+            aria-label="Time remaining in this session"
+            className={`shrink-0 text-xs tabular-nums ${
+              remainingMs <= COUNTDOWN_WARNING_MS
+                ? "font-medium text-amber-600 dark:text-amber-400"
+                : "text-neutral-400 dark:text-neutral-500"
+            }`}
+          >
+            Time remaining {formatRemaining(remainingMs)}
+          </p>
+        )}
       </header>
 
       <div
@@ -429,7 +534,7 @@ export function TextChat({
                   send();
                 }
               }}
-              disabled={status !== "idle"}
+              disabled={status !== "idle" || timeUp}
               rows={2}
               aria-label="Your message"
               placeholder={status === "starting" ? "Getting ready…" : "Type your reply…"}
@@ -458,7 +563,9 @@ export function TextChat({
             </p>
           )}
           <p className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">
-            To end the interview, just tell the interviewer that you need to go.
+            {timeUp
+              ? "Time is up. Closing your session…"
+              : "To end the interview, just tell the interviewer that you need to go."}
           </p>
         </div>
       )}

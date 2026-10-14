@@ -111,10 +111,17 @@ export function NewStudyForm() {
       <div>
         <h1 className="text-xl font-semibold">Study created</h1>
         <p className="mt-2 text-sm text-neutral-500 dark:text-neutral-400">
-          Share this link with people matching the target profile:
+          Share {created.textLinkToken ? "a link" : "this link"} with people matching the target
+          profile:
         </p>
-        <div className="mt-2">
-          <StudyLink linkToken={created.linkToken} />
+        <div className="mt-2 space-y-3">
+          <StudyLink
+            linkToken={created.linkToken}
+            label={created.textLinkToken ? "Voice interview link" : undefined}
+          />
+          {created.textLinkToken && (
+            <StudyLink linkToken={created.textLinkToken} label="Text interview link" />
+          )}
         </div>
         <Link href={`/dashboard/studies/${created.id}`} className="mt-6 inline-block underline">
           Go to study →

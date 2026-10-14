@@ -24,6 +24,8 @@ export type StructuredCompletion = (args: {
 export interface ExtractionInput {
   transcript: InterviewTurn[];
   screenerAnswers: Record<string, string | string[]> | null;
+  /** How the interview was taken. Defaults to a spoken one; a typed one gets the prompt wording for a typed transcript. */
+  channel?: "voice" | "text";
 }
 
 export interface ExtractionResult {
@@ -69,7 +71,7 @@ export async function extractEvidence(
 ): Promise<ExtractionResult> {
   const rubric = deps.rubric ?? loadRubric();
   const maxAttempts = deps.maxAttempts ?? 2;
-  const system = buildExtractionSystemPrompt(rubric);
+  const system = buildExtractionSystemPrompt(rubric, input.channel);
   const user = buildExtractionUserMessage(input);
   const schema = buildLedgerSchema(rubric);
 

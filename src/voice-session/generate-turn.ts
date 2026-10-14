@@ -6,7 +6,11 @@ import {
   limitToOneQuestion,
   oneQuestionPerTurnEnabled,
 } from "@/interview-agent/one-question";
-import type { TerminationReason } from "@/interview-agent/termination";
+import {
+  DISCOVERY_TEXT_MIN_PARTICIPANT_TURNS,
+  type TerminationReason,
+} from "@/interview-agent/termination";
+import { MIN_PARTICIPANT_TURNS_FOR_REPORT } from "@/job-search-study/min-turns";
 import type { InterviewTurn } from "@/llm";
 import type { InterviewRepository } from "@/repositories/interview-repository";
 import type { StudyRepository } from "@/repositories/study-repository";
@@ -78,6 +82,18 @@ export async function loadInterviewAndStudy(
   return { interview, study };
 }
 
+/**
+ * How many participant messages a typed discovery interview needs before the AI
+ * may end it on its own. A study that turns interviews into reports must not be
+ * ended before the interview is long enough to make one (the report's own
+ * minimum), or the participant is thanked for an interview that then fails.
+ */
+export function discoveryTextMinTurns(study: Study): number {
+  return study.reportPipeline === "job-search"
+    ? Math.max(DISCOVERY_TEXT_MIN_PARTICIPANT_TURNS, MIN_PARTICIPANT_TURNS_FOR_REPORT)
+    : DISCOVERY_TEXT_MIN_PARTICIPANT_TURNS;
+}
+
 function buildDiscoveryAgentInput(
   interview: Interview,
   study: Study,
@@ -93,11 +109,15 @@ function buildDiscoveryAgentInput(
       researchTopic: study.researchTopic,
       customPrompt: study.customPrompt,
       screenerAnswers: interview.screenerAnswers,
+      // Voice interviews keep today's spoken prompt; typed interviews (the
+      // study's text link) get the written-chat variant (see system-prompt.ts).
+      channel: interview.mode,
     },
     conversationHistory: toConversationHistory(messages),
     interviewStartedAt: interview.startedAt ?? interview.createdAt,
     extensionGranted: interview.extensionGranted,
     now,
+    minParticipantTurns: discoveryTextMinTurns(study),
   };
 }
 
@@ -163,13 +183,14 @@ async function persistTurnSideEffects(
  * `end_call` tool call — see each provider's `custom-llm-handler.ts`).
  */
 /**
- * Whether this study's spoken replies are cut after their first question.
- * Discovery interviews only: a feedback interview appends its own scripted
- * "anything else you'd like to add?" question to the model's reply, which a cut
- * would remove. Turned off by ONE_QUESTION_PER_TURN=false.
+ * Whether this interview's spoken replies are cut after their first question.
+ * Discovery voice interviews only: a feedback interview appends its own
+ * scripted "anything else you'd like to add?" question to the model's reply,
+ * which a cut would remove, and a typed chat gets its one-question rule from
+ * the prompt instead. Turned off by ONE_QUESTION_PER_TURN=false.
  */
-function limitsToOneQuestion(study: Study): boolean {
-  return study.type !== "feedback" && oneQuestionPerTurnEnabled();
+function limitsToOneQuestion(study: Study, interview: Interview): boolean {
+  return study.type !== "feedback" && interview.mode !== "text" && oneQuestionPerTurnEnabled();
 }
 
 export async function generateTurn(
@@ -191,7 +212,7 @@ export async function generateTurn(
 
   await persistTurnSideEffects(deps, input.interviewId, now, result);
 
-  const utterance = limitsToOneQuestion(study)
+  const utterance = limitsToOneQuestion(study, interview)
     ? limitToOneQuestion(result.utterance)
     : result.utterance;
   return { utterance, isInterviewOver: result.isInterviewOver };
@@ -213,7 +234,7 @@ export async function* generateTurnStreaming(
     input.preloaded ?? (await loadInterviewAndStudy(deps, input.interviewId));
   const now = deps.now ?? new Date();
   // Spoken replies are cut after their first question (see one-question.ts).
-  const limiter = limitsToOneQuestion(study) ? createOneQuestionLimiter() : null;
+  const limiter = limitsToOneQuestion(study, interview) ? createOneQuestionLimiter() : null;
   const speak = (piece: string) => (limiter ? limiter.push(piece) : piece);
 
   let final:

@@ -18,6 +18,8 @@ export interface TextState {
   endedReason: string | null;
   firstName: string;
   startedAt: string | null;
+  /** The server's clock when this was read, so the chat's countdown doesn't depend on the participant's own clock being right. */
+  serverTime: string;
   messages: TextStateMessage[];
 }
 
@@ -30,7 +32,7 @@ export interface TextStateDeps {
 /**
  * Reads the state of a text interview for its participant. Returns `null`
  * when the interview doesn't exist, doesn't belong to the study behind
- * `linkToken`, isn't a text interview of a feedback study — one answer for
+ * `linkToken`, isn't a text interview — one answer for
  * all of those, so the endpoint doesn't reveal which. While the interview is
  * running the messages come from `interview_messages`; once it has completed
  * they come from the stored transcript (the raw rows are deleted by then).
@@ -43,7 +45,11 @@ export async function getTextState(
   if (!interview || interview.mode !== "text") return null;
 
   const study = await deps.studyRepo.getById(interview.studyId);
-  if (!study || study.type !== "feedback" || study.linkToken !== input.linkToken) return null;
+  if (!study) return null;
+  // A feedback study is reached by its one link; a discovery study's typed
+  // interviews come in through its text link.
+  const ownLinkToken = study.type === "discovery" ? study.textLinkToken : study.linkToken;
+  if (ownLinkToken !== input.linkToken) return null;
 
   const base = {
     mode: "text" as const,
@@ -51,6 +57,7 @@ export async function getTextState(
     endedReason: interview.endedReason,
     firstName: interview.firstName,
     startedAt: interview.startedAt ? interview.startedAt.toISOString() : null,
+    serverTime: new Date().toISOString(),
   };
 
   if (interview.status === "completed" && interview.transcript) {

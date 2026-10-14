@@ -1,6 +1,13 @@
-export { buildInterviewSystemPrompt, type InterviewPromptContext } from "./system-prompt";
+export {
+  buildInterviewSystemPrompt,
+  DISCOVERY_TEXT_CHANNEL_GUIDANCE,
+  type InterviewPromptContext,
+} from "./system-prompt";
 export {
   checkTermination,
+  DISCOVERY_TEXT_HARD_CAP_MINUTES,
+  DISCOVERY_TEXT_HARD_CAP_MS,
+  DISCOVERY_TEXT_MIN_PARTICIPANT_TURNS,
   EXTENDED_HARD_CAP_MINUTES,
   EXTENDED_HARD_CAP_MS,
   EXTENDED_SOFT_CAP_MINUTES,
@@ -16,6 +23,7 @@ export {
   type TerminationReason,
 } from "./termination";
 export {
+  DISCOVERY_TEXT_TIME_CAP_UTTERANCE,
   InterviewAgent,
   SECOND_TIME_CHECK_UTTERANCE,
   TIME_CHECK_UTTERANCE,

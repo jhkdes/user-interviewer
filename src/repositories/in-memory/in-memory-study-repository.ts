@@ -21,7 +21,9 @@ export class InMemoryStudyRepository implements StudyRepository {
       customPrompt: input.customPrompt ?? null,
       reportPipeline: input.reportPipeline ?? null,
       participantCopy: input.participantCopy ?? null,
+      participantCopyText: input.participantCopyText ?? null,
       linkToken: input.linkToken,
+      textLinkToken: input.textLinkToken ?? null,
       voiceProvider: input.voiceProvider ?? "vapi",
       status: "open",
       createdAt: new Date(),
@@ -42,6 +44,22 @@ export class InMemoryStudyRepository implements StudyRepository {
       if (study.linkToken === linkToken) return { ...study };
     }
     return null;
+  }
+
+  async getByTextLinkToken(textLinkToken: string): Promise<Study | null> {
+    for (const study of this.studies.values()) {
+      if (study.textLinkToken === textLinkToken) return { ...study };
+    }
+    return null;
+  }
+
+  async setTextLinkToken(id: string, textLinkToken: string): Promise<Study> {
+    const study = this.studies.get(id);
+    if (!study) throw new Error(`Study not found: ${id}`);
+    if (study.textLinkToken !== null) return { ...study };
+    const updated: Study = { ...study, textLinkToken };
+    this.studies.set(id, updated);
+    return { ...updated };
   }
 
   async list(): Promise<Study[]> {

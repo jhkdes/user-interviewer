@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { InMemoryStudyRepository } from "@/repositories/in-memory/in-memory-study-repository";
+import { JOB_SEARCH_TEXT_PARTICIPANT_COPY } from "@/job-search-study/participant-copy";
 import { JOB_SEARCH_SCREENER } from "@/job-search-study/study-config";
 import { createStudy, InvalidStudyInputError } from "../create-study";
 
@@ -37,6 +38,23 @@ describe("createStudy", () => {
     expect(await repo.getByLinkToken(study.linkToken)).toEqual(study);
   });
 
+  it("gives a discovery study a text link token different from its voice link token", async () => {
+    const study = await createStudy(new InMemoryStudyRepository(), validInput);
+
+    expect(study.textLinkToken).toBeTruthy();
+    expect(study.textLinkToken).not.toBe(study.linkToken);
+  });
+
+  it("gives a feedback study no text link", async () => {
+    const study = await createStudy(new InMemoryStudyRepository(), {
+      ...validInput,
+      type: "feedback",
+      feedbackQuestions: ["How did the session go?"],
+    });
+
+    expect(study.textLinkToken).toBeNull();
+  });
+
   it("generates a distinct link token per study", async () => {
     const repo = new InMemoryStudyRepository();
     const first = await createStudy(repo, validInput);
@@ -52,5 +70,25 @@ describe("createStudy", () => {
       InvalidStudyInputError,
     );
     expect(await repo.list()).toEqual([]);
+  });
+});
+
+describe("createStudy's text-link wording", () => {
+  it("gives a job-search study the job-search wording for its text link too", async () => {
+    const study = await createStudy(new InMemoryStudyRepository(), {
+      ...validInput,
+      reportPipeline: "job-search",
+    });
+
+    expect(study.participantCopyText).toEqual(JOB_SEARCH_TEXT_PARTICIPANT_COPY);
+    // The text wording says nothing about voice.
+    expect(JSON.stringify(study.participantCopyText)).not.toContain("Voice, not text");
+    expect(JSON.stringify(study.participantCopyText)).not.toContain("Talk with an AI");
+  });
+
+  it("leaves the text link following the voice link for an ordinary study", async () => {
+    const study = await createStudy(new InMemoryStudyRepository(), validInput);
+
+    expect(study.participantCopyText).toBeNull();
   });
 });

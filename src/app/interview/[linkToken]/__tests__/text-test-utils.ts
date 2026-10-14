@@ -56,6 +56,7 @@ export function makeState(overrides: Partial<TextState> = {}): TextState {
     endedReason: null,
     firstName: "Sam",
     startedAt: "2026-01-01T00:00:00.000Z",
+    serverTime: "2026-01-01T00:00:00.000Z",
     messages: [],
     ...overrides,
   };

@@ -180,6 +180,96 @@ export function runStudyRepositoryContractTests(
       expect(cleared.participantCopy).toBeNull();
     });
 
+    it("has no text link or text-link copy unless one is given", async () => {
+      const repo = await makeRepository();
+      const plain = await repo.create({
+        title: sampleTitle,
+        description: sampleDescription,
+        preInterviewQuestions: sampleQuestions,
+        linkToken: "token-no-text-link",
+      });
+      expect(plain.textLinkToken).toBeNull();
+      expect(plain.participantCopyText).toBeNull();
+    });
+
+    it("stores text-link copy given at creation", async () => {
+      const repo = await makeRepository();
+      const created = await repo.create({
+        title: sampleTitle,
+        description: sampleDescription,
+        preInterviewQuestions: sampleQuestions,
+        participantCopy: { completion: { title: "Thanks for talking" } },
+        participantCopyText: { completion: { title: "Thanks for typing" } },
+        linkToken: "voice-token-with-text-copy",
+      });
+
+      expect(created.participantCopyText).toEqual({ completion: { title: "Thanks for typing" } });
+      expect((await repo.getById(created.id))?.participantCopyText).toEqual(
+        created.participantCopyText,
+      );
+      expect(created.participantCopy).toEqual({ completion: { title: "Thanks for talking" } });
+    });
+
+    it("stores a text link token and finds the study by it, separately from the voice link", async () => {
+      const repo = await makeRepository();
+      const created = await repo.create({
+        title: sampleTitle,
+        description: sampleDescription,
+        preInterviewQuestions: sampleQuestions,
+        linkToken: "voice-token-a",
+        textLinkToken: "text-token-a",
+      });
+      expect(created.textLinkToken).toBe("text-token-a");
+
+      expect((await repo.getByTextLinkToken("text-token-a"))?.id).toBe(created.id);
+      expect(await repo.getByTextLinkToken("voice-token-a")).toBeNull();
+      expect(await repo.getByLinkToken("text-token-a")).toBeNull();
+      expect(await repo.getByTextLinkToken("nope")).toBeNull();
+    });
+
+    it("setTextLinkToken adds a text link once and never replaces an existing one", async () => {
+      const repo = await makeRepository();
+      const created = await repo.create({
+        title: sampleTitle,
+        description: sampleDescription,
+        preInterviewQuestions: sampleQuestions,
+        linkToken: "voice-token-b",
+      });
+
+      const first = await repo.setTextLinkToken(created.id, "text-token-b1");
+      expect(first.textLinkToken).toBe("text-token-b1");
+
+      const second = await repo.setTextLinkToken(created.id, "text-token-b2");
+      expect(second.textLinkToken).toBe("text-token-b1");
+      expect(await repo.getByTextLinkToken("text-token-b2")).toBeNull();
+    });
+
+    it("setTextLinkToken rejects an unknown study", async () => {
+      const repo = await makeRepository();
+      await expect(repo.setTextLinkToken(NONEXISTENT_ID, "text-token-x")).rejects.toThrow();
+    });
+
+    it("updates and clears the text-link copy independently of the voice copy", async () => {
+      const repo = await makeRepository();
+      const created = await repo.create({
+        title: sampleTitle,
+        description: sampleDescription,
+        preInterviewQuestions: sampleQuestions,
+        participantCopy: { completion: { title: "Thanks for talking" } },
+        linkToken: "voice-token-c",
+      });
+
+      const updated = await repo.updateDetails(created.id, {
+        participantCopyText: { completion: { title: "Thanks for typing" } },
+      });
+      expect(updated.participantCopyText).toEqual({ completion: { title: "Thanks for typing" } });
+      expect(updated.participantCopy).toEqual({ completion: { title: "Thanks for talking" } });
+
+      const cleared = await repo.updateDetails(created.id, { participantCopyText: null });
+      expect(cleared.participantCopyText).toBeNull();
+      expect(cleared.participantCopy).toEqual({ completion: { title: "Thanks for talking" } });
+    });
+
     it("getById returns the created study", async () => {
       const repo = await makeRepository();
       const created = await repo.create({

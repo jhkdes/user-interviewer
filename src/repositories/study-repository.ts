@@ -23,7 +23,11 @@ export interface CreateStudyInput {
   reportPipeline?: ReportPipeline;
   /** Custom landing and ending page text. Omit for the standard wording. */
   participantCopy?: ParticipantCopy;
+  /** Custom landing and ending page text for the text link. Omit to follow the voice link's. */
+  participantCopyText?: ParticipantCopy;
   linkToken: string;
+  /** Discovery-type only. Omit for a study without a text link. */
+  textLinkToken?: string;
   /** Defaults to `"vapi"` if omitted, matching the DB column default. */
   voiceProvider?: VoiceProvider;
 }
@@ -38,12 +42,22 @@ export interface UpdateStudyDetailsInput {
   customPrompt?: string | null;
   /** `null` clears it back to the standard wording; `undefined` leaves it untouched. */
   participantCopy?: ParticipantCopy | null;
+  /** Text-link landing and ending text. `null` falls back to `participantCopy`; `undefined` leaves it untouched. */
+  participantCopyText?: ParticipantCopy | null;
 }
 
 export interface StudyRepository {
   create(input: CreateStudyInput): Promise<Study>;
   getById(id: string): Promise<Study | null>;
+  /** Finds a study by its voice link token only. See `resolveLink` (study-service) for either link. */
   getByLinkToken(linkToken: string): Promise<Study | null>;
+  /** Finds a study by its text link token only. */
+  getByTextLinkToken(textLinkToken: string): Promise<Study | null>;
+  /**
+   * Gives a study a text link, unless it already has one. Returns the study as
+   * it stands afterward, so calling it twice is harmless (the first token wins).
+   */
+  setTextLinkToken(id: string, textLinkToken: string): Promise<Study>;
   list(): Promise<Study[]>;
   updateStatus(id: string, status: StudyStatus): Promise<Study>;
   extendLink(id: string): Promise<Study>;

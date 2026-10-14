@@ -13,7 +13,26 @@ import type { StudyType } from "@/domain";
  * "continue anyway" experience. Only the stated duration range changes
  * between the two types.
  */
-export function MobileBlockedScreen({ type }: { type: StudyType }) {
+export function MobileBlockedScreen({
+  type,
+  channel = "voice",
+}: {
+  type: StudyType;
+  /** `"text"` for a study's typed-chat link, which is desktop-only for now but has no call to interrupt. */
+  channel?: "voice" | "text";
+}) {
+  if (channel === "text") {
+    return (
+      <div className="text-center">
+        <h1 className="text-xl font-semibold">Please open this link on a desktop</h1>
+        <p className="mt-4 text-sm text-neutral-600 dark:text-neutral-400">
+          This written interview isn&apos;t set up for phones yet. To take part, please open this
+          same link on a desktop or laptop computer instead.
+        </p>
+      </div>
+    );
+  }
+
   const durationLabel = type === "feedback" ? "5–7 minute" : "10–15 minute";
 
   return (
