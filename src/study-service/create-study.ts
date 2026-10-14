@@ -63,5 +63,7 @@ export async function createStudy(
         : undefined),
     voiceProvider: input.voiceProvider,
     linkToken: generateLinkToken(),
+    // Every discovery study also gets a text-only link; feedback studies offer typing inside their one link.
+    textLinkToken: (input.type ?? "discovery") === "discovery" ? generateLinkToken() : undefined,
   });
 }

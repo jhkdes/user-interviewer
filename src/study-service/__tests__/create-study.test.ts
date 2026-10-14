@@ -37,6 +37,23 @@ describe("createStudy", () => {
     expect(await repo.getByLinkToken(study.linkToken)).toEqual(study);
   });
 
+  it("gives a discovery study a text link token different from its voice link token", async () => {
+    const study = await createStudy(new InMemoryStudyRepository(), validInput);
+
+    expect(study.textLinkToken).toBeTruthy();
+    expect(study.textLinkToken).not.toBe(study.linkToken);
+  });
+
+  it("gives a feedback study no text link", async () => {
+    const study = await createStudy(new InMemoryStudyRepository(), {
+      ...validInput,
+      type: "feedback",
+      feedbackQuestions: ["How did the session go?"],
+    });
+
+    expect(study.textLinkToken).toBeNull();
+  });
+
   it("generates a distinct link token per study", async () => {
     const repo = new InMemoryStudyRepository();
     const first = await createStudy(repo, validInput);

@@ -11,7 +11,9 @@ export interface StudyRow {
   custom_prompt: string | null;
   report_pipeline: string | null;
   participant_copy: unknown;
+  participant_copy_text: unknown;
   link_token: string;
+  text_link_token: string | null;
   status: string;
   voice_provider: string;
   created_at: string;

@@ -14,6 +14,8 @@ const study: Study = {
   reportPipeline: null,
   participantCopy: null,
   linkToken: "token-1",
+  textLinkToken: null,
+  participantCopyText: null,
   status: "open",
   voiceProvider: "vapi",
   createdAt: new Date("2026-08-01T00:00:00.000Z"),
