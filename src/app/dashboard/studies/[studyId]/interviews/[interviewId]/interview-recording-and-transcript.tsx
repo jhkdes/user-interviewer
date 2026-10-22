@@ -39,7 +39,17 @@ export function InterviewRecordingAndTranscript({
   return (
     <>
       {showRecording && (
-        <section className="mt-6">
+        // With a recording, this stays pinned to the top of the window while the
+        // transcript scrolls, so the player is always there to pause or seek.
+        // The negative margin and matching padding stretch its background across
+        // the page's side padding so transcript text can't show through the edges.
+        <section
+          className={
+            recordingUrl
+              ? "sticky top-0 z-10 -mx-6 mt-6 border-b border-neutral-200 bg-white px-6 py-3 dark:border-neutral-800 dark:bg-neutral-950"
+              : "mt-6"
+          }
+        >
           <h2 className="font-semibold">Recording</h2>
           {recordingUrl ? (
             <audio ref={audioRef} controls src={recordingUrl} className="mt-2 w-full" />

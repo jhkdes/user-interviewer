@@ -13,6 +13,7 @@ import { ExtendLinkButton } from "./extend-link-button";
 import { GenerateReportButton } from "./generate-report-button";
 import { JobSearchReportsSection } from "./job-search-reports/job-search-reports-section";
 import { RemoveStudyButton } from "./remove-study-button";
+import { SharePanel } from "./share-panel";
 import { StudyReportThemes } from "./study-report-themes";
 
 const STATUS_STYLES: Record<string, string> = {
@@ -239,6 +240,8 @@ export default async function StudyDetailPage({ params }: { params: { studyId: s
           <GenerateReportButton studyId={study.id} />
         </div>
       </section>
+
+      <SharePanel studyId={study.id} />
 
       <RemoveStudyButton studyId={study.id} studyTitle={study.title} />
     </div>

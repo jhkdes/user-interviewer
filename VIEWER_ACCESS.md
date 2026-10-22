@@ -1,0 +1,177 @@
+# Read-only viewer access — plan
+
+## Goal
+
+Let an external PM (a **viewer**) sign in and review a study's completed interviews, transcripts, audio, summaries, reports and config, without seeing who the participants are and without being able to change or delete anything. Admins (the existing PM role) keep today's full access.
+
+**Status:** all five milestones built on branch `add-viewer-access` (migration `0025` applied to the project in `.env.local`; `0026` still to be applied). Not yet deployed; see the rollout runbook below.
+
+## Decisions (agreed)
+
+| Topic              | Decision                                                                                                                                                                                         |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Access method      | Email invite. The viewer creates an account (Supabase Auth, email + password) and gets a `viewer` role.                                                                                          |
+| Scope              | Per-study grants. One viewer can be granted several studies; no org-wide viewer role.                                                                                                            |
+| Visible            | Raw transcripts, audio, per-interview summaries, study reports, study config (all read-only). Role description and screener answers are visible.                                                 |
+| Hidden             | `first_name`, `email`, `tracking_id`, and any other participant identity field. The copy-participant-emails control.                                                                             |
+| Participant label  | Stable pseudonym "Participant N", N = the interview's position by `created_at` within the study.                                                                                                 |
+| Interviews shown   | Completed only, voice and text. In-progress, abandoned and test sessions are hidden.                                                                                                             |
+| Transcript text    | As spoken, except the participant's own first name and email addresses, which are replaced. Other names or companies a participant says aloud stay visible; covered by an NDA, not by software.  |
+| Exports            | None. No download buttons, no export pages, no export endpoints for viewers.                                                                                                                     |
+| Lifecycle          | Manual revoke only. No expiry date, no access log.                                                                                                                                               |
+| Admin bootstrap    | No PM accounts exist today. The first admin is created with `create:pm-account -- --admin`.                                                                                                      |
+| Recording endpoint | `/api/interviews/[id]/recording` currently has no session check. It will require a session (admin, or a viewer granted that interview's study). Its only caller is the dashboard interview page. |
+
+## Assumptions to confirm
+
+1. **Participant first names appear in the data.** The interviewer greets participants by first name, so raw transcripts, and the summaries quoted from them, name the participant. Viewers therefore get the participant's own first name and any email address replaced with `[Participant]` / `[redacted email]` (a Unicode-aware pass in `src/viewer-access/redact-identity.ts`); everything else stays as spoken. Study reports are cleaned against every participant's name. Built in M2.
+2. **Voice is identifying.** Audio is included by choice. This is an accepted risk, not something the software removes.
+3. **"No downloads" is not leak-proof.** It removes buttons and endpoints; a viewer can still copy text or screenshot.
+4. **Deny by default.** A signed-in user with no role row gets no access, including to existing routes.
+
+## Current state (what the plan builds on)
+
+- Auth is Supabase Auth only; there is no users/profile/role/org table. `studies` has no owner column. Any signed-in account has full access.
+- `src/middleware.ts` only checks for a session, and only for `/dashboard/*` and `/api/studies/*`. `src/pm-auth/route-protection.ts` exempts any `/api/studies/*` path ending in `/interviews` (the public participant intake), which also exempts the PM-only `GET`/`DELETE` handlers under that path.
+- All data access uses the service-role client (`src/lib/supabase/client.ts`); RLS is enabled with no policies. Authorization has to live in app code.
+- Accounts are created by `scripts/create-pm-account.ts`. There is no sign-up or invite UI.
+- Latest migration is `0024_add_study_text_link.sql`.
+
+## Data model
+
+Migration `0025` (then `0026`):
+
+- `pm_roles (user_id uuid primary key references auth.users on delete cascade, role text not null check (role in ('admin','viewer')), created_at)`.
+- `study_viewer_grants (user_id uuid references auth.users on delete cascade, study_id uuid references studies on delete cascade, created_at, primary key (user_id, study_id))`.
+- `viewer_invites` was in the first plan and was created by `0025`, but never used (see Invite flow). `0026` drops it.
+- RLS enabled with no policies, matching the other tables.
+
+The migration seeds nothing. The first admin comes from the script.
+
+## Authorization layer
+
+- `src/pm-auth/` gains `getPmContext(request)` → `{ userId, email, role, grantedStudyIds } | null`, and `requireAdmin` / `requireStudyAccess(studyId)` helpers that return the 401/403/404 response.
+- Middleware keeps its session check and adds: no role row → 403. Viewers are only allowed on an explicit allowlist (below); everything else is admin-only.
+- **Viewer allowlist (GET only):** the viewer study list, a granted study's detail, interview list, interview detail, transcripts, summaries, report, config, and the recording route. Every `POST`/`PATCH`/`PUT`/`DELETE` is admin-only.
+- Every study- and interview-scoped route checks the grant (viewers) and that the interview belongs to the study in the URL.
+- Replace the `/interviews` suffix exemption with an exact match on the participant intake route (`POST` only), so the PM `GET`/`DELETE` handlers under it are no longer treated as public.
+- `/api/interviews/[id]/recording`: add the matcher/handler check described above. Verify no participant-facing code calls it before changing it (checked once already: the only caller is `playable-recording-url.ts`).
+
+## Viewer-safe projection
+
+- A single mapper, `toViewerInterview(interview, position)`, is the only way viewer routes and pages produce interview data. It is an allowlist (it names the fields to keep), so new identity columns added later are hidden by default.
+- Kept: pseudonym, `created_at`, `completed_at`, `mode`, `transcript`, `role_description`, `screener_answers`, recording playback.
+- Dropped: `first_name`, `email`, `tracking_id`, call/conversation ids, device and idle fields, `recording_url` raw value (playback goes through the authenticated route).
+- Summaries and reports pass through a viewer-safe step that applies the phase 3 findings.
+- Filter to `status = 'completed'` in the repository query, not in the UI.
+
+## Viewer UI
+
+- A viewer lands on `/dashboard` showing only granted studies.
+- Study page and interview page render a read-only variant: no delete, edit, close, extend-link, generate-report, redaction editor, export, copy-emails or participant-pages controls. The `export` and `edit` sub-routes return 403 for viewers.
+- Admin study page gets a **Share** panel: invite by email (choose studies), list current viewers and pending invites, revoke.
+
+## Invite flow
+
+As built in M4, which differs from the first plan in three ways:
+
+- **No pending-invite table.** The account is created when the admin invites, with the viewer role and the study grant already in place. Nobody can use them until the person has opened the invite link and set a password. "Invited" vs "Active" is read from the account (email confirmed or not). `viewer_invites` from migration `0025` was therefore never used, and migration `0026` drops it.
+- **We send the email, not Supabase.** `generateLink` returns a single-use token; the email (through the existing Resend client) links to `/accept-invite?token_hash=...` on this site. This avoids Supabase's built-in mail limits and lets the email name the study.
+- **The token is checked on submit, not on page load.** Email security scanners often open links ahead of the reader and would use up a single-use token. The accept page asks for a password first; only then does it verify the token and set the password.
+
+Behaviour:
+
+- Admin enters an email on the study page's **Share with a viewer** panel. A new account gets an invite email; someone who has not accepted an earlier invite gets a fresh one (listing all their studies); someone already active just gets the study added, with no email.
+- An admin's email is refused: it would otherwise look like a way to downgrade them.
+- If the email fails to send, the account and grant stay and the panel says so; **Resend invite** tries again.
+- **Remove from study** takes one grant away. **Delete account** deletes a viewer's login, which ends access to every study (role and grants cascade). It refuses anyone who is not a viewer.
+- Links use the origin of the admin's request, so they point at whichever site the admin is using.
+
+## Milestones
+
+Each milestone is shippable on its own and ends with `npm test`, `npm run lint` and a typecheck passing.
+
+**M1 — Roles and the authorization layer (no behavior change for admins)**
+
+- Migration `0025` (tables above), applied in Supabase.
+- `create:pm-account -- --admin`; create the first admin.
+- `getPmContext`, `requireAdmin`, `requireStudyAccess`; middleware: no role → 403, viewers blocked from everything not allowlisted.
+- Fix the `/interviews` suffix exemption.
+- Tests: unauthenticated 401, role-less user 403, admin unchanged, viewer 403 on every mutating route (table-driven over all `/api/studies/*` handlers so new routes are caught).
+- **Done when:** the admin dashboard works exactly as before and a hand-made viewer row is refused on every write.
+
+**M2 — Recording endpoint and viewer data projection**
+
+- Require a session on `/api/interviews/[id]/recording`, with the grant check for viewers.
+- `toViewerInterview`, completed-only query, pseudonym numbering.
+- Strip the participant's name and emails from transcripts, summaries and reports (assumption 1).
+- Not done in M2, moved to M3: the recording route serves ElevenLabs audio only. Vapi interviews play from a presigned URL embedded in the page, so M3 either proxies Vapi audio through the route for viewers or accepts that link as visible.
+- Tests: recording 401 without session; viewer 403 on an ungranted study; serialized viewer output for a fixture contains none of `first_name`, `email`, `tracking_id` anywhere, including summaries and reports.
+- **Done when:** a viewer-shaped API response can be produced and is proven free of identity fields.
+
+**M3 — Viewer read-only UI**
+
+- Read-only `/viewer` pages (study list, study, interview), separate from `/dashboard` so no admin control can appear on them. A viewer who opens a dashboard page is redirected to `/viewer`. The dashboard `export`/`edit` routes stay refused.
+- The recording route also proxies Vapi audio (forwarding `Range`), so no presigned provider URL reaches a viewer.
+- Component tests for viewer vs admin rendering; manual pass as a viewer, checking page source and network responses (not only what is visible).
+- **Done when:** a granted viewer can read everything in scope and no write control or identity field is present in the HTML or API responses.
+
+**M4 — Invite flow and Share panel**
+
+- Invite, accept, add-grant-to-existing-account, revoke, remove viewer.
+- Share panel on the admin study page.
+- Tests for each transition, including an invite for an existing admin's email and a revoked invite.
+- **Done when:** you can invite the PM by email, they sign up, see only the granted study, and revoking takes effect on their next request.
+
+**M5 — Rollout** (built)
+
+- The rollout runbook below, and a pointer to it in `README.md`.
+- `npm run verify:viewer-access`, a smoke test that creates temporary accounts and checks the boundaries and the identity-hiding against a real study on a live site, then deletes them. It stands in for a hand walkthrough as a fake viewer and can be rerun after any deploy.
+- **Done when:** the runbook has been followed on Production, the smoke test passes there, and you have looked at the viewer pages yourself as a real viewer.
+
+## Rollout runbook
+
+Roles are enforced for every dashboard request, so the order below matters: an account with no role is refused everywhere, including you.
+
+**Before deploying**
+
+1. Apply `supabase/migrations/0025_add_pm_roles_and_viewer_grants.sql`, then `0026_drop_viewer_invites.sql`, to the Supabase project that environment uses, in that order. (0025 is already applied to the project in `.env.local`; apply 0026 there too. Do both for any other project, such as Production's, if it is a different one.)
+2. Give every existing dashboard account an admin role, against that same project. Point `.env.local` at it, then run, for each account: `npm run set:pm-role -- --email=you@example.com --role=admin`. For a brand-new account use `npm run create:pm-account -- --email=... --password=... --admin`. Skipping this locks that account out the moment the new code is live.
+3. Check the Vercel environment has `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` (the middleware reads the role with them) and `RESEND_API_KEY` / `RESEND_FROM_EMAIL`. Invite emails go to an outside address, so the Resend sender must be on a verified domain; Resend's shared test sender only delivers to the account owner.
+
+**Deploy and check**
+
+1. Merge to `preview` first (see `PREVIEW_TESTING.md`), sign in as yourself, and open a study. Then promote to Production the way you normally do.
+2. On Production, sign in as yourself. If you see "You don't have access", step 2 above was missed for that account; fix it with `set:pm-role`.
+3. Run `npm run verify:viewer-access -- --base=https://your-production-site`, with `.env.local` pointing at Production's Supabase project. Every line should say PASS. It creates two temporary accounts, grants one a real study for a moment, and deletes both; it sends no email and changes no study data.
+
+**Invite the PM**
+
+1. Send the invite **from the Production site**, not a Preview URL: the link in the email uses the address you are on, and Preview deployments may be behind Vercel sign-in.
+2. Open the study, find **Share with a viewer**, enter the PM's email, and click Invite. The panel should say "Invite sent." and list them as Invited. If it says the email could not be sent, the access is already set up; fix the Resend settings and use **Resend invite**.
+3. Before they respond, ask them to open the link and set a password. The link works once. If it has expired, use **Resend invite**.
+4. Open the viewer pages yourself once, as a viewer would see them: the smoke test cannot check how they look, whether audio plays and seeks, or that the invite email reads well. The simplest way is a second browser profile signed in as a test viewer, or ask the PM to confirm what they see.
+5. Confirm the NDA is in place before they sign in. See the accepted risks below.
+
+**When they are done**
+
+- **Remove from study** in the Share panel ends their access to that study. If they have no other studies, **Delete account** removes the login entirely.
+- To remove everything by hand: `delete from auth.users where email = '...'` in the Supabase SQL editor removes the account, role and grants together.
+
+**Undoing the feature**
+
+- Revert the merge. Dashboard accounts keep their `pm_roles` rows, which an older build ignores. The tables are harmless to leave in place.
+
+**Accepted risks to tell the PM about (or cover in the NDA)**
+
+- Recordings are included, and a voice can identify a participant.
+- Transcripts are shown as spoken. Only the participant's own first name and email addresses are replaced, so other names, companies and details a participant mentions are visible. Role descriptions and screener answers are visible too.
+- Nothing stops a viewer copying text or taking screenshots. "No downloads" only means there are no download buttons or export pages.
+- Participants appear as "Participant N", numbered by when their interview was created. Deleting an interview renumbers the ones after it.
+
+## Risks
+
+- Voices in audio can identify a participant.
+- Transcript text, role descriptions and screener answers can name a person or company.
+- Viewers can copy text or screenshot; there is no technical control for this.
+- The authorization layer is a new, hand-enforced boundary on top of a service-role client that bypasses RLS. The table-driven route test in M1 and the allowlist-based projection in M2 exist to limit this risk; a route added later without a check is denied for viewers by default.

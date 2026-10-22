@@ -20,6 +20,10 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## Dashboard access
+
+Dashboard users have a role: **admin** (full access) or **viewer** (read-only, limited to the studies they are invited to, with participant names and emails hidden). A signed-in account with no role is refused. Give an account a role with `npm run set:pm-role`, create one with `npm run create:pm-account`, and invite viewers from a study's page. See [VIEWER_ACCESS.md](VIEWER_ACCESS.md) for how it works and the rollout runbook, and run `npm run verify:viewer-access` to check it against a live site.
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:

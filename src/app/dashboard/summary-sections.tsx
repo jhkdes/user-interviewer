@@ -1,5 +1,8 @@
 import type { Summary } from "@/domain";
 
+/** Just the fields this component draws, so a viewer's trimmed-down summary can use it too. */
+export type SummaryContent = Omit<Summary, "id" | "interviewId" | "createdAt">;
+
 /**
  * The individual-summary rendering shared by the interview detail page and
  * the printable interview export — branches on `summary.type` the same way
@@ -7,7 +10,7 @@ import type { Summary } from "@/domain";
  * painPoints/notableQuotes/takeaways for discovery-type). Pulled out so the
  * two call sites can't drift from each other.
  */
-export function SummarySections({ summary }: { summary: Summary | null }) {
+export function SummarySections({ summary }: { summary: SummaryContent | null }) {
   if (!summary) {
     return (
       <p className="mt-2 text-sm text-neutral-500 dark:text-neutral-400">

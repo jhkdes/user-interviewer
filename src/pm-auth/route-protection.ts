@@ -3,16 +3,24 @@
  * function, independent of Next.js middleware/cookies plumbing, so the
  * routing decision itself is unit-testable without a real Supabase session.
  *
- * `/api/studies/:linkToken/interviews` is the one exception under
+ * `POST /api/studies/:linkToken/interviews` is the one exception under
  * `/api/studies` — it's the participant-facing intake endpoint (M5),
  * addressed by a public link token rather than a study id, and participants
- * never log in (see REQUIREMENTS.md). Everything else under `/api/studies`
- * (create, list, get, close, report) is a PM-only action. `/api/vapi/*`
- * isn't listed here at all — it's called by Vapi's servers, never a
- * logged-in PM, and must stay reachable without a session.
+ * never log in (see REQUIREMENTS.md). The exemption is an exact match on
+ * that one path (and, when the caller passes a method, on POST), so it can't
+ * widen to other handlers that happen to live at a path ending in
+ * `/interviews`. Everything else under `/api/studies` (create, list, get,
+ * close, report) is a PM-only action. `/api/vapi/*` isn't listed here at
+ * all — it's called by Vapi's servers, never a logged-in PM, and must stay
+ * reachable without a session.
  */
-export function requiresAuth(pathname: string): boolean {
-  if (pathname.startsWith("/dashboard")) return true;
-  if (pathname.startsWith("/api/studies")) return !pathname.endsWith("/interviews");
+const INTAKE_PATH = /^\/api\/studies\/[^/]+\/interviews\/?$/;
+
+export function requiresAuth(pathname: string, method?: string): boolean {
+  if (pathname.startsWith("/dashboard") || pathname.startsWith("/viewer")) return true;
+  if (pathname.startsWith("/api/studies")) {
+    const isIntake = INTAKE_PATH.test(pathname) && (method === undefined || method === "POST");
+    return !isIntake;
+  }
   return false;
 }

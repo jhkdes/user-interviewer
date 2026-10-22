@@ -53,6 +53,17 @@ function requireEnv(name: string): string {
 }
 
 async function ensureTestUser() {
+  const id = await createOrResetTestUser();
+  // A signed-in user with no pm_roles row gets 403 (VIEWER_ACCESS.md), so the
+  // test account needs a role to reach the dashboard.
+  const { error } = await createServerSupabaseClient()
+    .from("pm_roles")
+    .upsert({ user_id: id, role: "admin" }, { onConflict: "user_id" });
+  if (error) throw error;
+  return id;
+}
+
+async function createOrResetTestUser() {
   const admin = createServerSupabaseClient();
 
   const { data: created, error: createError } = await admin.auth.admin.createUser({
