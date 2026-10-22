@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { AuthCard, AuthError, authButtonClass, authInputClass } from "@/app/auth-ui";
 import { createBrowserSupabaseClient } from "@/lib/supabase/browser-client";
 
 export function LoginForm() {
@@ -31,41 +32,49 @@ export function LoginForm() {
   }
 
   return (
-    <>
-      <h1>PM Login</h1>
-      <form onSubmit={handleSubmit}>
-        <label style={{ display: "block", marginTop: 16 }}>
-          Email
+    <AuthCard title="Log in" description="Sign in with your email and password.">
+      <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+        <div>
+          <label htmlFor="email" className="block text-sm font-medium">
+            Email
+          </label>
           <input
+            id="email"
             type="email"
             required
-            style={{ display: "block", width: "100%" }}
+            autoComplete="email"
+            className={authInputClass}
             value={email}
             onChange={(e) => setEmail(e.target.value)}
           />
-        </label>
-        <label style={{ display: "block", marginTop: 16 }}>
-          Password
+        </div>
+        <div>
+          <label htmlFor="password" className="block text-sm font-medium">
+            Password
+          </label>
           <input
+            id="password"
             type="password"
             required
-            style={{ display: "block", width: "100%" }}
+            autoComplete="current-password"
+            className={authInputClass}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
           />
-        </label>
-        {error && (
-          <p role="alert" style={{ color: "crimson", marginTop: 12 }}>
-            {error}
-          </p>
-        )}
-        <button type="submit" disabled={submitting} style={{ marginTop: 16 }}>
+        </div>
+        {error && <AuthError>{error}</AuthError>}
+        <button type="submit" disabled={submitting} className={authButtonClass}>
           {submitting ? "Logging in…" : "Log in"}
         </button>
       </form>
-      <p style={{ marginTop: 16 }}>
-        <a href="/forgot-password">Forgot password?</a>
+      <p className="mt-4 text-center text-sm">
+        <a
+          href="/forgot-password"
+          className="text-neutral-600 underline hover:no-underline dark:text-neutral-400"
+        >
+          Forgot password?
+        </a>
       </p>
-    </>
+    </AuthCard>
   );
 }
