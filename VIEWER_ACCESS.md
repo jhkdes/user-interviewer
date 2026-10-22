@@ -4,7 +4,7 @@
 
 Let an external PM (a **viewer**) sign in and review a study's completed interviews, transcripts, audio, summaries, reports and config, without seeing who the participants are and without being able to change or delete anything. Admins (the existing PM role) keep today's full access.
 
-**Status:** M1 built on branch `add-viewer-access` (migration `0025` not yet applied); M2-M5 not started.
+**Status:** M1 and M2 built on branch `add-viewer-access` (migration `0025` applied); M3-M5 not started.
 
 ## Decisions (agreed)
 
@@ -16,7 +16,7 @@ Let an external PM (a **viewer**) sign in and review a study's completed intervi
 | Hidden             | `first_name`, `email`, `tracking_id`, and any other participant identity field. The copy-participant-emails control.                                                                             |
 | Participant label  | Stable pseudonym "Participant N", N = the interview's position by `created_at` within the study.                                                                                                 |
 | Interviews shown   | Completed only, voice and text. In-progress, abandoned and test sessions are hidden.                                                                                                             |
-| Transcript text    | Left as spoken. Names or companies a participant says aloud stay visible; covered by an NDA, not by software.                                                                                    |
+| Transcript text    | As spoken, except the participant's own first name and email addresses, which are replaced. Other names or companies a participant says aloud stay visible; covered by an NDA, not by software.  |
 | Exports            | None. No download buttons, no export pages, no export endpoints for viewers.                                                                                                                     |
 | Lifecycle          | Manual revoke only. No expiry date, no access log.                                                                                                                                               |
 | Admin bootstrap    | No PM accounts exist today. The first admin is created with `create:pm-account -- --admin`.                                                                                                      |
@@ -24,7 +24,7 @@ Let an external PM (a **viewer**) sign in and review a study's completed intervi
 
 ## Assumptions to confirm
 
-1. **Summaries and reports may contain participant first names.** They are generated from transcripts and the generators may be given `first_name`. Phase 3 checks this; if they do, names are stripped or replaced with the pseudonym for viewers (and the prompt input is fixed for new reports).
+1. **Participant first names appear in the data.** The interviewer greets participants by first name, so raw transcripts, and the summaries quoted from them, name the participant. Viewers therefore get the participant's own first name and any email address replaced with `[Participant]` / `[redacted email]` (a Unicode-aware pass in `src/viewer-access/redact-identity.ts`); everything else stays as spoken. Study reports are cleaned against every participant's name. Built in M2.
 2. **Voice is identifying.** Audio is included by choice. This is an accepted risk, not something the software removes.
 3. **"No downloads" is not leak-proof.** It removes buttons and endpoints; a viewer can still copy text or screenshot.
 4. **Deny by default.** A signed-in user with no role row gets no access, including to existing routes.
@@ -95,7 +95,8 @@ Each milestone is shippable on its own and ends with `npm test`, `npm run lint` 
 
 - Require a session on `/api/interviews/[id]/recording`, with the grant check for viewers.
 - `toViewerInterview`, completed-only query, pseudonym numbering.
-- Check summaries and reports for participant names (assumption 1) and add the strip step.
+- Strip the participant's name and emails from transcripts, summaries and reports (assumption 1).
+- Not done in M2, moved to M3: the recording route serves ElevenLabs audio only. Vapi interviews play from a presigned URL embedded in the page, so M3 either proxies Vapi audio through the route for viewers or accepts that link as visible.
 - Tests: recording 401 without session; viewer 403 on an ungranted study; serialized viewer output for a fixture contains none of `first_name`, `email`, `tracking_id` anywhere, including summaries and reports.
 - **Done when:** a viewer-shaped API response can be produced and is proven free of identity fields.
 
