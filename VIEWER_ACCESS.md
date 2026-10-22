@@ -4,7 +4,7 @@
 
 Let an external PM (a **viewer**) sign in and review a study's completed interviews, transcripts, audio, summaries, reports and config, without seeing who the participants are and without being able to change or delete anything. Admins (the existing PM role) keep today's full access.
 
-**Status:** M1-M4 built on branch `add-viewer-access` (migration `0025` applied); M5 (rollout) not started.
+**Status:** all five milestones built on branch `add-viewer-access` (migration `0025` applied to the project in `.env.local`). Not yet deployed; see the rollout runbook below.
 
 ## Decisions (agreed)
 
@@ -123,11 +123,51 @@ Each milestone is shippable on its own and ends with `npm test`, `npm run lint` 
 - Tests for each transition, including an invite for an existing admin's email and a revoked invite.
 - **Done when:** you can invite the PM by email, they sign up, see only the granted study, and revoking takes effect on their next request.
 
-**M5 — Rollout**
+**M5 — Rollout** (built)
 
-- Short runbook (create admin, invite viewer, revoke), and a note in `README.md`.
-- Walkthrough as a real viewer account against the real study before inviting the PM.
-- Remind the PM of the NDA; list the accepted risks (voice, spoken names, screenshots).
+- The rollout runbook below, and a pointer to it in `README.md`.
+- `npm run verify:viewer-access`, a smoke test that creates temporary accounts and checks the boundaries and the identity-hiding against a real study on a live site, then deletes them. It stands in for a hand walkthrough as a fake viewer and can be rerun after any deploy.
+- **Done when:** the runbook has been followed on Production, the smoke test passes there, and you have looked at the viewer pages yourself as a real viewer.
+
+## Rollout runbook
+
+Roles are enforced for every dashboard request, so the order below matters: an account with no role is refused everywhere, including you.
+
+**Before deploying**
+
+1. Apply `supabase/migrations/0025_add_pm_roles_and_viewer_grants.sql` to the Supabase project that environment uses. (Already applied to the project in `.env.local`; apply it again for any other project, such as Production's, if it is a different one.)
+2. Give every existing dashboard account an admin role, against that same project. Point `.env.local` at it, then run, for each account: `npm run set:pm-role -- --email=you@example.com --role=admin`. For a brand-new account use `npm run create:pm-account -- --email=... --password=... --admin`. Skipping this locks that account out the moment the new code is live.
+3. Check the Vercel environment has `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` (the middleware reads the role with them) and `RESEND_API_KEY` / `RESEND_FROM_EMAIL`. Invite emails go to an outside address, so the Resend sender must be on a verified domain; Resend's shared test sender only delivers to the account owner.
+
+**Deploy and check**
+
+1. Merge to `preview` first (see `PREVIEW_TESTING.md`), sign in as yourself, and open a study. Then promote to Production the way you normally do.
+2. On Production, sign in as yourself. If you see "You don't have access", step 2 above was missed for that account; fix it with `set:pm-role`.
+3. Run `npm run verify:viewer-access -- --base=https://your-production-site`, with `.env.local` pointing at Production's Supabase project. Every line should say PASS. It creates two temporary accounts, grants one a real study for a moment, and deletes both; it sends no email and changes no study data.
+
+**Invite the PM**
+
+1. Send the invite **from the Production site**, not a Preview URL: the link in the email uses the address you are on, and Preview deployments may be behind Vercel sign-in.
+2. Open the study, find **Share with a viewer**, enter the PM's email, and click Invite. The panel should say "Invite sent." and list them as Invited. If it says the email could not be sent, the access is already set up; fix the Resend settings and use **Resend invite**.
+3. Before they respond, ask them to open the link and set a password. The link works once. If it has expired, use **Resend invite**.
+4. Open the viewer pages yourself once, as a viewer would see them: the smoke test cannot check how they look, whether audio plays and seeks, or that the invite email reads well. The simplest way is a second browser profile signed in as a test viewer, or ask the PM to confirm what they see.
+5. Confirm the NDA is in place before they sign in. See the accepted risks below.
+
+**When they are done**
+
+- **Remove from study** in the Share panel ends their access to that study. If they have no other studies, **Delete account** removes the login entirely.
+- To remove everything by hand: `delete from auth.users where email = '...'` in the Supabase SQL editor removes the account, role and grants together.
+
+**Undoing the feature**
+
+- Revert the merge. Dashboard accounts keep their `pm_roles` rows, which an older build ignores. The tables are harmless to leave in place. `viewer_invites` is unused and can be dropped.
+
+**Accepted risks to tell the PM about (or cover in the NDA)**
+
+- Recordings are included, and a voice can identify a participant.
+- Transcripts are shown as spoken. Only the participant's own first name and email addresses are replaced, so other names, companies and details a participant mentions are visible. Role descriptions and screener answers are visible too.
+- Nothing stops a viewer copying text or taking screenshots. "No downloads" only means there are no download buttons or export pages.
+- Participants appear as "Participant N", numbered by when their interview was created. Deleting an interview renumbers the ones after it.
 
 ## Risks
 
