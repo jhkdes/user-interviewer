@@ -4,7 +4,7 @@
 
 Let an external PM (a **viewer**) sign in and review a study's completed interviews, transcripts, audio, summaries, reports and config, without seeing who the participants are and without being able to change or delete anything. Admins (the existing PM role) keep today's full access.
 
-**Status:** all five milestones built on branch `add-viewer-access` (migration `0025` applied to the project in `.env.local`). Not yet deployed; see the rollout runbook below.
+**Status:** all five milestones built on branch `add-viewer-access` (migration `0025` applied to the project in `.env.local`; `0026` still to be applied). Not yet deployed; see the rollout runbook below.
 
 ## Decisions (agreed)
 
@@ -39,11 +39,11 @@ Let an external PM (a **viewer**) sign in and review a study's completed intervi
 
 ## Data model
 
-New migration `0025`:
+Migration `0025` (then `0026`):
 
 - `pm_roles (user_id uuid primary key references auth.users on delete cascade, role text not null check (role in ('admin','viewer')), created_at)`.
 - `study_viewer_grants (user_id uuid references auth.users on delete cascade, study_id uuid references studies on delete cascade, created_at, primary key (user_id, study_id))`.
-- `viewer_invites (id, email, study_ids uuid[], invited_by, created_at, accepted_at null, revoked_at null)`. Holds invites that have not been accepted yet; the grant rows are created on acceptance.
+- `viewer_invites` was in the first plan and was created by `0025`, but never used (see Invite flow). `0026` drops it.
 - RLS enabled with no policies, matching the other tables.
 
 The migration seeds nothing. The first admin comes from the script.
@@ -75,7 +75,7 @@ The migration seeds nothing. The first admin comes from the script.
 
 As built in M4, which differs from the first plan in three ways:
 
-- **No pending-invite table.** The account is created when the admin invites, with the viewer role and the study grant already in place. Nobody can use them until the person has opened the invite link and set a password. "Invited" vs "Active" is read from the account (email confirmed or not). `viewer_invites` from migration `0025` is therefore unused and can be dropped.
+- **No pending-invite table.** The account is created when the admin invites, with the viewer role and the study grant already in place. Nobody can use them until the person has opened the invite link and set a password. "Invited" vs "Active" is read from the account (email confirmed or not). `viewer_invites` from migration `0025` was therefore never used, and migration `0026` drops it.
 - **We send the email, not Supabase.** `generateLink` returns a single-use token; the email (through the existing Resend client) links to `/accept-invite?token_hash=...` on this site. This avoids Supabase's built-in mail limits and lets the email name the study.
 - **The token is checked on submit, not on page load.** Email security scanners often open links ahead of the reader and would use up a single-use token. The accept page asks for a password first; only then does it verify the token and set the password.
 
@@ -135,7 +135,7 @@ Roles are enforced for every dashboard request, so the order below matters: an a
 
 **Before deploying**
 
-1. Apply `supabase/migrations/0025_add_pm_roles_and_viewer_grants.sql` to the Supabase project that environment uses. (Already applied to the project in `.env.local`; apply it again for any other project, such as Production's, if it is a different one.)
+1. Apply `supabase/migrations/0025_add_pm_roles_and_viewer_grants.sql`, then `0026_drop_viewer_invites.sql`, to the Supabase project that environment uses, in that order. (0025 is already applied to the project in `.env.local`; apply 0026 there too. Do both for any other project, such as Production's, if it is a different one.)
 2. Give every existing dashboard account an admin role, against that same project. Point `.env.local` at it, then run, for each account: `npm run set:pm-role -- --email=you@example.com --role=admin`. For a brand-new account use `npm run create:pm-account -- --email=... --password=... --admin`. Skipping this locks that account out the moment the new code is live.
 3. Check the Vercel environment has `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` (the middleware reads the role with them) and `RESEND_API_KEY` / `RESEND_FROM_EMAIL`. Invite emails go to an outside address, so the Resend sender must be on a verified domain; Resend's shared test sender only delivers to the account owner.
 
@@ -160,7 +160,7 @@ Roles are enforced for every dashboard request, so the order below matters: an a
 
 **Undoing the feature**
 
-- Revert the merge. Dashboard accounts keep their `pm_roles` rows, which an older build ignores. The tables are harmless to leave in place. `viewer_invites` is unused and can be dropped.
+- Revert the merge. Dashboard accounts keep their `pm_roles` rows, which an older build ignores. The tables are harmless to leave in place.
 
 **Accepted risks to tell the PM about (or cover in the NDA)**
 
