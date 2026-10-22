@@ -6,6 +6,8 @@ const mocks = vi.hoisted(() => ({
   getCurrentPmContext: vi.fn(),
   getById: vi.fn(),
   fetchConversationAudio: vi.fn(),
+  fetchFreshRecordingUrl: vi.fn(),
+  upstreamFetch: vi.fn(),
 }));
 
 vi.mock("@/pm-auth/current-pm-context", () => ({ getCurrentPmContext: mocks.getCurrentPmContext }));
@@ -15,6 +17,8 @@ vi.mock("@/repositories/get-interview-repository", () => ({
 vi.mock("@/lib/elevenlabs/client", () => ({
   fetchConversationAudio: mocks.fetchConversationAudio,
 }));
+
+vi.mock("@/lib/vapi/client", () => ({ fetchFreshRecordingUrl: mocks.fetchFreshRecordingUrl }));
 
 import { GET } from "../route";
 
@@ -36,8 +40,10 @@ const ctx = (role: PmContext["role"], grantedStudyIds: string[] = []): PmContext
   grantedStudyIds,
 });
 
-const call = () =>
-  GET(new Request("http://localhost/api/interviews/int-1/recording"), { params: { id: "int-1" } });
+const call = (headers: Record<string, string> = {}) =>
+  GET(new Request("http://localhost/api/interviews/int-1/recording", { headers }), {
+    params: { id: "int-1" },
+  });
 
 describe("GET /api/interviews/[id]/recording", () => {
   beforeEach(() => {
@@ -88,5 +94,81 @@ describe("GET /api/interviews/[id]/recording", () => {
     mocks.getCurrentPmContext.mockResolvedValue(ctx("admin"));
     mocks.getById.mockResolvedValue(null);
     expect((await call()).status).toBe(404);
+  });
+
+  describe("a Vapi interview", () => {
+    const vapi = (overrides: Partial<Interview> = {}) =>
+      interview({
+        voiceProvider: "vapi",
+        elevenLabsConversationId: null,
+        vapiCallId: "call-1",
+        recordingUrl: "https://stored.example/rec.wav",
+        ...overrides,
+      });
+
+    beforeEach(() => {
+      vi.stubGlobal("fetch", mocks.upstreamFetch);
+      mocks.getById.mockResolvedValue(vapi());
+      mocks.fetchFreshRecordingUrl.mockResolvedValue("https://vapi.example/fresh.wav?sig=abc");
+      mocks.upstreamFetch.mockImplementation(
+        async () =>
+          new Response("wav-bytes", {
+            status: 200,
+            headers: { "content-type": "audio/wav", "content-length": "9" },
+          }),
+      );
+      mocks.getCurrentPmContext.mockResolvedValue(ctx("viewer", ["study-1"]));
+    });
+
+    it("streams the audio through, without handing out the presigned URL", async () => {
+      const res = await call();
+
+      expect(res.status).toBe(200);
+      expect(res.headers.get("content-type")).toBe("audio/wav");
+      expect(await res.text()).toBe("wav-bytes");
+      expect(mocks.upstreamFetch.mock.calls[0][0]).toBe("https://vapi.example/fresh.wav?sig=abc");
+      expect(JSON.stringify([...res.headers])).not.toContain("vapi.example");
+    });
+
+    it("forwards Range so the player can seek, and passes back a partial response", async () => {
+      mocks.upstreamFetch.mockImplementation(
+        async () =>
+          new Response("av", {
+            status: 206,
+            headers: { "content-type": "audio/wav", "content-range": "bytes 2-3/9" },
+          }),
+      );
+
+      const res = await call({ range: "bytes=2-3" });
+
+      expect(mocks.upstreamFetch.mock.calls[0][1].headers).toEqual({ Range: "bytes=2-3" });
+      expect(res.status).toBe(206);
+      expect(res.headers.get("content-range")).toBe("bytes 2-3/9");
+    });
+
+    it("falls back to the stored URL when there is no call id", async () => {
+      mocks.getById.mockResolvedValue(vapi({ vapiCallId: null }));
+      expect((await call()).status).toBe(200);
+      expect(mocks.fetchFreshRecordingUrl).not.toHaveBeenCalled();
+      expect(mocks.upstreamFetch.mock.calls[0][0]).toBe("https://stored.example/rec.wav");
+    });
+
+    it("is 404 when there is nothing to play or the provider no longer has it", async () => {
+      mocks.fetchFreshRecordingUrl.mockResolvedValue(null);
+      expect((await call()).status).toBe(404);
+
+      mocks.fetchFreshRecordingUrl.mockResolvedValue("https://vapi.example/fresh.wav");
+      mocks.upstreamFetch.mockImplementation(async () => new Response("gone", { status: 403 }));
+      expect((await call()).status).toBe(404);
+    });
+
+    it("applies the same access rules as ElevenLabs", async () => {
+      mocks.getCurrentPmContext.mockResolvedValue(ctx("viewer", ["other-study"]));
+      expect((await call()).status).toBe(404);
+
+      mocks.getCurrentPmContext.mockResolvedValue(null);
+      expect((await call()).status).toBe(401);
+      expect(mocks.upstreamFetch).not.toHaveBeenCalled();
+    });
   });
 });

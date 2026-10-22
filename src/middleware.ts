@@ -4,7 +4,8 @@ import { decidePmAccess, fetchPmRole, requiresAuth } from "@/pm-auth";
 
 /**
  * Route protection (T9.2): redirects an unauthenticated PM to `/login` for
- * `/dashboard/*` pages, and returns 401 for PM-only `/api/studies/*` routes.
+ * `/dashboard/*` and `/viewer/*` pages, and returns 401 for PM-only
+ * `/api/studies/*` routes.
  * `requiresAuth` (pure, unit-tested) decides *which* paths need a session;
  * this file only handles *checking* it. `config.matcher` below still limits
  * which requests even reach this function — `requiresAuth` only needs to
@@ -53,6 +54,11 @@ export async function middleware(request: NextRequest) {
   }
 
   if (decidePmAccess({ role, method: request.method, pathname }) === "forbidden") {
+    // A viewer who lands on a dashboard page (after login, or from a bookmark)
+    // goes to their own read-only pages rather than seeing an error.
+    if (role === "viewer" && !isApi && request.method === "GET") {
+      return NextResponse.redirect(new URL("/viewer", request.url));
+    }
     return isApi
       ? NextResponse.json({ error: "Forbidden" }, { status: 403 })
       : new NextResponse("You don't have access to this page.", { status: 403 });
@@ -70,5 +76,5 @@ function requireEnv(name: string): string {
 }
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/api/studies/:path*"],
+  matcher: ["/dashboard/:path*", "/viewer/:path*", "/api/studies/:path*"],
 };

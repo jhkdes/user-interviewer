@@ -4,7 +4,7 @@
 
 Let an external PM (a **viewer**) sign in and review a study's completed interviews, transcripts, audio, summaries, reports and config, without seeing who the participants are and without being able to change or delete anything. Admins (the existing PM role) keep today's full access.
 
-**Status:** M1 and M2 built on branch `add-viewer-access` (migration `0025` applied); M3-M5 not started.
+**Status:** M1-M3 built on branch `add-viewer-access` (migration `0025` applied); M4-M5 not started. Until M4 there is no invite flow: give a viewer a role and a study with `set:pm-role` and a row in `study_viewer_grants`.
 
 ## Decisions (agreed)
 
@@ -102,7 +102,8 @@ Each milestone is shippable on its own and ends with `npm test`, `npm run lint` 
 
 **M3 — Viewer read-only UI**
 
-- Viewer dashboard, read-only study and interview pages, hidden controls, `export`/`edit` routes refused.
+- Read-only `/viewer` pages (study list, study, interview), separate from `/dashboard` so no admin control can appear on them. A viewer who opens a dashboard page is redirected to `/viewer`. The dashboard `export`/`edit` routes stay refused.
+- The recording route also proxies Vapi audio (forwarding `Range`), so no presigned provider URL reaches a viewer.
 - Component tests for viewer vs admin rendering; manual pass as a viewer, checking page source and network responses (not only what is visible).
 - **Done when:** a granted viewer can read everything in scope and no write control or identity field is present in the HTML or API responses.
 

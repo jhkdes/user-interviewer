@@ -38,11 +38,29 @@ describe("decidePmAccess", () => {
     );
   });
 
-  it("forbids a viewer from everything while the viewer allowlist is empty", () => {
+  it("forbids a viewer from the dashboard and the PM study API", () => {
     expect(decidePmAccess({ role: "viewer", method: "GET", pathname: "/dashboard" })).toBe(
       "forbidden",
     );
     expect(decidePmAccess({ role: "viewer", method: "GET", pathname: "/api/studies/x" })).toBe(
+      "forbidden",
+    );
+  });
+
+  it("lets a viewer read the /viewer pages, with GET only", () => {
+    for (const pathname of ["/viewer", "/viewer/studies/x", "/viewer/studies/x/interviews/y"]) {
+      expect(decidePmAccess({ role: "viewer", method: "GET", pathname })).toBe("allow");
+      for (const method of ["POST", "PUT", "PATCH", "DELETE"]) {
+        expect(decidePmAccess({ role: "viewer", method, pathname })).toBe("forbidden");
+      }
+    }
+  });
+
+  it("does not treat look-alike paths as /viewer pages", () => {
+    expect(decidePmAccess({ role: "viewer", method: "GET", pathname: "/viewers" })).toBe(
+      "forbidden",
+    );
+    expect(decidePmAccess({ role: "viewer", method: "GET", pathname: "/api/viewer" })).toBe(
       "forbidden",
     );
   });
@@ -95,6 +113,28 @@ describe("viewer access to every existing PM route", () => {
   it.each(pages)("forbids a viewer from the page %s", (pathname) => {
     expect(requiresAuth(pathname, "GET")).toBe(true);
     expect(decidePmAccess({ role: "viewer", method: "GET", pathname })).toBe("forbidden");
+  });
+});
+
+describe("the /viewer pages", () => {
+  const VIEWER_DIR = path.resolve(__dirname, "../../app/viewer");
+
+  it("require a session", () => {
+    expect(requiresAuth("/viewer", "GET")).toBe(true);
+    expect(requiresAuth("/viewer/studies/x", "GET")).toBe(true);
+  });
+
+  it("have no route handlers or server actions, so a viewer can only read", () => {
+    const routeHandlers = walk(VIEWER_DIR, (name) => /^route\.(ts|tsx)$/.test(name));
+    expect(routeHandlers).toEqual([]);
+
+    const sources = walk(VIEWER_DIR, (name) => /\.(ts|tsx)$/.test(name)).filter(
+      (file) => !file.includes("__tests__"),
+    );
+    expect(sources.length).toBeGreaterThan(3);
+    for (const file of sources) {
+      expect(fs.readFileSync(file, "utf8"), file).not.toMatch(/["']use server["']/);
+    }
   });
 });
 

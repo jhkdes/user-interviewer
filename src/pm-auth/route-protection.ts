@@ -17,7 +17,7 @@
 const INTAKE_PATH = /^\/api\/studies\/[^/]+\/interviews\/?$/;
 
 export function requiresAuth(pathname: string, method?: string): boolean {
-  if (pathname.startsWith("/dashboard")) return true;
+  if (pathname.startsWith("/dashboard") || pathname.startsWith("/viewer")) return true;
   if (pathname.startsWith("/api/studies")) {
     const isIntake = INTAKE_PATH.test(pathname) && (method === undefined || method === "POST");
     return !isIntake;
