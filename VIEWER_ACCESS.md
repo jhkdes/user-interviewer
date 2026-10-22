@@ -4,7 +4,7 @@
 
 Let an external PM (a **viewer**) sign in and review a study's completed interviews, transcripts, audio, summaries, reports and config, without seeing who the participants are and without being able to change or delete anything. Admins (the existing PM role) keep today's full access.
 
-**Status:** M1-M3 built on branch `add-viewer-access` (migration `0025` applied); M4-M5 not started. Until M4 there is no invite flow: give a viewer a role and a study with `set:pm-role` and a row in `study_viewer_grants`.
+**Status:** M1-M4 built on branch `add-viewer-access` (migration `0025` applied); M5 (rollout) not started.
 
 ## Decisions (agreed)
 
@@ -73,10 +73,19 @@ The migration seeds nothing. The first admin comes from the script.
 
 ## Invite flow
 
-- Admin submits an email and studies → `viewer_invites` row → Supabase invite email.
-- The viewer follows the link, sets a password (reusing `auth/callback` and the reset-password pages where possible), and on first sign-in the invite is accepted: `pm_roles` row = `viewer`, grants created, invite marked accepted.
-- Inviting an email that already has an account adds grants without changing an admin to a viewer.
-- Revoke removes a grant immediately; removing the last grant leaves the account with no visible studies. Removing the viewer entirely deletes the role row and bans the auth user.
+As built in M4, which differs from the first plan in three ways:
+
+- **No pending-invite table.** The account is created when the admin invites, with the viewer role and the study grant already in place. Nobody can use them until the person has opened the invite link and set a password. "Invited" vs "Active" is read from the account (email confirmed or not). `viewer_invites` from migration `0025` is therefore unused and can be dropped.
+- **We send the email, not Supabase.** `generateLink` returns a single-use token; the email (through the existing Resend client) links to `/accept-invite?token_hash=...` on this site. This avoids Supabase's built-in mail limits and lets the email name the study.
+- **The token is checked on submit, not on page load.** Email security scanners often open links ahead of the reader and would use up a single-use token. The accept page asks for a password first; only then does it verify the token and set the password.
+
+Behaviour:
+
+- Admin enters an email on the study page's **Share with a viewer** panel. A new account gets an invite email; someone who has not accepted an earlier invite gets a fresh one (listing all their studies); someone already active just gets the study added, with no email.
+- An admin's email is refused: it would otherwise look like a way to downgrade them.
+- If the email fails to send, the account and grant stay and the panel says so; **Resend invite** tries again.
+- **Remove from study** takes one grant away. **Delete account** deletes a viewer's login, which ends access to every study (role and grants cascade). It refuses anyone who is not a viewer.
+- Links use the origin of the admin's request, so they point at whichever site the admin is using.
 
 ## Milestones
 
