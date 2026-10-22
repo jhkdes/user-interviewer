@@ -22,6 +22,7 @@
     "process:job-search-reports": "tsx --env-file=.env.local scripts/process-job-search-reports.ts",
     "try:pm-auth": "tsx --env-file=.env.local scripts/try-pm-auth.ts",
     "create:pm-account": "tsx --env-file=.env.local scripts/create-pm-account.ts",
+    "set:pm-role": "tsx --env-file=.env.local scripts/set-pm-role.ts",
     "try:notification": "tsx --env-file=.env.local scripts/try-notification.ts",
     "resend:summary-emails": "tsx --env-file=.env.local scripts/resend-summary-emails.ts",
     "backfill:summary": "tsx --env-file=.env.local scripts/backfill-summary.ts",
