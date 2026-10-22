@@ -35,6 +35,18 @@ describe("AcceptInviteForm", () => {
     mocks.updateUser.mockResolvedValue({ error: null });
   });
 
+  it("shows a bordered password field and a button-styled submit, not bare controls", () => {
+    render(<AcceptInviteForm tokenHash="tok" />);
+
+    const field = screen.getByLabelText("Password");
+    expect(field).toHaveClass("border", "rounded-md");
+    expect(field).toHaveAttribute("placeholder");
+
+    const button = screen.getByRole("button", { name: /set password and continue/i });
+    expect(button).toHaveAttribute("type", "submit");
+    expect(button).toHaveClass("bg-neutral-900", "w-full");
+  });
+
   it("does not check the token until the form is submitted", () => {
     render(<AcceptInviteForm tokenHash="tok" />);
     expect(mocks.verifyOtp).not.toHaveBeenCalled();

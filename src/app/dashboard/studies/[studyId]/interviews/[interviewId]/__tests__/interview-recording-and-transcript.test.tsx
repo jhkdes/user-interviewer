@@ -86,6 +86,33 @@ describe("InterviewRecordingAndTranscript", () => {
     expect(screen.getByText("Recording")).toBeInTheDocument();
   });
 
+  it("pins the player to the top of the window while the transcript scrolls", () => {
+    render(
+      <InterviewRecordingAndTranscript
+        recordingUrl="/api/interviews/i1/recording"
+        transcript={transcript}
+        participantName="Jordan"
+      />,
+    );
+
+    const player = document.querySelector("audio");
+    expect(player?.closest("section")).toHaveClass("sticky", "top-0");
+  });
+
+  it("does not pin the 'No recording available' note", () => {
+    render(
+      <InterviewRecordingAndTranscript
+        recordingUrl={null}
+        transcript={transcript}
+        participantName="Jordan"
+      />,
+    );
+
+    expect(screen.getByText("No recording available.").closest("section")).not.toHaveClass(
+      "sticky",
+    );
+  });
+
   it("renders timestamps as plain text (not clickable) when there's no recording", () => {
     render(
       <InterviewRecordingAndTranscript

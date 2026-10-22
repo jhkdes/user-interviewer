@@ -27,21 +27,28 @@ export default async function ViewerStudyPage({ params }: { params: { studyId: s
           <dt className="inline font-medium">Description: </dt>
           <dd className="inline">{study.description || "No description yet"}</dd>
         </div>
-        {study.researchTopic && (
-          <div>
-            <dt className="inline font-medium">Research focus: </dt>
-            <dd className="inline">{study.researchTopic}</dd>
-          </div>
-        )}
         <div>
           <dt className="inline font-medium">Status: </dt>
           <dd className="inline">{study.status}</dd>
         </div>
       </dl>
 
-      {(study.preInterviewQuestions.length > 0 || study.feedbackQuestions.length > 0) && (
+      {study.researchTopic && (
         <section className="mt-6">
-          <h2 className="font-semibold">Questions</h2>
+          <h2 className="font-semibold">Research topic</h2>
+          <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">
+            {study.researchTopic}
+          </p>
+        </section>
+      )}
+
+      {(study.preInterviewQuestions.length > 0 || study.feedbackQuestions.length > 0) && (
+        // Closed until opened: the questions are reference material, and the
+        // interviews and report are what people come to this page for.
+        <details className="mt-6">
+          <summary className="cursor-pointer font-semibold">
+            {study.type === "feedback" ? "Feedback questions" : "Pre-interview questions"}
+          </summary>
           {study.type === "feedback" ? (
             <ol className="mt-2 list-inside list-decimal space-y-1 text-sm text-neutral-600 dark:text-neutral-400">
               {study.feedbackQuestions.map((question) => (
@@ -60,7 +67,7 @@ export default async function ViewerStudyPage({ params }: { params: { studyId: s
               ))}
             </ul>
           )}
-        </section>
+        </details>
       )}
 
       <section className="mt-8">

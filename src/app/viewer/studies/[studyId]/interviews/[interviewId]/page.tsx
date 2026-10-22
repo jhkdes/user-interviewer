@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { InterviewRecordingAndTranscript } from "@/app/dashboard/studies/[studyId]/interviews/[interviewId]/interview-recording-and-transcript";
+import { ScreenerAnswers } from "@/app/dashboard/screener-answers";
 import { SummarySections } from "@/app/dashboard/summary-sections";
 import { formatDuration } from "@/lib/format-duration";
 import { requireViewerStudy } from "../../../../viewer-data";
@@ -11,7 +12,7 @@ export default async function ViewerInterviewPage({
 }: {
   params: { studyId: string; interviewId: string };
 }) {
-  const { interviews } = await requireViewerStudy(params.studyId);
+  const { study, interviews } = await requireViewerStudy(params.studyId);
   const interview = interviews.find((i) => i.id === params.interviewId);
   if (!interview) notFound();
 
@@ -37,6 +38,11 @@ export default async function ViewerInterviewPage({
         {interview.completedAt &&
           ` · completed ${new Date(interview.completedAt).toLocaleString()}`}
       </p>
+
+      <ScreenerAnswers
+        questions={study.preInterviewQuestions}
+        answers={interview.screenerAnswers}
+      />
 
       <InterviewRecordingAndTranscript
         recordingUrl={interview.hasRecording ? `/api/interviews/${interview.id}/recording` : null}

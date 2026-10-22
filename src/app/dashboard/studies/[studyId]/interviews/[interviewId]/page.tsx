@@ -3,7 +3,9 @@ import { notFound } from "next/navigation";
 import { fetchFreshRecordingUrl } from "@/lib/vapi/client";
 import { formatDuration } from "@/lib/format-duration";
 import { getInterviewRepository } from "@/repositories/get-interview-repository";
+import { getStudyRepository } from "@/repositories/get-study-repository";
 import { getSummaryRepository } from "@/repositories/get-summary-repository";
+import { ScreenerAnswers } from "@/app/dashboard/screener-answers";
 import { describeCallEnd } from "@/app/dashboard/call-end-label";
 import { EndCauseBadge } from "@/app/dashboard/end-cause-badge";
 import { InterviewModeBadge } from "@/app/dashboard/interview-mode-badge";
@@ -24,7 +26,10 @@ export default async function InterviewDetailPage({
   // different study, not just a missing id.
   if (!interview || interview.studyId !== params.studyId) notFound();
 
-  const summary = await getSummaryRepository().getByInterviewId(interview.id);
+  const [summary, study] = await Promise.all([
+    getSummaryRepository().getByInterviewId(interview.id),
+    getStudyRepository().getById(interview.studyId),
+  ]);
   // A typed interview has no audio, so this never reaches a voice provider
   // for one — see getPlayableRecordingUrl.
   const isTyped = interview.mode === "text";
@@ -65,6 +70,11 @@ export default async function InterviewDetailPage({
         {typedEndReason && ` · ended: ${typedEndReason}`}
         {callEnd && ` · ended: ${callEnd}`}
       </p>
+
+      <ScreenerAnswers
+        questions={study?.preInterviewQuestions ?? []}
+        answers={interview.screenerAnswers}
+      />
 
       <InterviewRecordingAndTranscript
         recordingUrl={playableRecordingUrl}

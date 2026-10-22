@@ -56,9 +56,10 @@ describe("viewer pages", () => {
     const report = new InMemoryStudyReportRepository();
     Object.assign(repos, { study, interview, summary, report });
 
-    const make = (title: string, linkToken: string) =>
+    const make = (title: string, linkToken: string, researchTopic?: string) =>
       study.create({
         title,
+        researchTopic,
         description: "how PMs use AI",
         preInterviewQuestions: [
           { id: "q1", label: "Team size?", type: "single", options: ["1-5"] },
@@ -66,10 +67,17 @@ describe("viewer pages", () => {
         linkToken,
         textLinkToken: `${linkToken}-text`,
       });
-    studyId = (await make("How PMs use AI", "voice-link-abc")).id;
+    studyId = (
+      await make("How PMs use AI", "voice-link-abc", "where AI helps and where it gets in the way")
+    ).id;
     otherStudyId = (await make("Another study", "voice-link-def")).id;
 
-    const done = await interview.create({ studyId, ...WHO, roleDescription: "PM at a startup" });
+    const done = await interview.create({
+      studyId,
+      ...WHO,
+      roleDescription: "PM at a startup",
+      screenerAnswers: { q1: "1-5" },
+    });
     await interview.update(done.id, {
       status: "completed",
       startedAt: new Date("2026-01-01T10:00:00Z"),
@@ -134,6 +142,61 @@ describe("viewer pages", () => {
     expect(page).toContain("Wants faster specs");
     expect(page).toContain("PM at a startup");
     expect(page).toContain(`src="/api/interviews/${interviewId}/recording"`);
+  });
+
+  it("shows the pre-interview answers under the date line, above the recording", async () => {
+    repos.ctx = ctx("viewer", [studyId]);
+    const page = await render(ViewerInterviewPage({ params: { studyId, interviewId } }));
+
+    const dateLine = page.indexOf("duration 12:00");
+    const answers = page.indexOf("Pre-interview answers");
+    const recording = page.indexOf("Recording");
+    expect(dateLine).toBeGreaterThan(-1);
+    expect(answers).toBeGreaterThan(dateLine);
+    expect(recording).toBeGreaterThan(answers);
+    expect(page).toContain("Team size?");
+    expect(page).toContain("1-5");
+  });
+
+  it("shows the research topic just above the pre-interview questions", async () => {
+    repos.ctx = ctx("viewer", [studyId]);
+    const page = await render(ViewerStudyPage({ params: { studyId } }));
+
+    const topic = page.indexOf("Research topic");
+    const questions = page.indexOf("Pre-interview questions");
+    expect(topic).toBeGreaterThan(-1);
+    expect(page).toContain("where AI helps and where it gets in the way");
+    expect(questions).toBeGreaterThan(topic);
+    // Nothing else sits between them.
+    expect(page.slice(topic, questions)).not.toContain("<h2");
+    expect(page).not.toContain("Research focus");
+  });
+
+  it("leaves out the research topic when the study has none", async () => {
+    const bare = await (repos.study as InMemoryStudyRepository).create({
+      title: "No topic",
+      description: "d",
+      preInterviewQuestions: [],
+      linkToken: "tok-bare",
+    });
+    repos.ctx = ctx("viewer", [bare.id]);
+
+    expect(await render(ViewerStudyPage({ params: { studyId: bare.id } }))).not.toContain(
+      "Research topic",
+    );
+  });
+
+  it("labels the questions 'Pre-interview questions' and keeps them collapsed", async () => {
+    repos.ctx = ctx("viewer", [studyId]);
+    const page = await render(ViewerStudyPage({ params: { studyId } }));
+
+    const details = page.match(/<details[^>]*>/);
+    expect(details).not.toBeNull();
+    expect(details![0]).not.toContain("open");
+    expect(page).toMatch(/<summary[^>]*>Pre-interview questions<\/summary>/);
+    expect(page).not.toMatch(/<h2[^>]*>Questions<\/h2>/);
+    // Still in the page, ready to open.
+    expect(page).toContain("Team size?");
   });
 
   it("lists only completed interviews on the study page", async () => {
