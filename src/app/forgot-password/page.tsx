@@ -1,7 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import { AuthCard, AuthError, authButtonClass, authInputClass } from "@/app/auth-ui";
 import { createBrowserSupabaseClient } from "@/lib/supabase/browser-client";
+
+const linkClass = "text-neutral-600 underline hover:no-underline dark:text-neutral-400";
 
 /** Password reset, step 1 of 2 (T9.3): request a reset email. */
 export default function ForgotPasswordPage() {
@@ -30,36 +33,49 @@ export default function ForgotPasswordPage() {
 
   if (sent) {
     return (
-      <main style={{ padding: 24, maxWidth: 400, fontFamily: "system-ui" }}>
-        <h1>Check your email</h1>
-        <p>If an account exists for {email}, a password reset link has been sent.</p>
-      </main>
+      <AuthCard
+        title="Check your email"
+        description={`If an account exists for ${email}, a password reset link has been sent.`}
+      >
+        <p className="mt-6 text-center text-sm">
+          <a href="/login" className={linkClass}>
+            Back to log in
+          </a>
+        </p>
+      </AuthCard>
     );
   }
 
   return (
-    <main style={{ padding: 24, maxWidth: 400, fontFamily: "system-ui" }}>
-      <h1>Reset your password</h1>
-      <form onSubmit={handleSubmit}>
-        <label style={{ display: "block", marginTop: 16 }}>
-          Email
+    <AuthCard
+      title="Reset your password"
+      description="Enter your email and we'll send you a link to choose a new password."
+    >
+      <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+        <div>
+          <label htmlFor="email" className="block text-sm font-medium">
+            Email
+          </label>
           <input
+            id="email"
             type="email"
             required
-            style={{ display: "block", width: "100%" }}
+            autoComplete="email"
+            className={authInputClass}
             value={email}
             onChange={(e) => setEmail(e.target.value)}
           />
-        </label>
-        {error && (
-          <p role="alert" style={{ color: "crimson", marginTop: 12 }}>
-            {error}
-          </p>
-        )}
-        <button type="submit" disabled={submitting} style={{ marginTop: 16 }}>
+        </div>
+        {error && <AuthError>{error}</AuthError>}
+        <button type="submit" disabled={submitting} className={authButtonClass}>
           {submitting ? "Sending…" : "Send reset link"}
         </button>
       </form>
-    </main>
+      <p className="mt-4 text-center text-sm">
+        <a href="/login" className={linkClass}>
+          Back to log in
+        </a>
+      </p>
+    </AuthCard>
   );
 }

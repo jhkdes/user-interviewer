@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { AuthCard, AuthError, authButtonClass, authInputClass } from "@/app/auth-ui";
 import { createBrowserSupabaseClient } from "@/lib/supabase/browser-client";
 
 /**
@@ -34,29 +35,29 @@ export default function ResetPasswordPage() {
   }
 
   return (
-    <main style={{ padding: 24, maxWidth: 400, fontFamily: "system-ui" }}>
-      <h1>Set a new password</h1>
-      <form onSubmit={handleSubmit}>
-        <label style={{ display: "block", marginTop: 16 }}>
-          New password
+    <AuthCard title="Set a new password" description="Choose a new password for your account.">
+      <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+        <div>
+          <label htmlFor="password" className="block text-sm font-medium">
+            New password
+          </label>
           <input
+            id="password"
             type="password"
             required
             minLength={6}
-            style={{ display: "block", width: "100%" }}
+            autoComplete="new-password"
+            placeholder="At least 6 characters"
+            className={authInputClass}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
           />
-        </label>
-        {error && (
-          <p role="alert" style={{ color: "crimson", marginTop: 12 }}>
-            {error}
-          </p>
-        )}
-        <button type="submit" disabled={submitting} style={{ marginTop: 16 }}>
+        </div>
+        {error && <AuthError>{error}</AuthError>}
+        <button type="submit" disabled={submitting} className={authButtonClass}>
           {submitting ? "Saving…" : "Set password"}
         </button>
       </form>
-    </main>
+    </AuthCard>
   );
 }
