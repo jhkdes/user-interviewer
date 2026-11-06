@@ -36,6 +36,12 @@ export interface CallLifecycleDeps {
    * to start that pipeline. Optional and non-fatal, like the other side effects.
    */
   onReportPipelineInterviewCompleted?: (interviewId: string) => Promise<void>;
+  /**
+   * Called once when an interview in a partner study ends, to queue and send
+   * the partner's `interview.completed` webhook (see src/partner-webhooks).
+   * Optional and non-fatal, like the other side effects.
+   */
+  onPartnerInterviewCompleted?: (interviewId: string) => Promise<void>;
 }
 
 /**
@@ -260,6 +266,19 @@ export async function completeInterview(
     console.log(
       `Skipped completion webhook for interview ${event.interviewId}: no client wired up`,
     );
+  }
+
+  // A partner study reports to its partner's own webhook: queue it and try to
+  // send it now. Non-fatal for the same reason as everything above.
+  if (study?.partnerId && deps.onPartnerInterviewCompleted) {
+    try {
+      await deps.onPartnerInterviewCompleted(event.interviewId);
+    } catch (error) {
+      console.error(
+        `Failed to queue the partner webhook for interview ${event.interviewId}:`,
+        error,
+      );
+    }
   }
 
   return true;

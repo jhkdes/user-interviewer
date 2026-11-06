@@ -204,3 +204,67 @@ describe("when a partner interview completes", () => {
     expect(s.webhookClient.sent).toHaveLength(1);
   });
 });
+
+describe("the partner webhook hook", () => {
+  const event = (interviewId: string) => ({
+    interviewId,
+    transcript: [{ speaker: "participant" as const, text: "Hello.", timestampMs: 2000 }],
+    recordingUrl: null,
+    endedReason: "hangup",
+    elevenLabsConversationId: "conv-1",
+  });
+
+  it("is called once, after the interview is saved, for a partner study", async () => {
+    const s = await setup({ participantSummaryEmail: false });
+    const seen: string[] = [];
+    const hook = vi.fn(async (id: string) => {
+      seen.push((await s.interviewRepo.getById(id))?.status ?? "missing");
+    });
+
+    await completeInterview({ ...s, onPartnerInterviewCompleted: hook }, event(s.interview.id));
+
+    expect(hook).toHaveBeenCalledTimes(1);
+    expect(hook).toHaveBeenCalledWith(s.interview.id);
+    // The transcript is already stored when the partner is told.
+    expect(seen).toEqual(["completed"]);
+  });
+
+  it("is not called again for a duplicate completion", async () => {
+    const s = await setup({ participantSummaryEmail: false });
+    const hook = vi.fn(async () => {});
+    const deps = { ...s, onPartnerInterviewCompleted: hook };
+
+    await completeInterview(deps, event(s.interview.id));
+    await completeInterview(deps, event(s.interview.id));
+
+    expect(hook).toHaveBeenCalledTimes(1);
+  });
+
+  it("is not called for an ordinary study", async () => {
+    const s = await setup({
+      partnerId: undefined,
+      ownerRef: undefined,
+      participantSummaryEmail: false,
+    });
+    const hook = vi.fn(async () => {});
+
+    await completeInterview({ ...s, onPartnerInterviewCompleted: hook }, event(s.interview.id));
+
+    expect(hook).not.toHaveBeenCalled();
+  });
+
+  it("does not stop the interview from completing when it throws", async () => {
+    const s = await setup({ participantSummaryEmail: false });
+    const hook = vi.fn(async () => {
+      throw new Error("partner store down");
+    });
+
+    const completed = await completeInterview(
+      { ...s, onPartnerInterviewCompleted: hook },
+      event(s.interview.id),
+    );
+
+    expect(completed).toBe(true);
+    expect((await s.interviewRepo.getById(s.interview.id))?.status).toBe("completed");
+  });
+});

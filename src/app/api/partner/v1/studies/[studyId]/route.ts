@@ -1,4 +1,7 @@
 import {
+  ProviderDeleteError,
+  deletePartnerStudy,
+  errorResponse,
   jsonResponse,
   loadPartnerStudy,
   parsePatchStudy,
@@ -8,6 +11,8 @@ import {
   validationErrorResponse,
   withPartner,
 } from "@/partner-api";
+import { deleteConversationResult } from "@/lib/elevenlabs/client";
+import { getInterviewRepository } from "@/repositories/get-interview-repository";
 import { getStudyRepository } from "@/repositories/get-study-repository";
 
 export const dynamic = "force-dynamic";
@@ -48,4 +53,41 @@ export const PATCH = withPartner<Params>(async ({ request, partner, requestId, p
 
   const updated = await updatePartnerStudy(studies, loaded.study, parsed.value);
   return jsonResponse(studyDto(updated), 200, requestId);
+});
+
+/**
+ * Deletes the study and everything under it: every interview's recording at
+ * ElevenLabs, then the transcripts, invitations and any waiting webhook events.
+ * Returns `204`. If a recording cannot be removed, nothing is deleted and the
+ * call answers `502`, so it can simply be repeated. Used when the partner's
+ * user deletes their account.
+ */
+export const DELETE = withPartner<Params>(async ({ request, partner, requestId, params }) => {
+  const studies = getStudyRepository();
+  const loaded = await loadPartnerStudy(partner, studies, params.studyId, request, requestId, {
+    requireOwnerRef: true,
+  });
+  if (!loaded.ok) return loaded.response;
+
+  try {
+    await deletePartnerStudy(
+      {
+        studies,
+        interviews: getInterviewRepository(),
+        deleteConversation: deleteConversationResult,
+      },
+      loaded.study,
+    );
+  } catch (error) {
+    if (error instanceof ProviderDeleteError) {
+      return errorResponse(
+        "provider_error",
+        `${error.message} Nothing was deleted; try again.`,
+        502,
+        requestId,
+      );
+    }
+    throw error;
+  }
+  return new Response(null, { status: 204, headers: { "X-Request-Id": requestId } });
 });

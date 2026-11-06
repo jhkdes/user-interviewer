@@ -2,6 +2,7 @@ import { FeedbackAgent, InterviewAgent } from "@/interview-agent";
 import { getEmailClient } from "@/lib/email";
 import { getCompletionWebhookClient } from "@/lib/webhook";
 import { getLLMProvider } from "@/llm";
+import { createPartnerCompletionHook, getPartnerWebhookDeps } from "@/partner-webhooks";
 import { getInterviewMessageRepository } from "@/repositories/get-interview-message-repository";
 import { getInterviewRepository } from "@/repositories/get-interview-repository";
 import { getStudyRepository } from "@/repositories/get-study-repository";
@@ -21,5 +22,6 @@ export function getTextSessionDeps(): TextSessionDeps {
     llm,
     emailClient: getEmailClient(),
     webhookClient: getCompletionWebhookClient(),
+    onPartnerInterviewCompleted: createPartnerCompletionHook(getPartnerWebhookDeps()),
   };
 }
