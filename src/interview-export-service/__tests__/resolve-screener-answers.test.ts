@@ -26,6 +26,8 @@ const baseStudy: Study = {
   linkToken: "token",
   textLinkToken: null,
   participantCopyText: null,
+  partnerId: null,
+  ownerRef: null,
   firstMessage: null,
   closingQuestion: null,
   status: "open",

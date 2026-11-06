@@ -29,6 +29,9 @@ function toStudy(row: StudyRow): Study {
     participantCopy: (row.participant_copy as ParticipantCopy | null) ?? null,
     participantCopyText: (row.participant_copy_text as ParticipantCopy | null) ?? null,
     // `?? null`: absent from rows read before migration 0027 is applied.
+    // `?? null`: absent from rows read before migration 0028 is applied.
+    partnerId: row.partner_id ?? null,
+    ownerRef: row.owner_ref ?? null,
     firstMessage: row.first_message ?? null,
     closingQuestion: row.closing_question ?? null,
     linkToken: row.link_token,
@@ -60,6 +63,7 @@ export class SupabaseStudyRepository implements StudyRepository {
         // Only sent when set, so creating a study works before the participant_copy migration is applied.
         ...(input.participantCopy ? { participant_copy: input.participantCopy } : {}),
         ...(input.participantCopyText ? { participant_copy_text: input.participantCopyText } : {}),
+        ...(input.partnerId ? { partner_id: input.partnerId, owner_ref: input.ownerRef } : {}),
         ...(input.firstMessage ? { first_message: input.firstMessage } : {}),
         ...(input.closingQuestion ? { closing_question: input.closingQuestion } : {}),
         link_token: input.linkToken,

@@ -22,6 +22,8 @@ export class InMemoryStudyRepository implements StudyRepository {
       reportPipeline: input.reportPipeline ?? null,
       participantCopy: input.participantCopy ?? null,
       participantCopyText: input.participantCopyText ?? null,
+      partnerId: input.partnerId ?? null,
+      ownerRef: input.ownerRef ?? null,
       firstMessage: input.firstMessage ?? null,
       closingQuestion: input.closingQuestion ?? null,
       linkToken: input.linkToken,

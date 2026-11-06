@@ -20,6 +20,8 @@ const discoveryStudy: Study = {
   linkToken: "token-1",
   textLinkToken: null,
   participantCopyText: null,
+  partnerId: null,
+  ownerRef: null,
   firstMessage: null,
   closingQuestion: null,
   status: "open",

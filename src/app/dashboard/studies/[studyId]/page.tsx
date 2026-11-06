@@ -2,11 +2,13 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { isTextInterviewModeEnabled } from "@/lib/feature-flags";
 import { getInterviewRepository } from "@/repositories/get-interview-repository";
+import { getPartnerRepository } from "@/repositories/get-partner-repository";
 import { getStudyRepository } from "@/repositories/get-study-repository";
 import { getStudyReportRepository } from "@/repositories/get-study-report-repository";
 import { getLinkExpiryInfo } from "@/study-service";
 import { EndCauseBadge } from "../../end-cause-badge";
 import { InterviewModeBadge } from "../../interview-mode-badge";
+import { PartnerBadge } from "../../partner-badge";
 import { StudyLink } from "../../study-link";
 import { CopyParticipantEmailsButton } from "./copy-participant-emails-button";
 import { ExtendLinkButton } from "./extend-link-button";
@@ -29,6 +31,7 @@ export default async function StudyDetailPage({ params }: { params: { studyId: s
   const study = await getStudyRepository().getById(params.studyId);
   if (!study) notFound();
   const linkExpiry = getLinkExpiryInfo(study);
+  const partner = study.partnerId ? await getPartnerRepository().getById(study.partnerId) : null;
 
   const [interviews, report] = await Promise.all([
     getInterviewRepository().listByStudyId(study.id),
@@ -54,6 +57,7 @@ export default async function StudyDetailPage({ params }: { params: { studyId: s
         <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-sm capitalize text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300">
           {study.type}
         </span>
+        {study.partnerId && <PartnerBadge name={partner?.name ?? "unknown partner"} />}
       </div>
       <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-sm text-neutral-600 dark:text-neutral-400">
         <div className="col-span-2">

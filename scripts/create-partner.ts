@@ -1,0 +1,105 @@
+/**
+ * Registers an API client (a "partner") for the partner API, lists partners, or
+ * revokes one. Keys are created here, not through an endpoint
+ * (partner-api-phase1/UI-PARTNER-API-SPEC.md, section 2).
+ *
+ * The API key and webhook secret are printed ONCE, when the partner is created.
+ * Only a hash of the key is stored, so a lost key cannot be recovered: revoke
+ * the partner and create a new one.
+ *
+ * Run with:
+ *   npm run create:partner -- --name=pfa-preview --webhook-url=https://pfa-preview.example.com/hooks/ui
+ *   npm run create:partner -- --list
+ *   npm run create:partner -- --revoke=pfa-preview
+ *
+ * UI's Preview and Production deployments share one database, so register two
+ * partners for PFA (pfa-preview and pfa-production), each with its own key.
+ *
+ * Requires SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY (already in .env.local,
+ * loaded automatically via --env-file). Migration 0028 must be applied first.
+ */
+import { generateApiKey, generateWebhookSecret, hashApiKey } from "../src/partner-api/api-key";
+import { getPartnerRepository } from "../src/repositories/get-partner-repository";
+
+const USAGE =
+  "Usage: npm run create:partner -- --name=<name> [--webhook-url=<https url>]\n" +
+  "       npm run create:partner -- --list\n" +
+  "       npm run create:partner -- --revoke=<name>";
+
+function parseArgs(): Record<string, string> {
+  return Object.fromEntries(
+    process.argv.slice(2).map((arg) => {
+      const [key, ...rest] = arg.replace(/^--/, "").split("=");
+      return [key, rest.join("=")];
+    }),
+  );
+}
+
+async function main() {
+  const args = parseArgs();
+  const partners = getPartnerRepository();
+
+  if ("list" in args) {
+    const all = await partners.list();
+    if (all.length === 0) console.log("No partners yet.");
+    for (const p of all) {
+      console.log(
+        `${p.name}  (id: ${p.id})  created ${p.createdAt.toISOString()}  ${
+          p.revokedAt ? `REVOKED ${p.revokedAt.toISOString()}` : "active"
+        }  webhook: ${p.webhookUrl ?? "none"}`,
+      );
+    }
+    return;
+  }
+
+  if (args.revoke) {
+    const partner = await partners.getByName(args.revoke);
+    if (!partner) {
+      console.error(`No partner named "${args.revoke}".`);
+      process.exit(1);
+    }
+    const revoked = await partners.revoke(partner.id);
+    console.log(
+      `Revoked ${revoked.name} at ${revoked.revokedAt?.toISOString()}. Its key no longer works; studies it created are kept.`,
+    );
+    return;
+  }
+
+  if (!args.name) {
+    console.error(USAGE);
+    process.exit(1);
+  }
+  if (!/^[a-z0-9][a-z0-9-]{1,62}$/.test(args.name)) {
+    console.error("Name must be 2-63 characters: lower-case letters, digits and hyphens.");
+    process.exit(1);
+  }
+  if (args["webhook-url"] && !/^https:\/\//.test(args["webhook-url"])) {
+    console.error("The webhook URL must start with https://");
+    process.exit(1);
+  }
+  if (await partners.getByName(args.name)) {
+    console.error(`A partner named "${args.name}" already exists.`);
+    process.exit(1);
+  }
+
+  const key = generateApiKey();
+  const webhookSecret = generateWebhookSecret();
+  const partner = await partners.create({
+    name: args.name,
+    keyHash: hashApiKey(key),
+    webhookUrl: args["webhook-url"] || undefined,
+    webhookSecret,
+  });
+
+  console.log(`Partner created: ${partner.name} (id: ${partner.id})`);
+  console.log("");
+  console.log("Copy these now. They are shown only once.");
+  console.log(`  API key:         ${key}`);
+  console.log(`  Webhook secret:  ${webhookSecret}`);
+  console.log(`  Webhook URL:     ${partner.webhookUrl ?? "(not set)"}`);
+}
+
+main().catch((err) => {
+  console.error("Script failed to run:\n", err);
+  process.exit(1);
+});

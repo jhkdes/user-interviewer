@@ -25,6 +25,9 @@ export interface CreateStudyInput {
   participantCopy?: ParticipantCopy;
   /** Custom landing and ending page text for the text link. Omit to follow the voice link's. */
   participantCopyText?: ParticipantCopy;
+  /** Set together with `ownerRef` by the partner API; omit for dashboard studies. */
+  partnerId?: string;
+  ownerRef?: string;
   /** Feedback-type only. See Study.firstMessage. */
   firstMessage?: string;
   /** Feedback-type only. See Study.closingQuestion. */
