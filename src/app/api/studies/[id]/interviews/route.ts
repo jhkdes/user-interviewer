@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { isTextInterviewModeEnabled } from "@/lib/feature-flags";
 import { getInterviewRepository } from "@/repositories/get-interview-repository";
+import { getPartnerInvitationRepository } from "@/repositories/get-partner-invitation-repository";
 import { getStudyRepository } from "@/repositories/get-study-repository";
 import {
   ConsentRequiredError,
@@ -37,6 +38,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
       {
         studyRepo: getStudyRepository(),
         interviewRepo: getInterviewRepository(),
+        invitationRepo: getPartnerInvitationRepository(),
         textEnabled: isTextInterviewModeEnabled(),
       },
       {

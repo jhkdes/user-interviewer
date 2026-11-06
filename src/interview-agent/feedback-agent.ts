@@ -64,6 +64,8 @@ export interface FeedbackAgentTurnInput {
   interviewStartedAt: Date;
   /** The study's own closing question (Study.closingQuestion); omit or null for the standard one. */
   closingQuestion?: string | null;
+  /** A voice call's hard stop in milliseconds, for a study with its own timing; omit for the standard 7 minutes. Typed chats keep their own cap. */
+  hardCapMs?: number;
   /** Defaults to `new Date()` — overridable so tests can simulate elapsed time deterministically. */
   now?: Date;
 }
@@ -78,6 +80,9 @@ export interface FeedbackAgentTurnOutput {
   /** True exactly on the turn OPEN_FLOOR_UTTERANCE was appended. */
   openFloorJustAsked: boolean;
 }
+
+const channelOf = (input: FeedbackAgentTurnInput): "voice" | "text" =>
+  input.context.channel ?? "voice";
 
 /** What marks a turn as containing the closing question: the standard question's key phrases, or a custom question's whole text (ignoring case and spacing). */
 type ClosingMatcher = (text: string) => boolean;
@@ -138,6 +143,11 @@ export class FeedbackAgent {
     );
   }
 
+  /** The cap that applies to this turn: a voice call uses the study's own hard stop when it has one. */
+  private hardCapFor(input: FeedbackAgentTurnInput, channel: "voice" | "text"): number {
+    return channel === "voice" && input.hardCapMs ? input.hardCapMs : feedbackHardCapMs(channel);
+  }
+
   private finalizeTurn(
     history: InterviewTurn[],
     interviewStartedAt: Date,
@@ -146,6 +156,7 @@ export class FeedbackAgent {
     isClosingTurn: boolean,
     openFloorAsked: boolean,
     closingUtterance: string,
+    hardCapMs: number,
     llmOutput: {
       utterance: string;
       shouldEndInterview: boolean;
@@ -163,7 +174,7 @@ export class FeedbackAgent {
       now,
       llmSuggestsEnd: false,
       participantRequestedEnd: participantRequestedEnd ?? false,
-      hardCapMs: feedbackHardCapMs(channel),
+      hardCapMs,
       minParticipantTurnsBeforeLlmCanEnd: 0,
     });
     if (timeCapReason !== null) {
@@ -243,6 +254,7 @@ export class FeedbackAgent {
       isClosingTurn,
       openFloorAsked,
       closing.utterance,
+      this.hardCapFor(input, channelOf(input)),
       llmOutput,
     );
   }
@@ -301,6 +313,7 @@ export class FeedbackAgent {
       isClosingTurn,
       openFloorAsked,
       closing.utterance,
+      this.hardCapFor(input, channelOf(input)),
       llmOutput,
     );
     if (result.openFloorJustAsked) {

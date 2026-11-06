@@ -12,6 +12,11 @@ export interface StudyRow {
   report_pipeline: string | null;
   participant_copy: unknown;
   participant_copy_text: unknown;
+  subject_name: string | null;
+  ended_early_min_turns: number | null;
+  target_minutes: number | null;
+  hard_stop_minutes: number | null;
+  participant_summary_email: boolean | null;
   partner_id: string | null;
   owner_ref: string | null;
   first_message: string | null;
@@ -59,6 +64,8 @@ export interface InterviewRow {
   last_activity_at: string | null;
   idle_nudge_sent_at: string | null;
   switched_to_text_at: string | null;
+  invitation_id: string | null;
+  prompt_snapshot: unknown;
 }
 
 export interface InterviewMessageRow {

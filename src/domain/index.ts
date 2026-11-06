@@ -5,3 +5,4 @@ export * from "./summary";
 export * from "./study-report";
 export * from "./pm-account";
 export * from "./partner";
+export * from "./partner-invitation";

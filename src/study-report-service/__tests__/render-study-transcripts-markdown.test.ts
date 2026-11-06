@@ -20,6 +20,11 @@ const discoveryStudy: Study = {
   linkToken: "token-1",
   textLinkToken: null,
   participantCopyText: null,
+  subjectName: null,
+  endedEarlyMinTurns: null,
+  targetMinutes: null,
+  hardStopMinutes: null,
+  participantSummaryEmail: true,
   partnerId: null,
   ownerRef: null,
   firstMessage: null,
@@ -69,6 +74,8 @@ function makeInterview(overrides: Partial<Interview> = {}): Interview {
     lastActivityAt: null,
     idleNudgeSentAt: null,
     switchedToTextAt: null,
+    invitationId: null,
+    snapshot: null,
     ...overrides,
   };
 }

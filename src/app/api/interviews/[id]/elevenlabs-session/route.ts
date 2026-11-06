@@ -36,11 +36,17 @@ export async function POST(_request: Request, { params }: { params: { id: string
     return NextResponse.json({ error: "Failed to start the call" }, { status: 502 });
   }
 
-  const study = await getStudyRepository().getById(interview.studyId);
-  const customOpening = study?.type === "feedback" ? study.firstMessage?.trim() : undefined;
-  const firstMessage = customOpening
-    ? interpolate(customOpening, { participant_name: interview.firstName })
-    : undefined;
+  // A partner interview speaks the opening line it was started with (already filled in).
+  let firstMessage: string | undefined;
+  if (interview.snapshot) {
+    firstMessage = interview.snapshot.firstMessage ?? undefined;
+  } else {
+    const study = await getStudyRepository().getById(interview.studyId);
+    const customOpening = study?.type === "feedback" ? study.firstMessage?.trim() : undefined;
+    firstMessage = customOpening
+      ? interpolate(customOpening, { participant_name: interview.firstName })
+      : undefined;
+  }
 
   return NextResponse.json(firstMessage ? { signedUrl, firstMessage } : { signedUrl });
 }

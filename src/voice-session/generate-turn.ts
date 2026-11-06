@@ -133,12 +133,17 @@ function buildFeedbackAgentInput(
       studyTitle: study.title,
       studyDescription: study.description,
       feedbackQuestions: study.feedbackQuestions,
-      customPrompt: study.customPrompt,
+      // A partner interview keeps the prompt it started with, not the study's current one.
+      customPrompt: interview.snapshot ? interview.snapshot.prompt : study.customPrompt,
+      promptIsRendered: Boolean(interview.snapshot),
       // Voice interviews keep today's spoken prompt; text-mode interviews get
       // the written-chat variant (see feedback-system-prompt.ts).
       channel: interview.mode,
     },
-    closingQuestion: study.closingQuestion,
+    closingQuestion: interview.snapshot
+      ? interview.snapshot.closingQuestion
+      : study.closingQuestion,
+    hardCapMs: interview.snapshot ? interview.snapshot.hardStopMinutes * 60_000 : undefined,
     conversationHistory: toConversationHistory(messages),
     interviewStartedAt: interview.startedAt ?? interview.createdAt,
     now,

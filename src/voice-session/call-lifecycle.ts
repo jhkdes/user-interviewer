@@ -175,6 +175,23 @@ export async function completeInterview(
     return false;
   }
 
+  // The study decides which of the side effects below apply, so look it up once.
+  // A failed lookup leaves every side effect on, as it was before the lookup
+  // moved here.
+  let study: Awaited<ReturnType<StudyRepository["getById"]>> = null;
+  try {
+    const interview = await deps.interviewRepo.getById(event.interviewId);
+    study = interview ? await deps.studyRepo.getById(interview.studyId) : null;
+  } catch (error) {
+    console.error(`Failed to look up the study for interview ${event.interviewId}:`, error);
+  }
+  // Studies with a report pipeline send the participant their report instead,
+  // so the generic summary email is skipped for them.
+  const reportPipeline = Boolean(study?.reportPipeline);
+  // A partner study can turn the participant's summary (and its email) off:
+  // the transcript is the output, and the model call would be wasted.
+  const wantsSummary = study?.participantSummaryEmail !== false;
+
   // T7.3: trigger the individual summary automatically on completion. Not
   // fatal to the webhook if it fails — the interview is already correctly
   // marked completed above, and a missing/failed summary is a separate,
@@ -182,33 +199,21 @@ export async function completeInterview(
   // failing the whole webhook here would incorrectly suggest the call
   // itself didn't complete).
   let summary: Awaited<ReturnType<typeof generateIndividualSummary>> | undefined;
-  try {
-    summary = await generateIndividualSummary(deps, event.interviewId);
-  } catch (error) {
-    console.error(
-      `Failed to generate individual summary for interview ${event.interviewId}:`,
-      error,
-    );
+  if (wantsSummary) {
+    try {
+      summary = await generateIndividualSummary(deps, event.interviewId);
+    } catch (error) {
+      console.error(
+        `Failed to generate individual summary for interview ${event.interviewId}:`,
+        error,
+      );
+    }
   }
 
   // #6: email the participant their "here's what you told us" summary once
   // it exists. A separate try/catch from the summary generation above, on
   // the same non-fatal principle — a failed send shouldn't erase the fact
   // that the summary itself was generated successfully, or fail the webhook.
-  // Studies with a report pipeline send the participant their report instead,
-  // so the generic summary email is skipped for them.
-  let reportPipeline = false;
-  try {
-    const interview = await deps.interviewRepo.getById(event.interviewId);
-    const study = interview ? await deps.studyRepo.getById(interview.studyId) : null;
-    reportPipeline = Boolean(study?.reportPipeline);
-  } catch (error) {
-    console.error(
-      `Failed to look up the report pipeline for interview ${event.interviewId}:`,
-      error,
-    );
-  }
-
   if (summary && !reportPipeline) {
     try {
       await sendInterviewSummaryEmail(deps, event.interviewId, summary);
@@ -231,7 +236,13 @@ export async function completeInterview(
   // Tells a third-party tool (if one registered a webhook URL and this
   // participant's link carried its tracking id) that the interview is done.
   // Same non-fatal posture as the summary/email side effects above.
-  if (deps.webhookClient) {
+  // A partner study reports to its own partner's webhook (a later step), never
+  // to this single global URL.
+  if (study?.partnerId) {
+    console.log(
+      `Skipped the global completion webhook for interview ${event.interviewId}: it belongs to a partner study`,
+    );
+  } else if (deps.webhookClient) {
     try {
       const result = await notifyCompletionWebhook(
         { interviewRepo: deps.interviewRepo, webhookClient: deps.webhookClient, now: deps.now },

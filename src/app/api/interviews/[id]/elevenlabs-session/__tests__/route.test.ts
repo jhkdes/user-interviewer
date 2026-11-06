@@ -76,4 +76,42 @@ describe("POST /api/interviews/[id]/elevenlabs-session", () => {
 
     expect(body).toEqual({ signedUrl: "wss://signed" });
   });
+
+  it("speaks a partner interview's frozen opening line, not the study's current one", async () => {
+    const interview = await interviewFor(
+      "feedback",
+      "Hi {{participant_name}}, the study's current line",
+    );
+    await interviewRepo.update(interview.id, {
+      snapshot: {
+        prompt: "p",
+        firstMessage: "Hi Priya, thanks for helping with Jae Kim.",
+        closingQuestion: null,
+        targetMinutes: 5,
+        hardStopMinutes: 7,
+      },
+    });
+
+    const body = await (await call(interview.id)).json();
+
+    expect(body).toEqual({
+      signedUrl: "wss://signed",
+      firstMessage: "Hi Priya, thanks for helping with Jae Kim.",
+    });
+  });
+
+  it("sends no override for a partner interview whose study has no opening line", async () => {
+    const interview = await interviewFor("feedback", "A line set after the interview began");
+    await interviewRepo.update(interview.id, {
+      snapshot: {
+        prompt: "p",
+        firstMessage: null,
+        closingQuestion: null,
+        targetMinutes: 5,
+        hardStopMinutes: 7,
+      },
+    });
+
+    expect(await (await call(interview.id)).json()).toEqual({ signedUrl: "wss://signed" });
+  });
 });

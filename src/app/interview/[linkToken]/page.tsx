@@ -1,5 +1,6 @@
 import { MIN_PARTICIPANT_TURNS_FOR_REPORT } from "@/job-search-study/min-turns";
 import { isTextInterviewModeEnabled } from "@/lib/feature-flags";
+import { getPartnerInvitationRepository } from "@/repositories/get-partner-invitation-repository";
 import { getStudyRepository } from "@/repositories/get-study-repository";
 import { mergeTextCopy } from "@/participant-copy";
 import { checkLinkValidity } from "@/study-service/link-validity";
@@ -38,6 +39,14 @@ export default async function InterviewPage({
   const trackingIdParam = searchParams.tracking_id;
   const trackingId = typeof trackingIdParam === "string" ? trackingIdParam : undefined;
 
+  // A partner study's link works only with the tracking id of one of its invitations.
+  if (study.partnerId) {
+    const invitation = trackingId
+      ? await getPartnerInvitationRepository().getByStudyAndTrackingId(study.id, trackingId)
+      : null;
+    if (!invitation) return <LinkInvalidScreen reason="not-found" />;
+  }
+
   return (
     <InterviewFlow
       linkToken={params.linkToken}
@@ -53,7 +62,8 @@ export default async function InterviewPage({
           : study.participantCopy
       }
       minParticipantTurns={
-        study.reportPipeline === "job-search" ? MIN_PARTICIPANT_TURNS_FOR_REPORT : undefined
+        study.endedEarlyMinTurns ??
+        (study.reportPipeline === "job-search" ? MIN_PARTICIPANT_TURNS_FOR_REPORT : undefined)
       }
       textModeEnabled={textModeEnabled}
     />

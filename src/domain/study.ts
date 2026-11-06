@@ -90,6 +90,16 @@ export interface Study {
   partnerId: string | null;
   /** The partner's own opaque id for who this study is for; set together with `partnerId`. */
   ownerRef: string | null;
+  /** Partner studies: who the feedback is about (the partner's user), for prompt tokens. */
+  subjectName: string | null;
+  /** A dropped voice call with fewer participant turns than this shows "Your call ended early". `null` keeps the standard value. */
+  endedEarlyMinTurns: number | null;
+  /** Feedback studies: the interview's target length in minutes. `null` keeps the standard 5. */
+  targetMinutes: number | null;
+  /** Feedback studies: the voice call ends automatically at this many minutes. `null` keeps the standard 7. */
+  hardStopMinutes: number | null;
+  /** `false` skips the participant's individual summary and its email. `true` (the default) is today's behavior. */
+  participantSummaryEmail: boolean;
   /** Feedback studies, voice only. What the interviewer says first, instead of the voice agent's built-in greeting. May use `{{participant_name}}`. `null` keeps the built-in greeting. */
   firstMessage: string | null;
   /** Feedback studies. The scripted question asked once the interviewer believes it has covered everything, before the call closes. `null` keeps the standard "anything else on your mind about today's session?". */

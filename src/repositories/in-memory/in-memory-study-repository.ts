@@ -10,6 +10,9 @@ export class InMemoryStudyRepository implements StudyRepository {
   private studies = new Map<string, Study>();
 
   async create(input: CreateStudyInput): Promise<Study> {
+    if (input.partnerId && (await this.getByPartnerOwner(input.partnerId, input.ownerRef ?? ""))) {
+      throw new Error("A study for this partner and owner already exists");
+    }
     const study: Study = {
       id: randomUUID(),
       type: input.type ?? "discovery",
@@ -22,6 +25,11 @@ export class InMemoryStudyRepository implements StudyRepository {
       reportPipeline: input.reportPipeline ?? null,
       participantCopy: input.participantCopy ?? null,
       participantCopyText: input.participantCopyText ?? null,
+      subjectName: input.subjectName ?? null,
+      endedEarlyMinTurns: input.endedEarlyMinTurns ?? null,
+      targetMinutes: input.targetMinutes ?? null,
+      hardStopMinutes: input.hardStopMinutes ?? null,
+      participantSummaryEmail: input.participantSummaryEmail ?? true,
       partnerId: input.partnerId ?? null,
       ownerRef: input.ownerRef ?? null,
       firstMessage: input.firstMessage ?? null,
@@ -41,6 +49,13 @@ export class InMemoryStudyRepository implements StudyRepository {
   async getById(id: string): Promise<Study | null> {
     const study = this.studies.get(id);
     return study ? { ...study } : null;
+  }
+
+  async getByPartnerOwner(partnerId: string, ownerRef: string): Promise<Study | null> {
+    for (const study of this.studies.values()) {
+      if (study.partnerId === partnerId && study.ownerRef === ownerRef) return { ...study };
+    }
+    return null;
   }
 
   async getByLinkToken(linkToken: string): Promise<Study | null> {

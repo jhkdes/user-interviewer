@@ -26,6 +26,11 @@ const baseStudy: Study = {
   linkToken: "token",
   textLinkToken: null,
   participantCopyText: null,
+  subjectName: null,
+  endedEarlyMinTurns: null,
+  targetMinutes: null,
+  hardStopMinutes: null,
+  participantSummaryEmail: true,
   partnerId: null,
   ownerRef: null,
   firstMessage: null,
@@ -71,6 +76,8 @@ const baseInterview: Interview = {
   lastActivityAt: null,
   idleNudgeSentAt: null,
   switchedToTextAt: null,
+  invitationId: null,
+  snapshot: null,
 };
 
 describe("resolveScreenerAnswers", () => {

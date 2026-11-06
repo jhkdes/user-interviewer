@@ -54,6 +54,8 @@ export interface FeedbackPromptContext {
    * model is never told about a question it will not be asked.
    */
   hasCustomClosingQuestion?: boolean;
+  /** True when `customPrompt` has already had its placeholders filled in (a partner interview's frozen prompt), so it is used exactly as it is. */
+  promptIsRendered?: boolean;
 }
 
 /**
@@ -139,6 +141,7 @@ export function buildFeedbackSystemPrompt(context: FeedbackPromptContext): strin
     channel = "voice",
     timeUp = false,
     hasCustomClosingQuestion = false,
+    promptIsRendered = false,
   } = context;
   const isText = channel === "text";
   const closingGuidance =
@@ -155,9 +158,11 @@ export function buildFeedbackSystemPrompt(context: FeedbackPromptContext): strin
   const responseContract = isText ? TEXT_RESPONSE_CONTRACT : RESPONSE_CONTRACT;
 
   if (customPrompt) {
-    const interpolated = interpolate(customPrompt, {
-      participant_name: participantFirstName,
-    });
+    const interpolated = promptIsRendered
+      ? customPrompt
+      : interpolate(customPrompt, {
+          participant_name: participantFirstName,
+        });
     return `${closingGuidance}${interpolated}\n\n${channelGuidance}${responseContract}`;
   }
 

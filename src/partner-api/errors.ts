@@ -24,11 +24,15 @@ export function errorResponse(
   status: number,
   requestId: string,
   headers: Record<string, string> = {},
+  details?: string[],
 ): Response {
-  return new Response(JSON.stringify({ error: { code, message } }), {
-    status,
-    headers: { "Content-Type": "application/json", "X-Request-Id": requestId, ...headers },
-  });
+  return new Response(
+    JSON.stringify({ error: { code, message, ...(details ? { details } : {}) } }),
+    {
+      status,
+      headers: { "Content-Type": "application/json", "X-Request-Id": requestId, ...headers },
+    },
+  );
 }
 
 export function jsonResponse(body: unknown, status: number, requestId: string): Response {
@@ -36,4 +40,35 @@ export function jsonResponse(body: unknown, status: number, requestId: string): 
     status,
     headers: { "Content-Type": "application/json", "X-Request-Id": requestId },
   });
+}
+
+/** A rejected request body: the first problem as the message, every problem under `details`. */
+export function validationErrorResponse(
+  errors: string[],
+  requestId: string,
+  code: PartnerErrorCode = "invalid_request",
+  status = 400,
+): Response {
+  const message = errors.length > 1 ? `${errors[0]} (and ${errors.length - 1} more)` : errors[0];
+  return errorResponse(code, message ?? "Invalid request.", status, requestId, {}, errors);
+}
+
+/** Reads a JSON object body, or answers `400` for anything else. */
+export async function readJsonBody(
+  request: Request,
+  requestId: string,
+): Promise<{ ok: true; body: unknown } | { ok: false; response: Response }> {
+  try {
+    return { ok: true, body: await request.json() };
+  } catch {
+    return {
+      ok: false,
+      response: errorResponse(
+        "invalid_request",
+        "Request body must be valid JSON.",
+        400,
+        requestId,
+      ),
+    };
+  }
 }

@@ -28,6 +28,12 @@ export interface CreateStudyInput {
   /** Set together with `ownerRef` by the partner API; omit for dashboard studies. */
   partnerId?: string;
   ownerRef?: string;
+  subjectName?: string;
+  endedEarlyMinTurns?: number;
+  targetMinutes?: number;
+  hardStopMinutes?: number;
+  /** Defaults to `true`. */
+  participantSummaryEmail?: boolean;
   /** Feedback-type only. See Study.firstMessage. */
   firstMessage?: string;
   /** Feedback-type only. See Study.closingQuestion. */
@@ -55,6 +61,11 @@ export interface UpdateStudyDetailsInput {
   firstMessage?: string | null;
   /** `null` clears it back to the standard question; `undefined` leaves it untouched. */
   closingQuestion?: string | null;
+  /** `null` clears each back to the standard value; `undefined` leaves it untouched. */
+  endedEarlyMinTurns?: number | null;
+  targetMinutes?: number | null;
+  hardStopMinutes?: number | null;
+  participantSummaryEmail?: boolean;
 }
 
 export interface StudyRepository {
@@ -69,6 +80,8 @@ export interface StudyRepository {
    * it stands afterward, so calling it twice is harmless (the first token wins).
    */
   setTextLinkToken(id: string, textLinkToken: string): Promise<Study>;
+  /** The study a partner created for one owner, if any. At most one exists per (partner, owner). */
+  getByPartnerOwner(partnerId: string, ownerRef: string): Promise<Study | null>;
   list(): Promise<Study[]>;
   updateStatus(id: string, status: StudyStatus): Promise<Study>;
   extendLink(id: string): Promise<Study>;
