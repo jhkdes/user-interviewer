@@ -13,7 +13,6 @@ import { IntroScreen } from "./intro-screen";
 import { LiveCall } from "./live-call";
 import { MicCheckScreen } from "./mic-check-screen";
 import { MobileBlockedScreen } from "./mobile-blocked-screen";
-import { ModeSelectScreen } from "./mode-select-screen";
 import { SessionEndedScreen } from "./session-ended-screen";
 import {
   clockFromState,
@@ -35,7 +34,6 @@ type Step =
   | "mobile-blocked"
   | "intro"
   | "intake"
-  | "mode-select"
   | "mic-check"
   | "call"
   | "chat"
@@ -81,15 +79,15 @@ export function InterviewFlow({
   /** The study's custom landing and ending page text, if it has any. */
   copy?: ParticipantCopy | null;
   /**
-   * Which of the study's links this is. `"text"` is a discovery study's
-   * text-only link: no voice call, no mode choice — after intake the participant
-   * goes straight into a typed chat that has a time limit. Defaults to the
-   * voice link.
+   * Which of the study's links this is. `"text"` is the study's text-only
+   * link: no voice call, no mode choice — after intake the participant goes
+   * straight into a typed chat (a discovery study's has a visible time limit).
+   * The voice link is voice only. Defaults to the voice link.
    */
   channel?: "voice" | "text";
   /** A voice call with fewer participant turns than this is treated as ended early. Defaults to a small number; studies that make a report pass the report's minimum. */
   minParticipantTurns?: number;
-  /** Typed interviews are switched on for this deploy. On a feedback study's link it offers typing as an alternative to voice; a discovery study's voice link stays voice-only whatever this says, and its text link needs it. */
+  /** Typed interviews are switched on for this deploy. A study's text link needs it; a voice link is voice-only whatever this says. */
   textModeEnabled?: boolean;
 }) {
   const [step, setStep] = useState<Step>("loading");
@@ -104,16 +102,19 @@ export function InterviewFlow({
   const [restarting, setRestarting] = useState(false);
   const [restartError, setRestartError] = useState<string | null>(null);
 
-  const textAvailable = textModeEnabled && (type === "feedback" || textChannel);
+  // Only the text link types. A voice link, for either kind of study, never offers typing.
+  const textAvailable = textModeEnabled && textChannel;
+  // The text-only discovery interview has its own time limit, countdown and "session ended" screen.
+  const discoveryText = textChannel && type === "discovery";
 
   /** Where an interview that has ended for this reason goes: a typed one that ran out of time, or went quiet, gets its own screen. */
   const endStep = useCallback(
     (endedReason: string | null): Step => {
       if (endedReason === INACTIVE_REASON) return "timed-out";
-      if (textChannel && endedReason === TIME_CAP_REASON) return "session-ended";
+      if (discoveryText && endedReason === TIME_CAP_REASON) return "session-ended";
       return "done";
     },
-    [textChannel],
+    [discoveryText],
   );
 
   /** Puts a participant who was mid-chat back into it; anything else starts at the intro as usual. */
@@ -208,19 +209,6 @@ export function InterviewFlow({
     setStep("chat");
   };
 
-  /** The participant chose typing before the voice call began. Resolves true once the interview has been switched. */
-  const switchToTyping = async (): Promise<boolean> => {
-    if (!interview) return false;
-    try {
-      const res = await fetch(`/api/interviews/${interview.id}/start-text`, { method: "POST" });
-      if (!res.ok) return false;
-    } catch {
-      return false;
-    }
-    beginTypingChat(interview);
-    return true;
-  };
-
   const finishChat = (endedReason: string | null) => {
     clearSavedInterviewId(linkToken);
     setStep(endStep(endedReason));
@@ -254,7 +242,7 @@ export function InterviewFlow({
           <FeedbackIntroScreen
             title={title}
             description={description}
-            textModeEnabled={textAvailable}
+            channel={channel}
             copy={copy}
             onAgree={() => setStep("intake")}
           />
@@ -281,14 +269,8 @@ export function InterviewFlow({
               beginTypingChat(createdInterview);
               return;
             }
-            setStep(textAvailable ? "mode-select" : "mic-check");
+            setStep("mic-check");
           }}
-        />
-      )}
-      {step === "mode-select" && interview && (
-        <ModeSelectScreen
-          onStartVoice={() => setStep("mic-check")}
-          onSwitchToTyping={switchToTyping}
         />
       )}
       {step === "mic-check" && interview && (
@@ -309,9 +291,10 @@ export function InterviewFlow({
           onEnded={(info) =>
             setStep(info && endedEarly(info, minParticipantTurns) ? "ended-early" : "done")
           }
-          // Typing is only ever offered here for feedback studies with text mode on.
-          onSwitchedToTyping={textAvailable ? () => beginTypingChat() : undefined}
-          onRetry={textAvailable ? () => setCallAttempt((n) => n + 1) : undefined}
+          // A voice call never offers typing: the text link is where typing happens.
+          onRetry={
+            type === "feedback" && textModeEnabled ? () => setCallAttempt((n) => n + 1) : undefined
+          }
         />
       )}
       {step === "chat" && chatSession && (
@@ -320,8 +303,8 @@ export function InterviewFlow({
           linkToken={linkToken}
           initialMessages={chatSession.initialMessages}
           onEnded={finishChat}
-          heading={textChannel ? "Interview chat" : undefined}
-          sessionLimitMs={textChannel ? DISCOVERY_TEXT_HARD_CAP_MS : undefined}
+          heading={discoveryText ? "Interview chat" : undefined}
+          sessionLimitMs={discoveryText ? DISCOVERY_TEXT_HARD_CAP_MS : undefined}
           initialClock={chatSession.initialClock}
         />
       )}

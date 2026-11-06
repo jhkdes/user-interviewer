@@ -9,27 +9,27 @@ import { resolveFeedbackIntroCopy } from "@/participant-copy";
  * of that framing fits a 5-minute call. The primary button click is still the
  * consent action, same as `IntroScreen`.
  *
- * With `textModeEnabled`, the copy also covers the typing alternative (see
- * TEXT_INTERVIEW_MODE.md): voice is still how it starts, but the recording
- * disclosure says what is saved in each case. Without it, the copy is exactly
- * what voice-only studies have always shown.
+ * A feedback study has two links, like a discovery study: the voice link
+ * (this screen with voice wording; typing is not offered on it) and a text-only
+ * link (`channel="text"`: written-chat wording, no recording).
  */
 export function FeedbackIntroScreen({
   title,
   description,
   onAgree,
-  textModeEnabled = false,
+  channel = "voice",
   copy,
 }: {
   title: string;
   description: string;
   onAgree: () => void;
-  textModeEnabled?: boolean;
+  /** `"text"` for the study's typed-chat link: written-chat wording and no mention of a call or recording. */
+  channel?: "voice" | "text";
   /** The study's custom wording; anything it leaves out uses the standard text. */
   copy?: ParticipantCopy | null;
 }) {
   const { brandLabel, tagline, facts, steps, consentNote, contactEmail, showFaq } =
-    resolveFeedbackIntroCopy(copy, description, textModeEnabled);
+    resolveFeedbackIntroCopy(copy, description, channel);
 
   return (
     <div className="text-left">

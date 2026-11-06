@@ -36,7 +36,7 @@ describe("resolveLink", () => {
     expect(await resolveLink(repo, "nope")).toBeNull();
   });
 
-  it("does not resolve a text token that sits on a feedback study", async () => {
+  it("resolves a feedback study's text token to its text link", async () => {
     const repo = new InMemoryStudyRepository();
     await repo.create({
       ...base,
@@ -46,7 +46,7 @@ describe("resolveLink", () => {
       textLinkToken: "text",
     });
 
-    expect(await resolveLink(repo, "text")).toBeNull();
+    expect((await resolveLink(repo, "text"))?.channel).toBe("text");
     expect((await resolveLink(repo, "voice"))?.channel).toBe("voice");
   });
 });

@@ -7,6 +7,7 @@ import { CompletionScreen } from "@/app/interview/[linkToken]/completion-screen"
 import { FeedbackIntroScreen } from "@/app/interview/[linkToken]/feedback-intro-screen";
 import {
   LIMITS,
+  mergeTextCopy,
   resolveCompletionCopy,
   resolveFeedbackIntroCopy,
   withoutFeedbackDefaults,
@@ -39,12 +40,12 @@ interface FormState {
 function stateFrom(
   copy: ParticipantCopy | null,
   description: string,
-  textModeEnabled: boolean,
+  channel: "voice" | "text",
   firstMessage: string | null,
   closingQuestion: string | null,
 ): FormState {
-  const intro = resolveFeedbackIntroCopy(copy, description, textModeEnabled);
-  const completion = resolveCompletionCopy(copy, "voice");
+  const intro = resolveFeedbackIntroCopy(copy, description, channel);
+  const completion = resolveCompletionCopy(copy, channel);
   return {
     brandLabel: intro.brandLabel,
     tagline: intro.tagline,
@@ -82,7 +83,8 @@ export function FeedbackPagesForm({
   description,
   linkToken,
   initialCopy,
-  textModeEnabled,
+  channel = "voice",
+  voiceCopy = null,
   voiceProvider,
   initialFirstMessage,
   initialClosingQuestion,
@@ -92,18 +94,22 @@ export function FeedbackPagesForm({
   description: string;
   linkToken: string;
   initialCopy: ParticipantCopy | null;
-  /** Whether the participant is offered typing, which changes the standard wording. */
-  textModeEnabled: boolean;
+  /** Which of the study's two links this edits. The text link's pages follow the voice link's wherever they have no copy of their own. */
+  channel?: "voice" | "text";
+  /** The voice link's stored copy: what the text link shows where it has none of its own. */
+  voiceCopy?: ParticipantCopy | null;
   voiceProvider: "vapi" | "elevenlabs";
   initialFirstMessage: string | null;
   initialClosingQuestion: string | null;
 }) {
   const router = useRouter();
+  const isText = channel === "text";
+  const fallbackCopy = isText ? voiceCopy : null;
   const [state, setState] = useState<FormState>(() =>
     stateFrom(
-      initialCopy,
+      isText ? mergeTextCopy(initialCopy, voiceCopy) : initialCopy,
       description,
-      textModeEnabled,
+      channel,
       initialFirstMessage,
       initialClosingQuestion,
     ),
@@ -111,7 +117,8 @@ export function FeedbackPagesForm({
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [errors, setErrors] = useState<string[]>([]);
-  const canSetOpeningLine = voiceProvider === "elevenlabs";
+  // The opening line is spoken, so only the voice link has one.
+  const canSetOpeningLine = voiceProvider === "elevenlabs" && !isText;
 
   const patch = (changes: Partial<FormState>) => setState((s) => ({ ...s, ...changes }));
 
@@ -135,7 +142,8 @@ export function FeedbackPagesForm({
     setErrors([]);
     // Text that equals the standard wording is not saved, so it keeps following the standard.
     const copyErrors = await put("participant-copy", {
-      participantCopy: withoutFeedbackDefaults(copyFrom(state), description, textModeEnabled),
+      participantCopy: withoutFeedbackDefaults(copyFrom(state), description, channel, fallbackCopy),
+      channel,
     });
     const lineErrors = await put("interviewer-lines", {
       ...(canSetOpeningLine ? { firstMessage: state.firstMessage.trim() || null } : {}),
@@ -147,7 +155,11 @@ export function FeedbackPagesForm({
       setErrors(all);
       return;
     }
-    setMessage("Saved. Participants see this wording the next time they open the link.");
+    setMessage(
+      isText
+        ? "Saved. Participants see this wording the next time they open the text link."
+        : "Saved. Participants see this wording the next time they open the link.",
+    );
     router.refresh();
   }
 
@@ -355,7 +367,9 @@ export function FeedbackPagesForm({
           <span className="mt-1 block text-xs text-neutral-500">
             {canSetOpeningLine
               ? "The first thing the interviewer says. Use {{participant_name}} for the person's first name."
-              : "Only studies on ElevenLabs can set an opening line."}
+              : isText
+                ? "The text link has no spoken opening line."
+                : "Only studies on ElevenLabs can set an opening line."}
           </span>
         </div>
         <div>
@@ -395,7 +409,7 @@ export function FeedbackPagesForm({
         <button
           type="button"
           className={SECONDARY}
-          onClick={() => setState(stateFrom(null, description, textModeEnabled, null, null))}
+          onClick={() => setState(stateFrom(null, description, channel, null, null))}
         >
           Reset to the standard wording
         </button>
@@ -414,7 +428,7 @@ export function FeedbackPagesForm({
             rel="noreferrer"
             className="text-sm underline hover:no-underline"
           >
-            Open the live landing page
+            {isText ? "Open the live text landing page" : "Open the live landing page"}
           </a>
         </div>
         <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
@@ -430,7 +444,7 @@ export function FeedbackPagesForm({
           <FeedbackIntroScreen
             title={title}
             description={description}
-            textModeEnabled={textModeEnabled}
+            channel={channel}
             copy={copyFrom(state)}
             onAgree={() => undefined}
           />
@@ -442,7 +456,7 @@ export function FeedbackPagesForm({
           data-testid="ending-preview"
           className="mt-2 rounded border border-neutral-200 p-6 dark:border-neutral-800"
         >
-          <CompletionScreen mode="voice" copy={copyFrom(state)} />
+          <CompletionScreen mode={channel} copy={copyFrom(state)} />
         </div>
       </section>
     </div>

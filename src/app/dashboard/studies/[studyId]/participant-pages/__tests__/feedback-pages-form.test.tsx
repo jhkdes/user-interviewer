@@ -17,7 +17,6 @@ const props = {
   title: "Feedback for Jae",
   description: "working with Jae",
   linkToken: "abc123",
-  textModeEnabled: false,
   voiceProvider: "elevenlabs" as const,
   initialCopy: null,
   initialFirstMessage: null,
@@ -60,7 +59,10 @@ describe("FeedbackPagesForm", () => {
     await userEvent.setup().click(screen.getByRole("button", { name: "Save" }));
 
     await waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(2));
-    expect(bodyOf(fetchSpy, "/participant-copy")).toEqual({ participantCopy: null });
+    expect(bodyOf(fetchSpy, "/participant-copy")).toEqual({
+      participantCopy: null,
+      channel: "voice",
+    });
     expect(bodyOf(fetchSpy, "/interviewer-lines")).toEqual({
       firstMessage: null,
       closingQuestion: null,
@@ -90,6 +92,7 @@ describe("FeedbackPagesForm", () => {
           showFaq: true,
         },
       },
+      channel: "voice",
     });
     expect(bodyOf(fetchSpy, "/interviewer-lines")).toEqual({
       firstMessage: "Hi there",
@@ -124,5 +127,50 @@ describe("FeedbackPagesForm", () => {
       "contact email must be an email address",
     );
     expect(screen.queryByText(/^Saved\./)).not.toBeInTheDocument();
+  });
+
+  describe("the text link", () => {
+    it("starts from the text wording, follows the voice link's custom copy, and offers no opening line", () => {
+      render(
+        <FeedbackPagesForm
+          {...props}
+          channel="text"
+          voiceCopy={{ intro: { brandLabel: "PFA · session feedback" } }}
+        />,
+      );
+
+      expect(screen.getByLabelText("Label above the title")).toHaveValue("PFA · session feedback");
+      expect(screen.getByLabelText("Sentence under the title")).toHaveValue(
+        "A quick, ~5-minute written check-in about working with Jae — a few questions, then you're done.",
+      );
+      expect(screen.getByLabelText("Opening line")).toBeDisabled();
+      expect(
+        screen.getByRole("link", { name: /Open the live text landing page/ }),
+      ).toBeInTheDocument();
+    });
+
+    it("saves for the text channel, only what differs from the voice link, and never sends an opening line", async () => {
+      const fetchSpy = stubSave();
+      const user = userEvent.setup();
+      render(
+        <FeedbackPagesForm
+          {...props}
+          channel="text"
+          voiceCopy={{ intro: { brandLabel: "PFA · session feedback" } }}
+        />,
+      );
+
+      const tagline = screen.getByLabelText("Sentence under the title");
+      await user.clear(tagline);
+      await user.type(tagline, "Typed hello");
+      await user.click(screen.getByRole("button", { name: "Save" }));
+
+      await waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(2));
+      expect(bodyOf(fetchSpy, "/participant-copy")).toEqual({
+        participantCopy: { intro: { tagline: "Typed hello" } },
+        channel: "text",
+      });
+      expect(bodyOf(fetchSpy, "/interviewer-lines")).toEqual({ closingQuestion: null });
+    });
   });
 });

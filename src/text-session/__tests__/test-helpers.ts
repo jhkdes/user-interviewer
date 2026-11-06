@@ -51,7 +51,7 @@ export async function setupTextSession(
         : undefined,
     linkToken: "feedback-token",
     // A discovery study's typed interviews come in through its text link.
-    textLinkToken: (options.studyType ?? "feedback") === "discovery" ? "text-token" : undefined,
+    textLinkToken: "text-token",
   });
   const interview: Interview = await interviewRepo.create({
     studyId: study.id,

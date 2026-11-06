@@ -28,19 +28,31 @@ describe("FeedbackIntroScreen", () => {
     expect(screen.queryByRole("link")).not.toBeInTheDocument();
   });
 
-  it("keeps the typing wording when typing is offered", () => {
-    render(<FeedbackIntroScreen {...base} textModeEnabled />);
+  it("never offers typing on the voice link", () => {
+    render(<FeedbackIntroScreen {...base} channel="voice" />);
 
-    expect(screen.getByText(/switch to typing before you start/)).toBeInTheDocument();
-    expect(screen.getByText("Voice, or type if you prefer")).toBeInTheDocument();
-    expect(screen.getByText(/If you choose to type instead/)).toBeInTheDocument();
+    expect(screen.queryByText(/typing/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/type if you prefer/i)).not.toBeInTheDocument();
+  });
+
+  it("uses written-chat wording, with no call or recording, on the text link", () => {
+    render(<FeedbackIntroScreen {...base} channel="text" />);
+
+    expect(
+      screen.getByText(
+        "A quick, ~5-minute written check-in about the webinar — a few questions, then you're done.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Typed chat, not voice")).toBeInTheDocument();
+    expect(screen.getByText(/^No audio is recorded\./)).toBeInTheDocument();
+    expect(screen.queryByText(/call is recorded/)).not.toBeInTheDocument();
   });
 
   it("shows the study's own wording, steps and contact line", () => {
     render(
       <FeedbackIntroScreen
         {...base}
-        textModeEnabled
+        channel="text"
         copy={{
           intro: {
             brandLabel: "PFA · session feedback",
@@ -56,7 +68,6 @@ describe("FeedbackIntroScreen", () => {
 
     expect(screen.getByText("PFA · session feedback")).toBeInTheDocument();
     expect(screen.getByText("Priya asked for your honest view.")).toBeInTheDocument();
-    expect(screen.queryByText(/switch to typing/)).not.toBeInTheDocument();
     expect(screen.getByText("5 minutes")).toBeInTheDocument();
     expect(screen.queryByText("~5 minutes")).not.toBeInTheDocument();
     expect(screen.getByText("How it works")).toBeInTheDocument();

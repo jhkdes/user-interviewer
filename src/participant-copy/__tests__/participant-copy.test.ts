@@ -253,3 +253,28 @@ describe("feedback landing copy", () => {
     expect(withoutFeedbackDefaults({ intro: { showFaq: false } }, "x")).toBeNull();
   });
 });
+
+describe("feedback landing copy on the text link", () => {
+  it("uses written-chat wording with no mention of a call or recording", () => {
+    const resolved = resolveFeedbackIntroCopy(null, "the webinar", "text");
+
+    expect(resolved.tagline).toBe(
+      "A quick, ~5-minute written check-in about the webinar — a few questions, then you're done.",
+    );
+    expect(resolved.facts).toEqual(["~5 minutes", "Typed chat, not voice", "No login"]);
+    expect(resolved.consentNote).toMatch(/^No audio is recorded\./);
+  });
+
+  it("drops text copy that equals what the text link would show anyway, including the voice link's custom copy", () => {
+    const voiceCopy = { intro: { brandLabel: "PFA", contactEmail: "a@b.co" } };
+
+    const saved = withoutFeedbackDefaults(
+      { intro: { brandLabel: "PFA", contactEmail: "a@b.co", tagline: "Typed hello" } },
+      "x",
+      "text",
+      voiceCopy,
+    );
+
+    expect(saved).toEqual({ intro: { tagline: "Typed hello" } });
+  });
+});

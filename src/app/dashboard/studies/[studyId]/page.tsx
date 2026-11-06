@@ -10,6 +10,7 @@ import { InterviewModeBadge } from "../../interview-mode-badge";
 import { StudyLink } from "../../study-link";
 import { CopyParticipantEmailsButton } from "./copy-participant-emails-button";
 import { ExtendLinkButton } from "./extend-link-button";
+import { AddTextLinkButton } from "./add-text-link-button";
 import { GenerateReportButton } from "./generate-report-button";
 import { JobSearchReportsSection } from "./job-search-reports/job-search-reports-section";
 import { RemoveStudyButton } from "./remove-study-button";
@@ -101,11 +102,19 @@ export default async function StudyDetailPage({ params }: { params: { studyId: s
           <div className="mt-3">
             <StudyLink linkToken={study.textLinkToken} label="Text interview link" />
             <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
-              A written chat with a 60-minute limit, desktop only. Interviews from either link
-              appear below, and the text ones are marked &ldquo;Typed&rdquo;.
+              {study.type === "feedback"
+                ? "A written chat, desktop only. The voice link is voice only."
+                : "A written chat with a 60-minute limit, desktop only."}{" "}
+              Interviews from either link appear below, and the text ones are marked
+              &ldquo;Typed&rdquo;.
               {!isTextInterviewModeEnabled() &&
                 " Typed interviews are switched off for this site right now, so this link shows \u201cnot found\u201d until they are turned on."}
             </p>
+          </div>
+        )}
+        {!study.textLinkToken && study.status !== "closed" && (
+          <div className="mt-3">
+            <AddTextLinkButton studyId={study.id} />
           </div>
         )}
         {linkExpiry.expiresAt && (

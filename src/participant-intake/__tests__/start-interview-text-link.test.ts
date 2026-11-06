@@ -64,15 +64,19 @@ describe("startInterview through a study's two links", () => {
     ).resolves.toMatchObject({ mode: "voice" });
   });
 
-  it("does not accept a text token on a feedback study", async () => {
+  it("makes a typed interview through a feedback study's text link, and a voice one through its voice link", async () => {
     const { studyRepo, interviewRepo } = await setup({ type: "feedback" });
+    const deps = { studyRepo, interviewRepo, textEnabled: true };
 
     await expect(
-      startInterview(
-        { studyRepo, interviewRepo, textEnabled: true },
-        { ...intake, linkToken: "text-token" },
-      ),
-    ).rejects.toBeInstanceOf(StudyLinkNotFoundError);
+      startInterview(deps, { ...intake, linkToken: "text-token" }),
+    ).resolves.toMatchObject({ mode: "text" });
+    await expect(
+      startInterview(deps, { ...intake, linkToken: "voice-token" }),
+    ).resolves.toMatchObject({ mode: "voice" });
+    await expect(startInterview(deps, { ...intake, linkToken: "unknown" })).rejects.toBeInstanceOf(
+      StudyLinkNotFoundError,
+    );
   });
 
   it("closes both links together when the study is closed", async () => {
