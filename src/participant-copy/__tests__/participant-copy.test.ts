@@ -9,7 +9,9 @@ import {
   defaultCompletionMessage,
   defaultTagline,
   resolveCompletionCopy,
+  resolveFeedbackIntroCopy,
   resolveIntroCopy,
+  withoutFeedbackDefaults,
   validateParticipantCopy,
   withoutDefaults,
 } from "../index";
@@ -209,5 +211,45 @@ describe("the job-search wording", () => {
     }
     // The consent wording is deliberately left at the default for now.
     expect(JOB_SEARCH_PARTICIPANT_COPY.intro?.consentNote).toBeUndefined();
+  });
+});
+
+describe("feedback landing copy", () => {
+  it("resolves to the wording feedback studies have always shown when there is no copy", () => {
+    const resolved = resolveFeedbackIntroCopy(null, "the webinar");
+
+    expect(resolved).toEqual({
+      brandLabel: "discoverFirst.co · quick feedback",
+      tagline:
+        "A quick, ~5-minute voice check-in about the webinar — a few questions, then you're done.",
+      facts: ["~5 minutes", "Voice, not text", "No login"],
+      steps: [],
+      consentNote:
+        "The call is recorded (audio and transcript) so we can review it afterward. Starting means you're okay with that.",
+      contactEmail: null,
+      showFaq: false,
+    });
+  });
+
+  it("drops anything that equals the standard, but keeps the feedback-only settings", () => {
+    const kept = withoutFeedbackDefaults(
+      {
+        intro: {
+          brandLabel: "discoverFirst.co · quick feedback",
+          tagline: "Custom",
+          facts: ["~5 minutes", "Voice, not text", "No login"],
+          contactEmail: "a@b.co",
+          showFaq: true,
+        },
+        completion: { title: "Thank you, you're done!", message: "Bye" },
+      },
+      "x",
+    );
+
+    expect(kept).toEqual({
+      intro: { tagline: "Custom", contactEmail: "a@b.co", showFaq: true },
+      completion: { message: "Bye" },
+    });
+    expect(withoutFeedbackDefaults({ intro: { showFaq: false } }, "x")).toBeNull();
   });
 });

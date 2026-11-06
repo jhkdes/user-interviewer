@@ -1,3 +1,6 @@
+import type { ParticipantCopy } from "@/domain";
+import { resolveFeedbackIntroCopy } from "@/participant-copy";
+
 /**
  * Simplified intro screen for feedback-type studies (FEEDBACK_STUDY_TYPE.md
  * decision 7) — a quick post-webinar/post-session check-in, not a 15-minute
@@ -16,31 +19,28 @@ export function FeedbackIntroScreen({
   description,
   onAgree,
   textModeEnabled = false,
+  copy,
 }: {
   title: string;
   description: string;
   onAgree: () => void;
   textModeEnabled?: boolean;
+  /** The study's custom wording; anything it leaves out uses the standard text. */
+  copy?: ParticipantCopy | null;
 }) {
-  const facts = textModeEnabled
-    ? ["~5 minutes", "Voice, or type if you prefer", "No login"]
-    : ["~5 minutes", "Voice, not text", "No login"];
+  const { brandLabel, tagline, facts, steps, consentNote, contactEmail, showFaq } =
+    resolveFeedbackIntroCopy(copy, description, textModeEnabled);
 
   return (
     <div className="text-left">
       <p className="flex items-center gap-2 text-xs font-bold tracking-widest text-neutral-500 uppercase dark:text-neutral-400">
         <span className="inline-block h-px w-5 bg-neutral-400 dark:bg-neutral-600" />
-        discoverFirst.co &middot; quick feedback
+        {brandLabel}
       </p>
 
       <h1 className="mt-4 text-2xl font-semibold text-balance">{title || "Feedback"}</h1>
 
-      <p className="mt-3 text-sm text-neutral-600 dark:text-neutral-400">
-        A quick, ~5-minute voice check-in about {description || "your experience"} — a few
-        questions, then you&apos;re done.
-        {textModeEnabled &&
-          " If talking isn't an option, you can switch to typing before you start."}
-      </p>
+      <p className="mt-3 text-sm text-neutral-600 dark:text-neutral-400">{tagline}</p>
 
       <div className="mt-5 flex flex-wrap gap-2">
         {facts.map((fact) => (
@@ -53,17 +53,54 @@ export function FeedbackIntroScreen({
         ))}
       </div>
 
+      {steps.length > 0 && (
+        <>
+          <p className="mt-6 border-t border-neutral-200 pt-5 text-xs font-bold tracking-widest text-neutral-400 uppercase dark:border-neutral-800 dark:text-neutral-500">
+            How it works
+          </p>
+          <ol className="mt-4 space-y-4">
+            {steps.map((step, i) => (
+              <li key={`${i}-${step.title}`} className="grid grid-cols-[2rem_1fr] gap-3">
+                <span className="text-2xl leading-none font-semibold text-neutral-400 dark:text-neutral-600">
+                  {i + 1}
+                </span>
+                <div>
+                  <h2 className="text-sm font-semibold">{step.title}</h2>
+                  <p className="text-sm text-neutral-600 dark:text-neutral-400">{step.body}</p>
+                </div>
+              </li>
+            ))}
+          </ol>
+        </>
+      )}
+
       <button
         onClick={onAgree}
         className="mt-8 rounded bg-neutral-900 px-4 py-2 text-sm text-white hover:bg-neutral-700 dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-200"
       >
         Start
       </button>
-      <p className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">
-        {textModeEnabled
-          ? "If you talk, the call is recorded (audio and transcript) so we can review it afterward. If you choose to type instead, the conversation is saved as a transcript. Starting means you're okay with that."
-          : "The call is recorded (audio and transcript) so we can review it afterward. Starting means you're okay with that."}
-      </p>
+      <p className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">{consentNote}</p>
+
+      {(showFaq || contactEmail) && (
+        <p className="mt-6 flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-neutral-200 pt-4 text-xs text-neutral-500 dark:border-neutral-800 dark:text-neutral-400">
+          <span>{showFaq ? "Want the full details?" : "Questions?"}</span>
+          {showFaq && (
+            <a href="/interview/faq" className="font-semibold underline hover:no-underline">
+              Read the FAQ
+            </a>
+          )}
+          {showFaq && contactEmail && <span>&middot;</span>}
+          {contactEmail && (
+            <a
+              href={`mailto:${contactEmail}`}
+              className="font-semibold underline hover:no-underline"
+            >
+              {contactEmail}
+            </a>
+          )}
+        </p>
+      )}
     </div>
   );
 }

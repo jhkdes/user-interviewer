@@ -1,4 +1,5 @@
 import type { InterviewerTurnStreamEvent, InterviewTurn, LLMProviderAdapter } from "@/llm";
+import { interpolate } from "./shared-prompt-parts";
 import { buildFeedbackSystemPrompt, type FeedbackPromptContext } from "./feedback-system-prompt";
 import { checkTermination, feedbackHardCapMs, type TerminationReason } from "./termination";
 
@@ -23,6 +24,31 @@ export const OPEN_FLOOR_UTTERANCE =
 const OPEN_FLOOR_FRAGMENTS = ["anything else on your mind", "today's session"];
 
 /**
+ * The scripted closing question a study uses: its own wording
+ * (Study.closingQuestion, which may use `{{participant_name}}`) or, when it
+ * has none, OPEN_FLOOR_UTTERANCE.
+ */
+export function resolveClosingQuestion(
+  custom: string | null | undefined,
+  participantFirstName: string,
+): { utterance: string; isCustom: boolean } {
+  const trimmed = custom?.trim();
+  if (!trimmed) return { utterance: OPEN_FLOOR_UTTERANCE, isCustom: false };
+  return {
+    utterance: interpolate(trimmed, { participant_name: participantFirstName }),
+    isCustom: true,
+  };
+}
+
+/** Lower-case, punctuation (including curly quotes) removed, spacing collapsed: so a provider's re-transcription of the same sentence still matches. */
+const normalize = (text: string): string =>
+  text
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]/gu, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+/**
  * Text channel only. Appended to the model's reply on the turn the time cap
  * ends the interview, so a written chat doesn't just stop after a reply that
  * may look like an unanswered question. Same append-not-substitute approach
@@ -36,6 +62,8 @@ export interface FeedbackAgentTurnInput {
   context: Omit<FeedbackPromptContext, "isClosingTurn" | "timeUp">;
   conversationHistory: InterviewTurn[];
   interviewStartedAt: Date;
+  /** The study's own closing question (Study.closingQuestion); omit or null for the standard one. */
+  closingQuestion?: string | null;
   /** Defaults to `new Date()` — overridable so tests can simulate elapsed time deterministically. */
   now?: Date;
 }
@@ -51,21 +79,36 @@ export interface FeedbackAgentTurnOutput {
   openFloorJustAsked: boolean;
 }
 
-function utteranceContainsAllFragments(text: string, fragments: string[]): boolean {
-  return fragments.every((fragment) => text.includes(fragment));
+/** What marks a turn as containing the closing question: the standard question's key phrases, or a custom question's whole text (ignoring case and spacing). */
+type ClosingMatcher = (text: string) => boolean;
+
+function closingMatcher(closing: { utterance: string; isCustom: boolean }): ClosingMatcher {
+  if (!closing.isCustom) {
+    return (text) => OPEN_FLOOR_FRAGMENTS.every((fragment) => text.includes(fragment));
+  }
+  const wanted = normalize(closing.utterance);
+  const words = wanted.split(" ");
+  // A long question also counts as asked when both its opening and ending words are there,
+  // in case the provider's transcript words something slightly differently in the middle.
+  const head = words.slice(0, 4).join(" ");
+  const tail = words.slice(-4).join(" ");
+  return (text) => {
+    const heard = normalize(text);
+    if (heard.includes(wanted)) return true;
+    return words.length >= 10 && heard.includes(head) && heard.includes(tail);
+  };
 }
 
-function wasUtteranceSpoken(history: InterviewTurn[], fragments: string[]): boolean {
-  return history.some(
-    (turn) => turn.speaker === "interviewer" && utteranceContainsAllFragments(turn.text, fragments),
-  );
+function wasUtteranceSpoken(history: InterviewTurn[], matches: ClosingMatcher): boolean {
+  return history.some((turn) => turn.speaker === "interviewer" && matches(turn.text));
 }
 
-function lastInterviewerUtteranceMatches(history: InterviewTurn[], fragments: string[]): boolean {
+function lastInterviewerUtteranceMatches(
+  history: InterviewTurn[],
+  matches: ClosingMatcher,
+): boolean {
   for (let i = history.length - 1; i >= 0; i--) {
-    if (history[i].speaker === "interviewer") {
-      return utteranceContainsAllFragments(history[i].text, fragments);
-    }
+    if (history[i].speaker === "interviewer") return matches(history[i].text);
   }
   return false;
 }
@@ -102,6 +145,7 @@ export class FeedbackAgent {
     channel: "voice" | "text",
     isClosingTurn: boolean,
     openFloorAsked: boolean,
+    closingUtterance: string,
     llmOutput: {
       utterance: string;
       shouldEndInterview: boolean;
@@ -154,7 +198,7 @@ export class FeedbackAgent {
       // Appended, not substituted: see OPEN_FLOOR_UTTERANCE's doc comment
       // for why substitution can't work on the streaming path.
       return {
-        utterance: `${utterance} ${OPEN_FLOOR_UTTERANCE}`,
+        utterance: `${utterance} ${closingUtterance}`,
         isInterviewOver: false,
         terminationReason: null,
         openFloorJustAsked: true,
@@ -172,14 +216,19 @@ export class FeedbackAgent {
   async generateNextTurn(input: FeedbackAgentTurnInput): Promise<FeedbackAgentTurnOutput> {
     const now = input.now ?? new Date();
     const history = input.conversationHistory;
-    const openFloorAsked = wasUtteranceSpoken(history, OPEN_FLOOR_FRAGMENTS);
-    const isClosingTurn =
-      openFloorAsked && lastInterviewerUtteranceMatches(history, OPEN_FLOOR_FRAGMENTS);
+    const closing = resolveClosingQuestion(
+      input.closingQuestion,
+      input.context.participantFirstName,
+    );
+    const matches = closingMatcher(closing);
+    const openFloorAsked = wasUtteranceSpoken(history, matches);
+    const isClosingTurn = openFloorAsked && lastInterviewerUtteranceMatches(history, matches);
 
     const systemPrompt = buildFeedbackSystemPrompt({
       ...input.context,
       isClosingTurn,
       timeUp: this.isTimeUp(input, now),
+      hasCustomClosingQuestion: closing.isCustom,
     });
     const llmOutput = await this.llm.generateInterviewerTurn({
       systemPrompt,
@@ -193,6 +242,7 @@ export class FeedbackAgent {
       input.context.channel ?? "voice",
       isClosingTurn,
       openFloorAsked,
+      closing.utterance,
       llmOutput,
     );
   }
@@ -212,14 +262,19 @@ export class FeedbackAgent {
   ): AsyncGenerator<FeedbackAgentStreamEvent, void, unknown> {
     const now = input.now ?? new Date();
     const history = input.conversationHistory;
-    const openFloorAsked = wasUtteranceSpoken(history, OPEN_FLOOR_FRAGMENTS);
-    const isClosingTurn =
-      openFloorAsked && lastInterviewerUtteranceMatches(history, OPEN_FLOOR_FRAGMENTS);
+    const closing = resolveClosingQuestion(
+      input.closingQuestion,
+      input.context.participantFirstName,
+    );
+    const matches = closingMatcher(closing);
+    const openFloorAsked = wasUtteranceSpoken(history, matches);
+    const isClosingTurn = openFloorAsked && lastInterviewerUtteranceMatches(history, matches);
 
     const systemPrompt = buildFeedbackSystemPrompt({
       ...input.context,
       isClosingTurn,
       timeUp: this.isTimeUp(input, now),
+      hasCustomClosingQuestion: closing.isCustom,
     });
 
     let llmOutput: Extract<InterviewerTurnStreamEvent, { type: "done" }> | undefined;
@@ -245,10 +300,11 @@ export class FeedbackAgent {
       channel,
       isClosingTurn,
       openFloorAsked,
+      closing.utterance,
       llmOutput,
     );
     if (result.openFloorJustAsked) {
-      yield { type: "text-delta", text: ` ${OPEN_FLOOR_UTTERANCE}` };
+      yield { type: "text-delta", text: ` ${closing.utterance}` };
     }
     if (channel === "text" && result.terminationReason === "time-cap") {
       yield { type: "text-delta", text: ` ${TEXT_TIME_CAP_UTTERANCE}` };

@@ -12,6 +12,8 @@ export interface StudyRow {
   report_pipeline: string | null;
   participant_copy: unknown;
   participant_copy_text: unknown;
+  first_message: string | null;
+  closing_question: string | null;
   link_token: string;
   text_link_token: string | null;
   status: string;

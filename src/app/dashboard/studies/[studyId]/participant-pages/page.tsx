@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { isTextInterviewModeEnabled } from "@/lib/feature-flags";
 import { getStudyRepository } from "@/repositories/get-study-repository";
+import { FeedbackPagesForm } from "./feedback-pages-form";
 import { ParticipantPagesForm } from "./participant-pages-form";
 
 export const dynamic = "force-dynamic";
@@ -34,10 +36,20 @@ export default async function ParticipantPagesPage({
         {study.title || "(untitled study)"}
       </p>
 
-      {study.type !== "discovery" ? (
-        <p className="mt-6 text-sm">
-          Feedback studies use a short fixed intro, so there is nothing to customize here.
-        </p>
+      {study.type === "feedback" ? (
+        <div className="mt-6">
+          <FeedbackPagesForm
+            studyId={study.id}
+            title={study.title}
+            description={study.description}
+            linkToken={study.linkToken}
+            initialCopy={study.participantCopy}
+            textModeEnabled={isTextInterviewModeEnabled()}
+            voiceProvider={study.voiceProvider}
+            initialFirstMessage={study.firstMessage}
+            initialClosingQuestion={study.closingQuestion}
+          />
+        </div>
       ) : (
         <div className="mt-6">
           {hasTextLink && (

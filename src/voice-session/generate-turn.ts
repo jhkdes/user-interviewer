@@ -138,6 +138,7 @@ function buildFeedbackAgentInput(
       // the written-chat variant (see feedback-system-prompt.ts).
       channel: interview.mode,
     },
+    closingQuestion: study.closingQuestion,
     conversationHistory: toConversationHistory(messages),
     interviewStartedAt: interview.startedAt ?? interview.createdAt,
     now,

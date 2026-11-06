@@ -28,6 +28,9 @@ function toStudy(row: StudyRow): Study {
     reportPipeline: (row.report_pipeline as ReportPipeline | null) ?? null,
     participantCopy: (row.participant_copy as ParticipantCopy | null) ?? null,
     participantCopyText: (row.participant_copy_text as ParticipantCopy | null) ?? null,
+    // `?? null`: absent from rows read before migration 0027 is applied.
+    firstMessage: row.first_message ?? null,
+    closingQuestion: row.closing_question ?? null,
     linkToken: row.link_token,
     // `?? null`: the column is absent from rows read before migration 0024 is applied.
     textLinkToken: row.text_link_token ?? null,
@@ -57,6 +60,8 @@ export class SupabaseStudyRepository implements StudyRepository {
         // Only sent when set, so creating a study works before the participant_copy migration is applied.
         ...(input.participantCopy ? { participant_copy: input.participantCopy } : {}),
         ...(input.participantCopyText ? { participant_copy_text: input.participantCopyText } : {}),
+        ...(input.firstMessage ? { first_message: input.firstMessage } : {}),
+        ...(input.closingQuestion ? { closing_question: input.closingQuestion } : {}),
         link_token: input.linkToken,
         // Only sent when set, so creating a study works before the text-link migration is applied.
         ...(input.textLinkToken ? { text_link_token: input.textLinkToken } : {}),
@@ -166,6 +171,8 @@ export class SupabaseStudyRepository implements StudyRepository {
     if (patch.participantCopyText !== undefined) {
       row.participant_copy_text = patch.participantCopyText;
     }
+    if (patch.firstMessage !== undefined) row.first_message = patch.firstMessage;
+    if (patch.closingQuestion !== undefined) row.closing_question = patch.closingQuestion;
 
     const { data, error } = await this.client
       .from("studies")

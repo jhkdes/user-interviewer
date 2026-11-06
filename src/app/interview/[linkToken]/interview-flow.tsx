@@ -255,6 +255,7 @@ export function InterviewFlow({
             title={title}
             description={description}
             textModeEnabled={textAvailable}
+            copy={copy}
             onAgree={() => setStep("intake")}
           />
         ) : (

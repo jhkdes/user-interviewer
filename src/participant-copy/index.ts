@@ -152,7 +152,11 @@ export const LIMITS = {
   consentNote: 600,
   completionTitle: 100,
   completionMessage: 900,
+  brandLabel: 60,
+  contactEmail: 254,
 } as const;
+
+const EMAIL_PATTERN = /^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/;
 
 export type CopyValidation =
   { valid: true; value: ParticipantCopy | null } | { valid: false; errors: string[] };
@@ -192,6 +196,17 @@ export function validateParticipantCopy(raw: unknown): CopyValidation {
       if (tagline) intro.tagline = tagline;
       const consentNote = str(raw.intro.consentNote, "consent note", LIMITS.consentNote);
       if (consentNote) intro.consentNote = consentNote;
+      const brandLabel = str(raw.intro.brandLabel, "brand label", LIMITS.brandLabel);
+      if (brandLabel) intro.brandLabel = brandLabel;
+      const contactEmail = str(raw.intro.contactEmail, "contact email", LIMITS.contactEmail);
+      if (contactEmail) {
+        if (EMAIL_PATTERN.test(contactEmail)) intro.contactEmail = contactEmail;
+        else errors.push("contact email must be an email address");
+      }
+      if (raw.intro.showFaq !== undefined && raw.intro.showFaq !== null) {
+        if (typeof raw.intro.showFaq !== "boolean") errors.push("showFaq must be true or false");
+        else if (raw.intro.showFaq) intro.showFaq = true;
+      }
 
       if (raw.intro.facts !== undefined && raw.intro.facts !== null) {
         if (!Array.isArray(raw.intro.facts)) errors.push("facts must be a list");
@@ -292,3 +307,5 @@ export function withoutDefaults(
 
   return Object.keys(out).length > 0 ? out : null;
 }
+
+export * from "./feedback";

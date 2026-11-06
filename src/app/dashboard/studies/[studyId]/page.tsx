@@ -83,7 +83,7 @@ export default async function StudyDetailPage({ params }: { params: { studyId: s
       >
         Edit questions →
       </Link>
-      {study.type === "discovery" && (
+      {(study.type === "discovery" || study.type === "feedback") && (
         <Link
           href={`/dashboard/studies/${study.id}/participant-pages`}
           className="mt-2 ml-4 inline-block text-sm underline hover:no-underline"

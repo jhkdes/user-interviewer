@@ -86,6 +86,10 @@ export interface Study {
   participantCopy: ParticipantCopy | null;
   /** Landing and ending page text for the text link; `null` falls back to `participantCopy`. */
   participantCopyText: ParticipantCopy | null;
+  /** Feedback studies, voice only. What the interviewer says first, instead of the voice agent's built-in greeting. May use `{{participant_name}}`. `null` keeps the built-in greeting. */
+  firstMessage: string | null;
+  /** Feedback studies. The scripted question asked once the interviewer believes it has covered everything, before the call closes. `null` keeps the standard "anything else on your mind about today's session?". */
+  closingQuestion: string | null;
   status: StudyStatus;
   /** Which voice platform runs this study's interview calls — set at creation by the researcher, lets whole studies be A/B tested against each other. */
   voiceProvider: VoiceProvider;

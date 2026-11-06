@@ -20,6 +20,12 @@ export interface IntroCopy {
   steps?: IntroStep[];
   /** The recording and consent note under the Start button. */
   consentNote?: string;
+  /** Feedback studies only. Replaces the small label above the title ("discoverFirst.co · quick feedback"). */
+  brandLabel?: string;
+  /** Feedback studies only. Shows a "Questions?" line with this address under the Start button. */
+  contactEmail?: string;
+  /** Feedback studies only. Adds a "Read the FAQ" link to that line. Off unless set to true. */
+  showFaq?: boolean;
 }
 
 export interface CompletionCopy {

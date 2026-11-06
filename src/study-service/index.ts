@@ -11,3 +11,4 @@ export * from "./update-study-questions";
 export * from "./update-participant-copy";
 export * from "./count-completed-interviews";
 export * from "./completed-count-cache";
+export * from "./update-interviewer-lines";

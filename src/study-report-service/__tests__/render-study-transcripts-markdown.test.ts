@@ -20,6 +20,8 @@ const discoveryStudy: Study = {
   linkToken: "token-1",
   textLinkToken: null,
   participantCopyText: null,
+  firstMessage: null,
+  closingQuestion: null,
   status: "open",
   voiceProvider: "vapi",
   createdAt: new Date("2026-08-01T00:00:00Z"),

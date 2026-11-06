@@ -46,10 +46,12 @@ afterEach(() => {
   cleanup();
 });
 
-function stubFetch(switchOk: boolean, order?: string[]) {
+function stubFetch(switchOk: boolean, order?: string[], firstMessage?: string) {
   const fetchSpy = vi.fn(async (url: string) => {
     if (url.includes("/elevenlabs-session")) {
-      return new Response(JSON.stringify({ signedUrl: "wss://example" }), { status: 200 });
+      return new Response(JSON.stringify({ signedUrl: "wss://example", firstMessage }), {
+        status: 200,
+      });
     }
     if (url.includes("/switch-to-text")) {
       order?.push("switch-request");
@@ -89,6 +91,24 @@ function startInterview(session: (typeof elevenLabs.sessions)[number]) {
     session.options.onModeChange?.({ mode: "speaking" });
   });
 }
+
+describe("ElevenLabsLiveCall opening line", () => {
+  it("sends the study's opening line as the agent's first-message override", async () => {
+    stubFetch(true, undefined, "Hi Sam, thanks for helping.");
+    const { session } = await renderCall();
+
+    expect(session.options).toMatchObject({
+      overrides: { agent: { firstMessage: "Hi Sam, thanks for helping." } },
+    });
+  });
+
+  it("sends no override when the study has no opening line, so the agent's greeting stands", async () => {
+    stubFetch(true);
+    const { session } = await renderCall();
+
+    expect(session.options).not.toHaveProperty("overrides");
+  });
+});
 
 describe("ElevenLabsLiveCall ending", () => {
   it("reports how many times the participant spoke, and who closed the connection, when the call ends", async () => {
