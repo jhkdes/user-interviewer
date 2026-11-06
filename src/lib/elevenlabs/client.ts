@@ -97,10 +97,25 @@ export function verifyWebhookSignature(
  * reasonable degraded state.
  */
 export async function fetchConversationAudio(conversationId: string): Promise<Buffer | null> {
+  const result = await fetchConversationAudioResult(conversationId);
+  return result.ok ? result.audio : null;
+}
+
+/**
+ * The same fetch, but saying why it failed, for callers that must tell "there
+ * is no recording" (ElevenLabs answered 4xx) from "ElevenLabs could not be
+ * reached or errored" (worth retrying). `status` is the provider's HTTP status,
+ * or 0 when it could not be reached at all.
+ */
+export type ConversationAudioResult = { ok: true; audio: Buffer } | { ok: false; status: number };
+
+export async function fetchConversationAudioResult(
+  conversationId: string,
+): Promise<ConversationAudioResult> {
   const apiKey = process.env.ELEVENLABS_API_KEY;
   if (!apiKey) {
     console.error("Missing required environment variable: ELEVENLABS_API_KEY");
-    return null;
+    return { ok: false, status: 0 };
   }
 
   try {
@@ -112,12 +127,12 @@ export async function fetchConversationAudio(conversationId: string): Promise<Bu
       console.error(
         `ElevenLabs conversation audio fetch failed for ${conversationId}: ${res.status}`,
       );
-      return null;
+      return { ok: false, status: res.status };
     }
-    return Buffer.from(await res.arrayBuffer());
+    return { ok: true, audio: Buffer.from(await res.arrayBuffer()) };
   } catch (error) {
     console.error(`Failed to fetch recording for conversation ${conversationId}:`, error);
-    return null;
+    return { ok: false, status: 0 };
   }
 }
 

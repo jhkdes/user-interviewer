@@ -7,3 +7,5 @@ export * from "./landing-copy";
 export * from "./partner-studies";
 export * from "./render-prompt";
 export * from "./study-input";
+export * from "./audio";
+export * from "./partner-interviews";
