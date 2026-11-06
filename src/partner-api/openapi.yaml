@@ -1,0 +1,949 @@
+openapi: 3.1.0
+info:
+  title: User Interviewer Partner API
+  version: 1.0.0
+  summary: Create feedback studies, invite colleagues, and fetch interview results.
+  description: |
+    The partner API of the User Interviewer (UI). A partner (for example the
+    Personal Feedback Agent) creates one study per owner, issues one invitation
+    per colleague, and receives a signed webhook when an interview ends.
+
+    The behaviour behind this file is described in UI-PARTNER-API-SPEC.md
+    (sections 3 to 5 for the design, 10 for where the build differs, 11 for what
+    a partner has to build). Where the two disagree, this file and section 10
+    describe what is built.
+
+    **Authentication.** Every request carries `Authorization: Bearer uip_...`.
+    Keys are issued by the UI operator and shown once.
+
+    **Errors.** Every error is `{ "error": { "code", "message", "details"? } }`.
+    `code` is the contract; `message` is for logs.
+
+    **Request ids.** Send your own `X-Request-Id` (letters, digits, `.`, `_`,
+    `-`, up to 64 characters) and UI echoes it; otherwise UI makes one. Every
+    response, including errors, carries it.
+
+    **Webhooks.** See the `webhooks` section at the end of this file.
+servers:
+  - url: https://{host}/api/partner/v1
+    variables:
+      host:
+        default: example.invalid
+        description: The UI deployment (Preview or Production).
+security:
+  - bearerAuth: []
+tags:
+  - name: Account
+  - name: Studies
+  - name: Invitations
+  - name: Interviews
+
+paths:
+  /me:
+    get:
+      tags: [Account]
+      operationId: getMe
+      summary: Who the API key belongs to
+      description: Lets a partner check that its configuration points at the right deployment with the right key. Touches no data.
+      parameters:
+        - $ref: "#/components/parameters/RequestId"
+      responses:
+        "200":
+          description: The partner.
+          headers:
+            X-Request-Id: { $ref: "#/components/headers/RequestId" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Me" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "500": { $ref: "#/components/responses/Internal" }
+
+  /studies:
+    post:
+      tags: [Studies]
+      operationId: createStudy
+      summary: Create the study for one owner, or return the one it already has
+      description: |
+        Idempotent per `ownerRef`. The first call creates the study (`201`).
+        Any later call for the same owner returns the existing study (`200`) and
+        ignores the body; use `PATCH` to change a study.
+      parameters:
+        - $ref: "#/components/parameters/RequestId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateStudy" }
+      responses:
+        "201":
+          description: The study was created.
+          headers:
+            X-Request-Id: { $ref: "#/components/headers/RequestId" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Study" }
+        "200":
+          description: The owner already had a study; it is returned unchanged.
+          headers:
+            X-Request-Id: { $ref: "#/components/headers/RequestId" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Study" }
+        "400": { $ref: "#/components/responses/InvalidRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "422": { $ref: "#/components/responses/UnsupportedProvider" }
+        "500": { $ref: "#/components/responses/Internal" }
+
+  /studies/{studyId}:
+    parameters:
+      - $ref: "#/components/parameters/StudyId"
+      - $ref: "#/components/parameters/RequestId"
+      - $ref: "#/components/parameters/OwnerRefRequired"
+    get:
+      tags: [Studies]
+      operationId: getStudy
+      summary: Read a study
+      responses:
+        "200":
+          description: The study.
+          headers:
+            X-Request-Id: { $ref: "#/components/headers/RequestId" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Study" }
+        "400": { $ref: "#/components/responses/InvalidRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "500": { $ref: "#/components/responses/Internal" }
+    patch:
+      tags: [Studies]
+      operationId: updateStudy
+      summary: Change a study
+      description: |
+        Applies to interviews that start afterward; one already running keeps
+        what it started with. `voiceProvider`, `ownerRef` and `subjectName` can
+        be sent only with the value they already have (a different value is
+        `409`). In `landingCopy`, each field present replaces that field, a
+        field set to `null` returns to the standard wording, and fields not
+        mentioned stay. `landingCopy: null` clears all of it. `firstMessage` or
+        `closingQuestion` set to `null` returns to the standard wording.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateStudy" }
+      responses:
+        "200":
+          description: The study after the change.
+          headers:
+            X-Request-Id: { $ref: "#/components/headers/RequestId" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Study" }
+        "400": { $ref: "#/components/responses/InvalidRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "500": { $ref: "#/components/responses/Internal" }
+    delete:
+      tags: [Studies]
+      operationId: deleteStudy
+      summary: Delete a study and everything under it
+      description: |
+        Deletes every interview's recording at the voice provider first, then
+        the transcripts, invitations and any waiting webhook events. If any
+        recording cannot be removed, nothing is deleted and the call answers
+        `502`; repeat it. A `404` after an earlier success means it is already
+        gone.
+      responses:
+        "204":
+          description: Deleted.
+          headers:
+            X-Request-Id: { $ref: "#/components/headers/RequestId" }
+        "400": { $ref: "#/components/responses/InvalidRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "500": { $ref: "#/components/responses/Internal" }
+        "502": { $ref: "#/components/responses/ProviderError" }
+
+  /studies/{studyId}/invitations:
+    parameters:
+      - $ref: "#/components/parameters/StudyId"
+      - $ref: "#/components/parameters/RequestId"
+      - $ref: "#/components/parameters/OwnerRefRequired"
+    post:
+      tags: [Invitations]
+      operationId: createInvitation
+      summary: Invite one colleague, or update the invitation with the same trackingId
+      description: |
+        Idempotent per `trackingId`: a repeat updates the name and context and
+        returns the same `url`. Every call, new or repeat, extends the study's
+        expiry to at least seven days from now. A closed study answers `409`.
+        Use the returned `url` exactly as given.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateInvitation" }
+      responses:
+        "201":
+          description: The invitation was created.
+          headers:
+            X-Request-Id: { $ref: "#/components/headers/RequestId" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Invitation" }
+        "200":
+          description: The invitation existed; it was updated.
+          headers:
+            X-Request-Id: { $ref: "#/components/headers/RequestId" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Invitation" }
+        "400": { $ref: "#/components/responses/InvalidRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/InvalidTrackingId" }
+        "500": { $ref: "#/components/responses/Internal" }
+    get:
+      tags: [Invitations]
+      operationId: listInvitations
+      summary: List a study's invitations, oldest first
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 200 }
+          description: Page size. Defaults to the server's page size.
+        - name: cursor
+          in: query
+          schema: { type: string }
+          description: The `nextCursor` of the previous page.
+      responses:
+        "200":
+          description: One page.
+          headers:
+            X-Request-Id: { $ref: "#/components/headers/RequestId" }
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [invitations, nextCursor]
+                additionalProperties: false
+                properties:
+                  invitations:
+                    type: array
+                    items: { $ref: "#/components/schemas/Invitation" }
+                  nextCursor:
+                    type: [string, "null"]
+                    description: Null on the last page.
+        "400": { $ref: "#/components/responses/InvalidRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "500": { $ref: "#/components/responses/Internal" }
+
+  /studies/{studyId}/invitations/{trackingId}:
+    parameters:
+      - $ref: "#/components/parameters/StudyId"
+      - $ref: "#/components/parameters/TrackingId"
+      - $ref: "#/components/parameters/RequestId"
+      - $ref: "#/components/parameters/OwnerRefRequired"
+    get:
+      tags: [Invitations]
+      operationId: getInvitation
+      summary: Read one invitation by its trackingId
+      responses:
+        "200":
+          description: The invitation.
+          headers:
+            X-Request-Id: { $ref: "#/components/headers/RequestId" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Invitation" }
+        "400": { $ref: "#/components/responses/InvalidRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "500": { $ref: "#/components/responses/Internal" }
+
+  /interviews/{interviewId}:
+    parameters:
+      - $ref: "#/components/parameters/InterviewId"
+      - $ref: "#/components/parameters/RequestId"
+      - $ref: "#/components/parameters/OwnerRefOptional"
+    get:
+      tags: [Interviews]
+      operationId: getInterview
+      summary: Read one interview
+      description: Find an interview's id through its invitation, or from the webhook. The participant's email is never returned.
+      responses:
+        "200":
+          description: The interview.
+          headers:
+            X-Request-Id: { $ref: "#/components/headers/RequestId" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Interview" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "500": { $ref: "#/components/responses/Internal" }
+    delete:
+      tags: [Interviews]
+      operationId: deleteInterview
+      summary: Delete one interview
+      description: |
+        Deletes the recording at the voice provider first, then the transcript,
+        summary and any waiting webhook event. If the recording cannot be
+        removed, nothing is deleted and the call answers `502`; repeat it. The
+        invitation stays, and returns to `not_started` if this was its only
+        interview.
+      responses:
+        "204":
+          description: Deleted.
+          headers:
+            X-Request-Id: { $ref: "#/components/headers/RequestId" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "500": { $ref: "#/components/responses/Internal" }
+        "502": { $ref: "#/components/responses/ProviderError" }
+
+  /interviews/{interviewId}/transcript:
+    parameters:
+      - $ref: "#/components/parameters/InterviewId"
+      - $ref: "#/components/parameters/RequestId"
+      - $ref: "#/components/parameters/OwnerRefOptional"
+    get:
+      tags: [Interviews]
+      operationId: getTranscript
+      summary: The transcript, turn by turn
+      description: |
+        Available once the interview has ended; before that, `409`. Timing is
+        per turn only: `startMs` is whole seconds from the provider, and `endMs`
+        is the next turn's start (or the end of the call for the last turn),
+        not a measurement. There is no word-level timing.
+      responses:
+        "200":
+          description: The transcript.
+          headers:
+            X-Request-Id: { $ref: "#/components/headers/RequestId" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Transcript" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "500": { $ref: "#/components/responses/Internal" }
+
+  /interviews/{interviewId}/audio:
+    parameters:
+      - $ref: "#/components/parameters/InterviewId"
+      - $ref: "#/components/parameters/RequestId"
+      - $ref: "#/components/parameters/OwnerRefOptional"
+    get:
+      tags: [Interviews]
+      operationId: getAudio
+      summary: The recording
+      description: |
+        MP3, 128 kbps, 16 kHz, mono, both speakers mixed, streamed through UI.
+        Send one `Range: bytes=a-b` span to get just that part (`206`); the byte
+        offset for a time is `milliseconds * 16`. UI cuts the span out of the
+        whole file and keeps the file for two minutes, so several clips of one
+        interview in a row cost one download.
+
+        `404` means there is no recording: a typed interview (permanent), or a
+        voice recording not available yet (retry for a few minutes when the
+        interview says `hasAudio: true`). `409` before the interview has
+        ended. `502` means the provider could not be reached; retry.
+      parameters:
+        - name: Range
+          in: header
+          required: false
+          schema: { type: string, examples: ["bytes=0-31999"] }
+          description: A single byte span. Multiple spans are not supported.
+      responses:
+        "200":
+          description: The whole recording.
+          headers:
+            X-Request-Id: { $ref: "#/components/headers/RequestId" }
+            Accept-Ranges: { schema: { type: string, const: bytes } }
+            Content-Length: { schema: { type: integer } }
+          content:
+            audio/mpeg:
+              schema: { type: string, format: binary }
+        "206":
+          description: The requested span.
+          headers:
+            X-Request-Id: { $ref: "#/components/headers/RequestId" }
+            Accept-Ranges: { schema: { type: string, const: bytes } }
+            Content-Length: { schema: { type: integer } }
+            Content-Range:
+              schema: { type: string, examples: ["bytes 0-31999/4800000"] }
+          content:
+            audio/mpeg:
+              schema: { type: string, format: binary }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "416":
+          description: The span lies outside the file.
+          headers:
+            X-Request-Id: { $ref: "#/components/headers/RequestId" }
+            Content-Range:
+              schema: { type: string, examples: ["bytes */4800000"] }
+        "500": { $ref: "#/components/responses/Internal" }
+        "502": { $ref: "#/components/responses/ProviderError" }
+
+webhooks:
+  interviewCompleted:
+    post:
+      operationId: receiveInterviewCompleted
+      summary: An interview ended (sent by UI to the partner)
+      description: |
+        Sent to the partner's registered HTTPS address when any interview in
+        one of its studies ends, whether the interviewer wrapped up
+        (`endCause: finished`) or the call dropped (`interrupted`).
+
+        **Verify** `X-UI-Signature` over the raw request bytes before parsing:
+        `"sha256=" + hex(HMAC_SHA256(webhookSecret, rawBody))`, compared in
+        constant time. `X-UI-Timestamp` is **not** covered by the signature.
+
+        **Answer** any `2xx` within 10 seconds. Anything else, a redirect, a
+        timeout or a network error is a failure and is retried after 1, 5, 15
+        and 60 minutes, then 2, 4 and 6 hours, then every 6 hours, until 24
+        hours after the interview ended. Delivery is at least once: dedupe on
+        `interviewId` + `event`. `X-UI-Delivery` is the same on every retry of
+        one delivery.
+      security: []
+      parameters:
+        - name: X-UI-Signature
+          in: header
+          required: true
+          schema: { type: string, pattern: "^sha256=[0-9a-f]{64}$" }
+        - name: X-UI-Timestamp
+          in: header
+          required: true
+          schema: { type: string, pattern: "^[0-9]+$" }
+          description: Unix seconds when this attempt was sent. Not signed.
+        - name: X-UI-Event
+          in: header
+          required: true
+          schema: { type: string, const: interview.completed }
+        - name: X-UI-Delivery
+          in: header
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/InterviewCompletedEvent" }
+      responses:
+        "2XX":
+          description: Received. Do the work after answering.
+        "401":
+          description: Bad or missing signature. UI treats it as a failure and retries.
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: "`uip_` followed by the key. One `401 unauthorized` answers every failure (missing, malformed, unknown or revoked)."
+
+  headers:
+    RequestId:
+      description: The request id (yours if you sent a valid one).
+      schema: { type: string }
+
+  parameters:
+    RequestId:
+      name: X-Request-Id
+      in: header
+      required: false
+      schema: { type: string, pattern: "^[A-Za-z0-9._-]{1,64}$" }
+    OwnerRefRequired:
+      name: X-Owner-Ref
+      in: header
+      required: true
+      schema: { type: string }
+      description: The study's `ownerRef`. Missing is `400`; different is `409`.
+    OwnerRefOptional:
+      name: X-Owner-Ref
+      in: header
+      required: false
+      schema: { type: string }
+      description: Optional. If sent, it must equal the study's `ownerRef` (`409` otherwise).
+    StudyId:
+      name: studyId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    InterviewId:
+      name: interviewId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    TrackingId:
+      name: trackingId
+      in: path
+      required: true
+      schema: { $ref: "#/components/schemas/TrackingId" }
+
+  responses:
+    InvalidRequest:
+      description: |
+        `invalid_request`: malformed JSON, a rejected field (every problem is
+        listed under `details`), a bad `limit` or `cursor`, or a missing
+        `X-Owner-Ref`.
+      headers:
+        X-Request-Id: { $ref: "#/components/headers/RequestId" }
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Unauthorized:
+      description: "`unauthorized`: the key is missing, malformed, unknown or revoked."
+      headers:
+        X-Request-Id: { $ref: "#/components/headers/RequestId" }
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    NotFound:
+      description: |
+        `not_found`: no such id, or it belongs to another partner. The two are
+        indistinguishable on purpose. Also an audio recording that does not
+        exist (yet).
+      headers:
+        X-Request-Id: { $ref: "#/components/headers/RequestId" }
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Conflict:
+      description: |
+        `conflict`: `X-Owner-Ref` differs from the study's owner, an attempt to
+        change a fixed field, a closed study, or a transcript or recording
+        requested before the interview has ended.
+      headers:
+        X-Request-Id: { $ref: "#/components/headers/RequestId" }
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    InvalidTrackingId:
+      description: "`invalid_tracking_id`: not 22 to 128 characters from `A-Za-z0-9_-`."
+      headers:
+        X-Request-Id: { $ref: "#/components/headers/RequestId" }
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    UnsupportedProvider:
+      description: '`unsupported_provider`: `voiceProvider` is `"vapi"`; only `"elevenlabs"` is supported.'
+      headers:
+        X-Request-Id: { $ref: "#/components/headers/RequestId" }
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    ProviderError:
+      description: "`provider_error`: the voice provider could not be reached or refused. Safe to retry."
+      headers:
+        X-Request-Id: { $ref: "#/components/headers/RequestId" }
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Internal:
+      description: "`internal`: an unexpected failure. Safe to retry with backoff."
+      headers:
+        X-Request-Id: { $ref: "#/components/headers/RequestId" }
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+
+  schemas:
+    Me:
+      type: object
+      required: [partner]
+      additionalProperties: false
+      properties:
+        partner:
+          type: object
+          required: [id, name]
+          additionalProperties: false
+          properties:
+            id: { type: string, format: uuid }
+            name: { type: string, examples: [pfa-preview] }
+
+    Error:
+      type: object
+      required: [error]
+      additionalProperties: false
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          additionalProperties: false
+          properties:
+            code:
+              type: string
+              enum:
+                - unauthorized
+                - not_found
+                - conflict
+                - invalid_request
+                - invalid_tracking_id
+                - unsupported_provider
+                - rate_limited
+                - provider_error
+                - internal
+            message: { type: string }
+            details:
+              type: array
+              items: { type: string }
+              description: Every problem found, present on validation errors.
+
+    TrackingId:
+      type: string
+      pattern: "^[A-Za-z0-9_-]{22,128}$"
+      description: |
+        Generate from a cryptographically secure random source (for example 16
+        random bytes as base64url). It is the only thing separating one
+        colleague's invitation from another's.
+
+    PromptTemplate:
+      type: string
+      description: |
+        Text that may contain `{{subject_name}}`, `{{colleague_first_name}}`,
+        `{{work_context}}`, `{{context.<key>}}`, `{{target_minutes}}`,
+        `{{hard_stop_minutes}}` and `{{#if <token>}}...{{/if}}` blocks. An
+        unknown token or unbalanced block is rejected.
+
+    Timing:
+      type: object
+      additionalProperties: false
+      properties:
+        targetMinutes:
+          {
+            type: integer,
+            minimum: 1,
+            description: "Must be less than hardStopMinutes. Default 5.",
+          }
+        hardStopMinutes: { type: integer, minimum: 1, maximum: 25, description: "Default 7." }
+
+    LandingCopy:
+      type: object
+      additionalProperties: false
+      description: Colleague-facing landing and ending text. Anything omitted uses the standard wording.
+      properties:
+        brandLabel: { type: string, maxLength: 60 }
+        tagline: { type: string, maxLength: 300 }
+        facts:
+          type: array
+          maxItems: 6
+          items: { type: string, maxLength: 40 }
+        steps:
+          type: array
+          maxItems: 6
+          items:
+            type: object
+            required: [title, body]
+            additionalProperties: false
+            properties:
+              title: { type: string, maxLength: 60 }
+              body: { type: string, maxLength: 500 }
+        consentNote:
+          type: string
+          maxLength: 600
+          description: Shown before the colleague presses Start, which is their consent.
+        endingTitle: { type: string, maxLength: 100 }
+        endingMessage: { type: string, maxLength: 900 }
+        contactEmail: { type: string, maxLength: 254 }
+        showFaq: { type: boolean }
+
+    CreateStudy:
+      type: object
+      required: [ownerRef, title, subjectName, interviewPrompt]
+      additionalProperties: false
+      properties:
+        ownerRef:
+          {
+            type: string,
+            minLength: 1,
+            maxLength: 200,
+            description: "The partner's own id for the user the study is about. One study per owner.",
+          }
+        title: { type: string, minLength: 1, maxLength: 200 }
+        subjectName:
+          {
+            type: string,
+            minLength: 1,
+            maxLength: 200,
+            description: "The full name of the person being reviewed.",
+          }
+        voiceProvider: { type: string, const: elevenlabs, default: elevenlabs }
+        interviewPrompt:
+          allOf: [{ $ref: "#/components/schemas/PromptTemplate" }]
+          minLength: 1
+          maxLength: 20000
+        firstMessage:
+          type: [string, "null"]
+          maxLength: 300
+          description: The interviewer's opening line; may use the same tokens as the prompt. Null or omitted uses the standard line.
+        closingQuestion:
+          type: [string, "null"]
+          maxLength: 300
+          description: The last question. Null or omitted uses the standard question.
+        timing: { $ref: "#/components/schemas/Timing" }
+        endedEarlyMinTurns:
+          type: integer
+          minimum: 1
+          maximum: 50
+          default: 4
+          description: A dropped call with fewer participant turns than this shows the colleague "Your call ended early".
+        participantSummaryEmail:
+          type: boolean
+          default: false
+          description: Whether the colleague gets a summary email afterward.
+        landingCopy: { $ref: "#/components/schemas/LandingCopy" }
+
+    UpdateStudy:
+      type: object
+      additionalProperties: false
+      description: Every field is optional; send only what changes.
+      properties:
+        title: { type: string, minLength: 1, maxLength: 200 }
+        interviewPrompt: { type: string, minLength: 1, maxLength: 20000 }
+        firstMessage: { type: [string, "null"], maxLength: 300 }
+        closingQuestion: { type: [string, "null"], maxLength: 300 }
+        timing: { $ref: "#/components/schemas/Timing" }
+        endedEarlyMinTurns: { type: integer, minimum: 1, maximum: 50 }
+        participantSummaryEmail: { type: boolean }
+        landingCopy:
+          type: [object, "null"]
+          description: Merged field by field; a field set to null reverts that field; null clears everything.
+          additionalProperties: false
+          properties:
+            brandLabel: { type: [string, "null"] }
+            tagline: { type: [string, "null"] }
+            facts: { type: [array, "null"], items: { type: string } }
+            steps: { type: [array, "null"], items: { type: object } }
+            consentNote: { type: [string, "null"] }
+            endingTitle: { type: [string, "null"] }
+            endingMessage: { type: [string, "null"] }
+            contactEmail: { type: [string, "null"] }
+            showFaq: { type: [boolean, "null"] }
+        voiceProvider:
+          {
+            type: string,
+            const: elevenlabs,
+            description: "Fixed; accepted only with its current value.",
+          }
+        ownerRef: { type: string, description: "Fixed; accepted only with its current value." }
+        subjectName: { type: string, description: "Fixed; accepted only with its current value." }
+
+    Study:
+      type: object
+      required:
+        - studyId
+        - ownerRef
+        - voiceProvider
+        - createdAt
+        - expiresAt
+        - title
+        - subjectName
+        - interviewPrompt
+        - firstMessage
+        - closingQuestion
+        - timing
+        - endedEarlyMinTurns
+        - participantSummaryEmail
+        - landingCopy
+      additionalProperties: false
+      properties:
+        studyId: { type: string, format: uuid }
+        ownerRef: { type: string }
+        voiceProvider: { type: string, const: elevenlabs }
+        createdAt: { type: string, format: date-time }
+        expiresAt:
+          type: [string, "null"]
+          format: date-time
+          description: When invitation links stop starting new interviews. An interview already started may finish.
+        title: { type: string }
+        subjectName: { type: string }
+        interviewPrompt: { type: string }
+        firstMessage: { type: [string, "null"] }
+        closingQuestion: { type: [string, "null"] }
+        timing:
+          type: object
+          required: [targetMinutes, hardStopMinutes]
+          additionalProperties: false
+          properties:
+            targetMinutes: { type: integer }
+            hardStopMinutes: { type: integer }
+        endedEarlyMinTurns: { type: integer }
+        participantSummaryEmail: { type: boolean }
+        landingCopy: { $ref: "#/components/schemas/LandingCopy" }
+
+    CreateInvitation:
+      type: object
+      required: [trackingId, colleagueFirstName]
+      additionalProperties: false
+      properties:
+        trackingId: { $ref: "#/components/schemas/TrackingId" }
+        colleagueFirstName: { type: string, minLength: 1, maxLength: 100 }
+        context:
+          type: object
+          maxProperties: 20
+          propertyNames: { pattern: "^[A-Za-z][A-Za-z0-9_]{0,39}$" }
+          additionalProperties: { type: string, maxLength: 5000 }
+          description: |
+            Free-text facts about the colleague, available to the prompt as
+            `{{context.<key>}}`. `work_context` is the one the standard tokens
+            use. Longer values are accepted and cut to 1,000 characters when
+            put in the prompt.
+
+    InvitationStatus:
+      type: string
+      enum: [not_started, pending, completed]
+      description: |
+        `not_started`: no interview yet. `pending`: an interview exists and none
+        has ended (this covers the whole call; UI cannot report in-progress).
+        `completed`: at least one has ended, whatever its `endCause`.
+
+    InterviewSummary:
+      type: object
+      required: [interviewId, status, endCause, startedAt, endedAt]
+      additionalProperties: false
+      properties:
+        interviewId: { type: string, format: uuid }
+        status: { type: string, enum: [pending, completed] }
+        endCause:
+          type: [string, "null"]
+          enum: [finished, interrupted, null]
+        startedAt:
+          {
+            type: [string, "null"],
+            format: date-time,
+            description: "Null until the interview ends.",
+          }
+        endedAt:
+          {
+            type: [string, "null"],
+            format: date-time,
+            description: "Null until the interview ends.",
+          }
+
+    Invitation:
+      type: object
+      required:
+        - invitationId
+        - trackingId
+        - colleagueFirstName
+        - context
+        - url
+        - expiresAt
+        - status
+        - interviews
+      additionalProperties: false
+      properties:
+        invitationId: { type: string, format: uuid }
+        trackingId: { $ref: "#/components/schemas/TrackingId" }
+        colleagueFirstName: { type: string }
+        context:
+          type: object
+          additionalProperties: { type: string }
+        url:
+          type: string
+          format: uri
+          description: The colleague's voice link. Use exactly as given; do not edit, shorten or append to it.
+        expiresAt: { type: [string, "null"], format: date-time, description: "The study's expiry." }
+        status: { $ref: "#/components/schemas/InvitationStatus" }
+        interviews:
+          type: array
+          description: Oldest first. A colleague who restarts produces more than one.
+          items: { $ref: "#/components/schemas/InterviewSummary" }
+
+    Interview:
+      type: object
+      required:
+        - interviewId
+        - studyId
+        - invitationId
+        - trackingId
+        - colleagueFirstName
+        - status
+        - endCause
+        - mode
+        - startedAt
+        - endedAt
+        - durationMs
+        - participantTurns
+        - hasAudio
+      additionalProperties: false
+      properties:
+        interviewId: { type: string, format: uuid }
+        studyId: { type: string, format: uuid }
+        invitationId: { type: [string, "null"], format: uuid }
+        trackingId: { type: [string, "null"] }
+        colleagueFirstName: { type: [string, "null"] }
+        status: { type: string, enum: [pending, completed] }
+        endCause:
+          type: [string, "null"]
+          enum: [finished, interrupted, null]
+          description: "`finished`: the interviewer wrapped up. `interrupted`: the call dropped. Null while pending."
+        mode: { type: string, enum: [voice, text] }
+        startedAt: { type: [string, "null"], format: date-time }
+        endedAt: { type: [string, "null"], format: date-time }
+        durationMs: { type: [integer, "null"] }
+        participantTurns: { type: integer, minimum: 0 }
+        hasAudio:
+          type: boolean
+          description: True for an ended voice interview. The recording may lag the call by a few minutes.
+
+    Transcript:
+      type: object
+      required: [interviewId, timing, durationMs, turns]
+      additionalProperties: false
+      properties:
+        interviewId: { type: string, format: uuid }
+        timing:
+          {
+            type: string,
+            const: turn,
+            description: 'Always "turn": there is no word-level timing.',
+          }
+        durationMs: { type: [integer, "null"] }
+        turns:
+          type: array
+          items:
+            type: object
+            required: [index, speaker, text, startMs, endMs]
+            additionalProperties: false
+            properties:
+              index: { type: integer, minimum: 0 }
+              speaker: { type: string, enum: [interviewer, participant] }
+              text: { type: string }
+              startMs:
+                {
+                  type: integer,
+                  minimum: 0,
+                  description: "Whole seconds from the provider, so up to a second off.",
+                }
+              endMs:
+                { type: integer, minimum: 0, description: "The next turn's start; not measured." }
+
+    InterviewCompletedEvent:
+      type: object
+      required:
+        [event, studyId, invitationId, trackingId, interviewId, status, endCause, occurredAt]
+      additionalProperties: false
+      properties:
+        event: { type: string, const: interview.completed }
+        studyId: { type: string, format: uuid }
+        invitationId: { type: string, format: uuid }
+        trackingId: { type: string }
+        interviewId: { type: string, format: uuid }
+        status: { type: string, const: completed }
+        endCause: { type: string, enum: [finished, interrupted] }
+        occurredAt: { type: string, format: date-time }

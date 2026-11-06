@@ -5,11 +5,11 @@ import addFormats from "ajv-formats";
 import { parse } from "yaml";
 
 /**
- * Checks values against partner-api-phase1/openapi.yaml, so the published
+ * Checks values against src/partner-api/openapi.yaml, so the published
  * description and the code cannot drift apart without a test failing.
  */
 const document = parse(
-  readFileSync(join(process.cwd(), "partner-api-phase1", "openapi.yaml"), "utf8"),
+  readFileSync(join(process.cwd(), "src", "partner-api", "openapi.yaml"), "utf8"),
 );
 
 const ajv = new Ajv2020({ strict: false, allErrors: true });
