@@ -10,7 +10,12 @@
  * Run with:
  *   npm run create:partner -- --name=pfa-preview --webhook-url=https://pfa-preview.example.com/hooks/ui
  *   npm run create:partner -- --list
+ *   npm run create:partner -- --set-webhook=pfa-preview --webhook-url=https://pfa-preview.example.com/hooks/ui
  *   npm run create:partner -- --revoke=pfa-preview
+ *
+ * --set-webhook points an existing partner's webhook at an address (https only).
+ * It keeps the partner's signing secret, so nothing changes on the receiver's
+ * side except where the events go.
  *
  * UI's Preview and Production deployments share one database, so register two
  * partners for PFA (pfa-preview and pfa-production), each with its own key.
@@ -19,11 +24,17 @@
  * loaded automatically via --env-file). Migration 0028 must be applied first.
  */
 import { generateApiKey, generateWebhookSecret, hashApiKey } from "../src/partner-api/api-key";
+import {
+  InvalidWebhookUrlError,
+  PartnerNotFoundError,
+  setPartnerWebhook,
+} from "../src/partner-api/set-webhook";
 import { getPartnerRepository } from "../src/repositories/get-partner-repository";
 
 const USAGE =
   "Usage: npm run create:partner -- --name=<name> [--webhook-url=<https url>]\n" +
   "       npm run create:partner -- --list\n" +
+  "       npm run create:partner -- --set-webhook=<name> --webhook-url=<https url>\n" +
   "       npm run create:partner -- --revoke=<name>";
 
 function parseArgs(): Record<string, string> {
@@ -48,6 +59,35 @@ async function main() {
           p.revokedAt ? `REVOKED ${p.revokedAt.toISOString()}` : "active"
         }  webhook: ${p.webhookUrl ?? "none"}`,
       );
+    }
+    return;
+  }
+
+  if ("set-webhook" in args) {
+    if (!args["set-webhook"] || !args["webhook-url"]) {
+      console.error("--set-webhook needs a partner name and --webhook-url.\n" + USAGE);
+      process.exit(1);
+    }
+    try {
+      const { partner, newSecret } = await setPartnerWebhook(
+        partners,
+        args["set-webhook"],
+        args["webhook-url"],
+      );
+      console.log(`Webhook for ${partner.name} is now ${partner.webhookUrl}`);
+      if (newSecret) {
+        console.log("");
+        console.log("This partner had no webhook secret, so one was created. Shown only once:");
+        console.log(`  Webhook secret:  ${newSecret}`);
+      } else {
+        console.log("The signing secret is unchanged.");
+      }
+    } catch (error) {
+      if (error instanceof InvalidWebhookUrlError || error instanceof PartnerNotFoundError) {
+        console.error(error.message);
+        process.exit(1);
+      }
+      throw error;
     }
     return;
   }

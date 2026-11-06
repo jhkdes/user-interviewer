@@ -16,6 +16,11 @@ export interface PartnerRepository {
   /** Finds a partner by key hash, revoked or not; the caller decides what a revoked one may do. */
   getByKeyHash(keyHash: string): Promise<Partner | null>;
   list(): Promise<Partner[]>;
+  /** Sets a partner's webhook address and/or signing secret; a field left out is not changed. */
+  updateWebhook(
+    id: string,
+    patch: { webhookUrl?: string; webhookSecret?: string },
+  ): Promise<Partner>;
   /** Marks the partner revoked now. Revoking twice keeps the first time. */
   revoke(id: string): Promise<Partner>;
 }

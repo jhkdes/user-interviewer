@@ -62,6 +62,37 @@ export function runPartnerRepositoryContractTests(
       expect((await repo.list()).map((p) => p.id)).toEqual([first.id, second.id]);
     });
 
+    it("sets a webhook address and secret, changing only what it is given", async () => {
+      const repo = await makeRepository();
+      const created = await repo.create({ name: "hooked", keyHash: "9".repeat(64) });
+
+      const withUrl = await repo.updateWebhook(created.id, {
+        webhookUrl: "https://example.com/hook",
+      });
+      expect(withUrl).toMatchObject({
+        webhookUrl: "https://example.com/hook",
+        webhookSecret: null,
+      });
+
+      const withSecret = await repo.updateWebhook(created.id, { webhookSecret: "whsec_new" });
+      expect(withSecret).toMatchObject({
+        webhookUrl: "https://example.com/hook",
+        webhookSecret: "whsec_new",
+      });
+
+      const untouched = await repo.updateWebhook(created.id, {});
+      expect(untouched).toMatchObject({ webhookUrl: "https://example.com/hook" });
+      expect((await repo.getById(created.id))?.webhookSecret).toBe("whsec_new");
+    });
+
+    it("rejects setting the webhook of an unknown partner", async () => {
+      const repo = await makeRepository();
+
+      await expect(
+        repo.updateWebhook(NONEXISTENT_ID, { webhookUrl: "https://example.com/hook" }),
+      ).rejects.toThrow();
+    });
+
     it("revokes a partner, keeping the first revocation time if revoked again", async () => {
       const repo = await makeRepository();
       const created = await repo.create({ name: "gone", keyHash: "f".repeat(64) });

@@ -49,6 +49,17 @@ export class InMemoryPartnerRepository implements PartnerRepository {
       .map((partner) => ({ ...partner }));
   }
 
+  async updateWebhook(
+    id: string,
+    patch: { webhookUrl?: string; webhookSecret?: string },
+  ): Promise<Partner> {
+    const partner = this.partners.get(id);
+    if (!partner) throw new Error(`Partner not found: ${id}`);
+    if (patch.webhookUrl !== undefined) partner.webhookUrl = patch.webhookUrl;
+    if (patch.webhookSecret !== undefined) partner.webhookSecret = patch.webhookSecret;
+    return { ...partner };
+  }
+
   async revoke(id: string): Promise<Partner> {
     const partner = this.partners.get(id);
     if (!partner) throw new Error(`Partner not found: ${id}`);

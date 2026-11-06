@@ -74,6 +74,29 @@ export class SupabasePartnerRepository implements PartnerRepository {
     return (data as PartnerRow[]).map(toPartner);
   }
 
+  async updateWebhook(
+    id: string,
+    patch: { webhookUrl?: string; webhookSecret?: string },
+  ): Promise<Partner> {
+    const row: Record<string, unknown> = {};
+    if (patch.webhookUrl !== undefined) row.webhook_url = patch.webhookUrl;
+    if (patch.webhookSecret !== undefined) row.webhook_secret = patch.webhookSecret;
+    if (Object.keys(row).length === 0) {
+      const existing = await this.getById(id);
+      if (!existing) throw new Error(`Partner not found: ${id}`);
+      return existing;
+    }
+    const { data, error } = await this.client
+      .from("api_partners")
+      .update(row)
+      .eq("id", id)
+      .select()
+      .maybeSingle();
+    if (error) throw new Error(`Failed to update partner webhook: ${error.message}`);
+    if (!data) throw new Error(`Partner not found: ${id}`);
+    return toPartner(data as PartnerRow);
+  }
+
   async revoke(id: string): Promise<Partner> {
     const existing = await this.getById(id);
     if (!existing) throw new Error(`Partner not found: ${id}`);
