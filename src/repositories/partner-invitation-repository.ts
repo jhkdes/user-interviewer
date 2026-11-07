@@ -30,9 +30,14 @@ export interface PartnerInvitationRepository {
   ): Promise<InvitationPage>;
 }
 
-/** An opaque position in the oldest-first listing: the last item's time and id. */
-export function encodeInvitationCursor(item: PartnerInvitation): string {
-  return Buffer.from(`${item.createdAt.toISOString()}|${item.id}`, "utf8").toString("base64url");
+/**
+ * An opaque position in the oldest-first listing: the last item's creation time
+ * and id. `createdAt` is the timestamp text exactly as the store holds it, not
+ * a `Date`: Postgres keeps microseconds and a `Date` only milliseconds, and a
+ * cursor rounded down would make the next page start at the same item again.
+ */
+export function encodeInvitationCursor(createdAt: string, id: string): string {
+  return Buffer.from(`${createdAt}|${id}`, "utf8").toString("base64url");
 }
 
 export function decodeInvitationCursor(cursor: string): { createdAt: string; id: string } | null {

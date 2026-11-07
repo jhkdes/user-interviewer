@@ -117,13 +117,15 @@ export class SupabasePartnerInvitationRepository implements PartnerInvitationRep
 
     const { data, error } = await query;
     if (error) throw new Error(`Failed to list invitations: ${error.message}`);
-    const rows = (data as InvitationRow[]).map(toInvitation);
-    const items = rows.slice(0, limit);
+    const rows = data as InvitationRow[];
+    const page = rows.slice(0, limit);
+    const last = page[page.length - 1];
     return {
-      items,
+      items: page.map(toInvitation),
+      // From the row's own timestamp text, which keeps the microseconds a Date would lose.
       nextCursor:
-        rows.length > limit && items.length > 0
-          ? encodeInvitationCursor(items[items.length - 1])
+        rows.length > limit && last
+          ? encodeInvitationCursor(last.created_at.replace(/\+00:00$/, "Z"), last.id)
           : null,
     };
   }

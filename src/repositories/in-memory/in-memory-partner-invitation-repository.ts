@@ -85,7 +85,12 @@ export class InMemoryPartnerInvitationRepository implements PartnerInvitationRep
     return {
       items,
       nextCursor:
-        hasMore && items.length > 0 ? encodeInvitationCursor(items[items.length - 1]) : null,
+        hasMore && items.length > 0
+          ? encodeInvitationCursor(
+              items[items.length - 1].createdAt.toISOString(),
+              items[items.length - 1].id,
+            )
+          : null,
     };
   }
 
