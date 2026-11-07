@@ -10,6 +10,16 @@ let studies = new InMemoryStudyRepository();
 let invitations = new InMemoryPartnerInvitationRepository();
 let interviews = new InMemoryInterviewRepository();
 vi.mock("@/repositories/get-partner-repository", () => ({ getPartnerRepository: () => partners }));
+vi.mock("@/repositories/get-partner-rate-limit-repository", async () => {
+  const { InMemoryPartnerRateLimitRepository } =
+    await import("@/repositories/in-memory/in-memory-partner-rate-limit-repository");
+  return { getPartnerRateLimitRepository: () => new InMemoryPartnerRateLimitRepository() };
+});
+vi.mock("@/repositories/get-partner-idempotency-repository", async () => {
+  const { InMemoryPartnerIdempotencyRepository } =
+    await import("@/repositories/in-memory/in-memory-partner-idempotency-repository");
+  return { getPartnerIdempotencyRepository: () => new InMemoryPartnerIdempotencyRepository() };
+});
 vi.mock("@/repositories/get-study-repository", () => ({ getStudyRepository: () => studies }));
 vi.mock("@/repositories/get-partner-invitation-repository", () => ({
   getPartnerInvitationRepository: () => invitations,

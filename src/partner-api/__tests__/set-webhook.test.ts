@@ -3,6 +3,7 @@ import { InMemoryPartnerRepository } from "@/repositories/in-memory/in-memory-pa
 import {
   InvalidWebhookUrlError,
   PartnerNotFoundError,
+  rotateWebhookSecret,
   setPartnerWebhook,
   webhookUrlProblem,
 } from "../set-webhook";
@@ -78,5 +79,47 @@ describe("setPartnerWebhook", () => {
     await expect(setPartnerWebhook(partners, "gone", URL_)).rejects.toThrow(/revoked/);
     expect((await partners.getById(created.id))?.webhookUrl).toBeNull();
     expect((await partners.getById(revoked.id))?.webhookUrl).toBeNull();
+  });
+});
+
+describe("rotateWebhookSecret", () => {
+  it("replaces the secret with a new one, returned once, and keeps the address", async () => {
+    const partners = new InMemoryPartnerRepository();
+    await partners.create({
+      name: "pfa-preview",
+      keyHash: "a".repeat(64),
+      webhookUrl: URL_,
+      webhookSecret: "whsec_old",
+    });
+
+    const { partner, newSecret } = await rotateWebhookSecret(partners, "pfa-preview");
+
+    expect(newSecret).toMatch(/^whsec_/);
+    expect(newSecret).not.toBe("whsec_old");
+    expect(partner).toMatchObject({ webhookSecret: newSecret, webhookUrl: URL_ });
+  });
+
+  it("gives a different secret each time", async () => {
+    const partners = new InMemoryPartnerRepository();
+    await partners.create({ name: "pfa-preview", keyHash: "a".repeat(64) });
+
+    const first = await rotateWebhookSecret(partners, "pfa-preview");
+    const second = await rotateWebhookSecret(partners, "pfa-preview");
+
+    expect(second.newSecret).not.toBe(first.newSecret);
+  });
+
+  it("refuses an unknown partner and a revoked one, changing nothing", async () => {
+    const partners = new InMemoryPartnerRepository();
+    const revoked = await partners.create({
+      name: "gone",
+      keyHash: "b".repeat(64),
+      webhookSecret: "whsec_keep",
+    });
+    await partners.revoke(revoked.id);
+
+    await expect(rotateWebhookSecret(partners, "nobody")).rejects.toThrow(PartnerNotFoundError);
+    await expect(rotateWebhookSecret(partners, "gone")).rejects.toThrow(/revoked/);
+    expect((await partners.getById(revoked.id))?.webhookSecret).toBe("whsec_keep");
   });
 });

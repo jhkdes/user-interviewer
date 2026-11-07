@@ -11,11 +11,17 @@
  *   npm run create:partner -- --name=pfa-preview --webhook-url=https://pfa-preview.example.com/hooks/ui
  *   npm run create:partner -- --list
  *   npm run create:partner -- --set-webhook=pfa-preview --webhook-url=https://pfa-preview.example.com/hooks/ui
+ *   npm run create:partner -- --rotate-webhook-secret=pfa-preview
  *   npm run create:partner -- --revoke=pfa-preview
  *
  * --set-webhook points an existing partner's webhook at an address (https only).
  * It keeps the partner's signing secret, so nothing changes on the receiver's
  * side except where the events go.
+ *
+ * --rotate-webhook-secret replaces the signing secret and prints the new one
+ * once. Events are signed with the new secret from that moment, so the receiver
+ * should accept both secrets until it has switched (events that fail in the
+ * meantime are retried for 24 hours).
  *
  * UI's Preview and Production deployments share one database, so register two
  * partners for PFA (pfa-preview and pfa-production), each with its own key.
@@ -27,6 +33,7 @@ import { generateApiKey, generateWebhookSecret, hashApiKey } from "../src/partne
 import {
   InvalidWebhookUrlError,
   PartnerNotFoundError,
+  rotateWebhookSecret,
   setPartnerWebhook,
 } from "../src/partner-api/set-webhook";
 import { getPartnerRepository } from "../src/repositories/get-partner-repository";
@@ -35,6 +42,7 @@ const USAGE =
   "Usage: npm run create:partner -- --name=<name> [--webhook-url=<https url>]\n" +
   "       npm run create:partner -- --list\n" +
   "       npm run create:partner -- --set-webhook=<name> --webhook-url=<https url>\n" +
+  "       npm run create:partner -- --rotate-webhook-secret=<name>\n" +
   "       npm run create:partner -- --revoke=<name>";
 
 function parseArgs(): Record<string, string> {
@@ -82,6 +90,31 @@ async function main() {
       } else {
         console.log("The signing secret is unchanged.");
       }
+    } catch (error) {
+      if (error instanceof InvalidWebhookUrlError || error instanceof PartnerNotFoundError) {
+        console.error(error.message);
+        process.exit(1);
+      }
+      throw error;
+    }
+    return;
+  }
+
+  if ("rotate-webhook-secret" in args) {
+    if (!args["rotate-webhook-secret"]) {
+      console.error("--rotate-webhook-secret needs a partner name.\n" + USAGE);
+      process.exit(1);
+    }
+    try {
+      const { partner, newSecret } = await rotateWebhookSecret(
+        partners,
+        args["rotate-webhook-secret"],
+      );
+      console.log(`New webhook secret for ${partner.name}. Shown only once:`);
+      console.log(`  Webhook secret:  ${newSecret}`);
+      console.log("");
+      console.log("Events are signed with it from now on. Have the receiver accept both the");
+      console.log("old and new secret until it has switched; failed events retry for 24 hours.");
     } catch (error) {
       if (error instanceof InvalidWebhookUrlError || error instanceof PartnerNotFoundError) {
         console.error(error.message);

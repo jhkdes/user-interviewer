@@ -13,6 +13,16 @@ let studies = new InMemoryStudyRepository();
 let invitations = new InMemoryPartnerInvitationRepository();
 let interviews = new InMemoryInterviewRepository();
 vi.mock("@/repositories/get-partner-repository", () => ({ getPartnerRepository: () => partners }));
+vi.mock("@/repositories/get-partner-rate-limit-repository", async () => {
+  const { InMemoryPartnerRateLimitRepository } =
+    await import("@/repositories/in-memory/in-memory-partner-rate-limit-repository");
+  return { getPartnerRateLimitRepository: () => new InMemoryPartnerRateLimitRepository() };
+});
+vi.mock("@/repositories/get-partner-idempotency-repository", async () => {
+  const { InMemoryPartnerIdempotencyRepository } =
+    await import("@/repositories/in-memory/in-memory-partner-idempotency-repository");
+  return { getPartnerIdempotencyRepository: () => new InMemoryPartnerIdempotencyRepository() };
+});
 vi.mock("@/repositories/get-study-repository", () => ({ getStudyRepository: () => studies }));
 vi.mock("@/repositories/get-partner-invitation-repository", () => ({
   getPartnerInvitationRepository: () => invitations,
@@ -356,6 +366,30 @@ describe("the published schemas match the routes", () => {
     );
     expect(queued).not.toBeNull();
     expect(schemaProblems("InterviewCompletedEvent", queued!.delivery.payload)).toEqual([]);
+  });
+
+  it("documents the rate limit on every operation and the idempotency key on every write", () => {
+    const paths = openApiDocument.paths as Record<
+      string,
+      Record<string, { responses: Record<string, unknown>; parameters?: unknown[] }>
+    >;
+    const writes = [
+      "post /studies",
+      "patch /studies/{studyId}",
+      "delete /studies/{studyId}",
+      "post /studies/{studyId}/invitations",
+      "delete /interviews/{interviewId}",
+    ];
+    for (const [path, item] of Object.entries(paths)) {
+      for (const [method, operation] of Object.entries(item)) {
+        if (method === "parameters") continue;
+        expect(operation.responses["429"], `${method} ${path} lists 429`).toBeDefined();
+        const takesKey = JSON.stringify(operation.parameters ?? []).includes("IdempotencyKey");
+        expect(takesKey, `${method} ${path} idempotency key`).toBe(
+          writes.includes(`${method} ${path}`),
+        );
+      }
+    }
   });
 
   it("documents every route the API serves", () => {

@@ -19,6 +19,15 @@ info:
     **Errors.** Every error is `{ "error": { "code", "message", "details"? } }`.
     `code` is the contract; `message` is for logs.
 
+    **Rate limit.** 60 requests per minute per API key, counted in fixed
+    clock minutes. Beyond it the API answers `429 rate_limited` with
+    `Retry-After`. Reads and writes count alike, and audio ranges count as
+    requests.
+
+    **Idempotency.** Writes accept an optional `Idempotency-Key` header (see the
+    parameter of that name). `POST /studies` and `POST /invitations` are also
+    idempotent by their own keys (`ownerRef`, `trackingId`).
+
     **Request ids.** Send your own `X-Request-Id` (letters, digits, `.`, `_`,
     `-`, up to 64 characters) and UI echoes it; otherwise UI makes one. Every
     response, including errors, carries it.
@@ -56,6 +65,7 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/Me" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "429": { $ref: "#/components/responses/RateLimited" }
         "500": { $ref: "#/components/responses/Internal" }
 
   /studies:
@@ -69,6 +79,7 @@ paths:
         ignores the body; use `PATCH` to change a study.
       parameters:
         - $ref: "#/components/parameters/RequestId"
+        - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
         required: true
         content:
@@ -91,6 +102,7 @@ paths:
               schema: { $ref: "#/components/schemas/Study" }
         "400": { $ref: "#/components/responses/InvalidRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "429": { $ref: "#/components/responses/RateLimited" }
         "422": { $ref: "#/components/responses/UnsupportedProvider" }
         "500": { $ref: "#/components/responses/Internal" }
 
@@ -113,12 +125,15 @@ paths:
               schema: { $ref: "#/components/schemas/Study" }
         "400": { $ref: "#/components/responses/InvalidRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "429": { $ref: "#/components/responses/RateLimited" }
         "404": { $ref: "#/components/responses/NotFound" }
         "409": { $ref: "#/components/responses/Conflict" }
         "500": { $ref: "#/components/responses/Internal" }
     patch:
       tags: [Studies]
       operationId: updateStudy
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
       summary: Change a study
       description: |
         Applies to interviews that start afterward; one already running keeps
@@ -143,12 +158,15 @@ paths:
               schema: { $ref: "#/components/schemas/Study" }
         "400": { $ref: "#/components/responses/InvalidRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "429": { $ref: "#/components/responses/RateLimited" }
         "404": { $ref: "#/components/responses/NotFound" }
         "409": { $ref: "#/components/responses/Conflict" }
         "500": { $ref: "#/components/responses/Internal" }
     delete:
       tags: [Studies]
       operationId: deleteStudy
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
       summary: Delete a study and everything under it
       description: |
         Deletes every interview's recording at the voice provider first, then
@@ -163,6 +181,7 @@ paths:
             X-Request-Id: { $ref: "#/components/headers/RequestId" }
         "400": { $ref: "#/components/responses/InvalidRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "429": { $ref: "#/components/responses/RateLimited" }
         "404": { $ref: "#/components/responses/NotFound" }
         "409": { $ref: "#/components/responses/Conflict" }
         "500": { $ref: "#/components/responses/Internal" }
@@ -176,6 +195,8 @@ paths:
     post:
       tags: [Invitations]
       operationId: createInvitation
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
       summary: Invite one colleague, or update the invitation with the same trackingId
       description: |
         Idempotent per `trackingId`: a repeat updates the name and context and
@@ -204,6 +225,7 @@ paths:
               schema: { $ref: "#/components/schemas/Invitation" }
         "400": { $ref: "#/components/responses/InvalidRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "429": { $ref: "#/components/responses/RateLimited" }
         "404": { $ref: "#/components/responses/NotFound" }
         "409": { $ref: "#/components/responses/Conflict" }
         "422": { $ref: "#/components/responses/InvalidTrackingId" }
@@ -241,6 +263,7 @@ paths:
                     description: Null on the last page.
         "400": { $ref: "#/components/responses/InvalidRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "429": { $ref: "#/components/responses/RateLimited" }
         "404": { $ref: "#/components/responses/NotFound" }
         "409": { $ref: "#/components/responses/Conflict" }
         "500": { $ref: "#/components/responses/Internal" }
@@ -265,6 +288,7 @@ paths:
               schema: { $ref: "#/components/schemas/Invitation" }
         "400": { $ref: "#/components/responses/InvalidRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "429": { $ref: "#/components/responses/RateLimited" }
         "404": { $ref: "#/components/responses/NotFound" }
         "409": { $ref: "#/components/responses/Conflict" }
         "500": { $ref: "#/components/responses/Internal" }
@@ -288,12 +312,15 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/Interview" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "429": { $ref: "#/components/responses/RateLimited" }
         "404": { $ref: "#/components/responses/NotFound" }
         "409": { $ref: "#/components/responses/Conflict" }
         "500": { $ref: "#/components/responses/Internal" }
     delete:
       tags: [Interviews]
       operationId: deleteInterview
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
       summary: Delete one interview
       description: |
         Deletes the recording at the voice provider first, then the transcript,
@@ -307,6 +334,7 @@ paths:
           headers:
             X-Request-Id: { $ref: "#/components/headers/RequestId" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "429": { $ref: "#/components/responses/RateLimited" }
         "404": { $ref: "#/components/responses/NotFound" }
         "409": { $ref: "#/components/responses/Conflict" }
         "500": { $ref: "#/components/responses/Internal" }
@@ -335,6 +363,7 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/Transcript" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "429": { $ref: "#/components/responses/RateLimited" }
         "404": { $ref: "#/components/responses/NotFound" }
         "409": { $ref: "#/components/responses/Conflict" }
         "500": { $ref: "#/components/responses/Internal" }
@@ -387,6 +416,7 @@ paths:
             audio/mpeg:
               schema: { type: string, format: binary }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "429": { $ref: "#/components/responses/RateLimited" }
         "404": { $ref: "#/components/responses/NotFound" }
         "409": { $ref: "#/components/responses/Conflict" }
         "416":
@@ -466,6 +496,17 @@ components:
       in: header
       required: false
       schema: { type: string, pattern: "^[A-Za-z0-9._-]{1,64}$" }
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: false
+      schema: { type: string, pattern: "^[A-Za-z0-9._:~-]{1,255}$" }
+      description: |
+        Makes a retry safe. A repeat of the same request with the same key,
+        within 24 hours, gets the first answer back (marked
+        `Idempotent-Replayed: true`) and the work is not done again. The same key
+        with a different request is `409`. Only successful answers (2xx) are
+        kept; a failed request gives its key back. Keys are per API key.
     OwnerRefRequired:
       name: X-Owner-Ref
       in: header
@@ -495,6 +536,18 @@ components:
       schema: { $ref: "#/components/schemas/TrackingId" }
 
   responses:
+    RateLimited:
+      description: |
+        `rate_limited`: more than 60 requests in the current minute (the
+        deployment may set another limit). Wait `Retry-After` seconds.
+      headers:
+        X-Request-Id: { $ref: "#/components/headers/RequestId" }
+        Retry-After:
+          description: Seconds until the next minute starts.
+          schema: { type: integer, minimum: 1 }
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
     InvalidRequest:
       description: |
         `invalid_request`: malformed JSON, a rejected field (every problem is

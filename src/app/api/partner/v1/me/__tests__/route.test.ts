@@ -5,6 +5,16 @@ import type { PartnerRepository } from "@/repositories/partner-repository";
 
 let repo: PartnerRepository = new InMemoryPartnerRepository();
 vi.mock("@/repositories/get-partner-repository", () => ({ getPartnerRepository: () => repo }));
+vi.mock("@/repositories/get-partner-rate-limit-repository", async () => {
+  const { InMemoryPartnerRateLimitRepository } =
+    await import("@/repositories/in-memory/in-memory-partner-rate-limit-repository");
+  return { getPartnerRateLimitRepository: () => new InMemoryPartnerRateLimitRepository() };
+});
+vi.mock("@/repositories/get-partner-idempotency-repository", async () => {
+  const { InMemoryPartnerIdempotencyRepository } =
+    await import("@/repositories/in-memory/in-memory-partner-idempotency-repository");
+  return { getPartnerIdempotencyRepository: () => new InMemoryPartnerIdempotencyRepository() };
+});
 
 import { GET } from "../route";
 

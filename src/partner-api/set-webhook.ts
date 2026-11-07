@@ -59,3 +59,23 @@ export async function setPartnerWebhook(
   });
   return { partner, newSecret };
 }
+
+/**
+ * Replaces a partner's webhook signing secret with a new one, returned once.
+ * From that moment events are signed with the new secret only, so the receiver
+ * should accept both until it has switched; events that fail meanwhile are
+ * retried for 24 hours.
+ */
+export async function rotateWebhookSecret(
+  partners: PartnerRepository,
+  name: string,
+): Promise<{ partner: Partner; newSecret: string }> {
+  const existing = await partners.getByName(name);
+  if (!existing) throw new PartnerNotFoundError(name);
+  if (existing.revokedAt) {
+    throw new InvalidWebhookUrlError(`Partner "${name}" is revoked; its webhook is not used.`);
+  }
+  const newSecret = generateWebhookSecret();
+  const partner = await partners.updateWebhook(existing.id, { webhookSecret: newSecret });
+  return { partner, newSecret };
+}

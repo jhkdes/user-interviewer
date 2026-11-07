@@ -43,33 +43,36 @@ export const GET = withPartner<Params>(async ({ request, partner, requestId, par
  * be repeated. The colleague's invitation stays, and goes back to `not_started`
  * if this was its only interview.
  */
-export const DELETE = withPartner<Params>(async ({ request, partner, requestId, params }) => {
-  const studies = getStudyRepository();
-  const interviews = getInterviewRepository();
-  const loaded = await loadPartnerInterview(
-    partner,
-    { studies, interviews },
-    params.interviewId,
-    request,
-    requestId,
-  );
-  if (!loaded.ok) return loaded.response;
-
-  try {
-    await deletePartnerInterview(
-      { studies, interviews, deleteConversation: deleteConversationResult },
-      loaded.interview,
+export const DELETE = withPartner<Params>(
+  async ({ request, partner, requestId, params }) => {
+    const studies = getStudyRepository();
+    const interviews = getInterviewRepository();
+    const loaded = await loadPartnerInterview(
+      partner,
+      { studies, interviews },
+      params.interviewId,
+      request,
+      requestId,
     );
-  } catch (error) {
-    if (error instanceof ProviderDeleteError) {
-      return errorResponse(
-        "provider_error",
-        `${error.message} Nothing was deleted; try again.`,
-        502,
-        requestId,
+    if (!loaded.ok) return loaded.response;
+
+    try {
+      await deletePartnerInterview(
+        { studies, interviews, deleteConversation: deleteConversationResult },
+        loaded.interview,
       );
+    } catch (error) {
+      if (error instanceof ProviderDeleteError) {
+        return errorResponse(
+          "provider_error",
+          `${error.message} Nothing was deleted; try again.`,
+          502,
+          requestId,
+        );
+      }
+      throw error;
     }
-    throw error;
-  }
-  return new Response(null, { status: 204, headers: { "X-Request-Id": requestId } });
-});
+    return new Response(null, { status: 204, headers: { "X-Request-Id": requestId } });
+  },
+  { idempotent: true },
+);

@@ -25,43 +25,46 @@ type Params = { studyId: string };
  * `trackingId` (its link stays the same). Every call also extends the study's
  * expiry to at least seven days from now.
  */
-export const POST = withPartner<Params>(async ({ request, partner, requestId, params }) => {
-  const studies = getStudyRepository();
-  const loaded = await loadPartnerStudy(partner, studies, params.studyId, request, requestId, {
-    requireOwnerRef: true,
-  });
-  if (!loaded.ok) return loaded.response;
+export const POST = withPartner<Params>(
+  async ({ request, partner, requestId, params }) => {
+    const studies = getStudyRepository();
+    const loaded = await loadPartnerStudy(partner, studies, params.studyId, request, requestId, {
+      requireOwnerRef: true,
+    });
+    if (!loaded.ok) return loaded.response;
 
-  const read = await readJsonBody(request, requestId);
-  if (!read.ok) return read.response;
-  const parsed = parseInvitation(read.body);
-  if (!parsed.ok) {
-    return parsed.kind === "invalid_tracking_id"
-      ? validationErrorResponse(parsed.errors, requestId, "invalid_tracking_id", 422)
-      : validationErrorResponse(parsed.errors, requestId);
-  }
-
-  try {
-    const { invitation, created, study } = await issueInvitation(
-      { studies, invitations: getPartnerInvitationRepository() },
-      loaded.study,
-      parsed.value,
-    );
-    const interviews = (await getInterviewRepository().listByStudyId(study.id)).filter(
-      (i) => i.invitationId === invitation.id,
-    );
-    return jsonResponse(
-      invitationDto(invitation, study, interviews, resolveBaseUrl(request)),
-      created ? 201 : 200,
-      requestId,
-    );
-  } catch (error) {
-    if (error instanceof StudyClosedError) {
-      return errorResponse("conflict", error.message, 409, requestId);
+    const read = await readJsonBody(request, requestId);
+    if (!read.ok) return read.response;
+    const parsed = parseInvitation(read.body);
+    if (!parsed.ok) {
+      return parsed.kind === "invalid_tracking_id"
+        ? validationErrorResponse(parsed.errors, requestId, "invalid_tracking_id", 422)
+        : validationErrorResponse(parsed.errors, requestId);
     }
-    throw error;
-  }
-});
+
+    try {
+      const { invitation, created, study } = await issueInvitation(
+        { studies, invitations: getPartnerInvitationRepository() },
+        loaded.study,
+        parsed.value,
+      );
+      const interviews = (await getInterviewRepository().listByStudyId(study.id)).filter(
+        (i) => i.invitationId === invitation.id,
+      );
+      return jsonResponse(
+        invitationDto(invitation, study, interviews, resolveBaseUrl(request)),
+        created ? 201 : 200,
+        requestId,
+      );
+    } catch (error) {
+      if (error instanceof StudyClosedError) {
+        return errorResponse("conflict", error.message, 409, requestId);
+      }
+      throw error;
+    }
+  },
+  { idempotent: true },
+);
 
 /** The study's invitations, oldest first, with each one's status and interviews. */
 export const GET = withPartner<Params>(async ({ request, partner, requestId, params }) => {
