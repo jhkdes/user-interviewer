@@ -44,6 +44,8 @@ export class InMemoryInterviewRepository implements InterviewRepository {
       lastActivityAt: null,
       idleNudgeSentAt: null,
       switchedToTextAt: null,
+      invitationId: null,
+      snapshot: null,
     };
     this.interviews.set(interview.id, interview);
     return { ...interview };

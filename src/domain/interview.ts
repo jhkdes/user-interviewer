@@ -1,3 +1,4 @@
+import type { InterviewSnapshot } from "./partner-invitation";
 import type { VoiceProvider } from "./study";
 
 export type InterviewStatus = "pending" | "in-progress" | "completed" | "expired";
@@ -81,6 +82,10 @@ export interface Interview {
   idleNudgeSentAt: Date | null;
   /** Set when a participant restarted a started voice interview as a typing interview (the voice segment is discarded). `null` otherwise. */
   switchedToTextAt: Date | null;
+  /** Partner studies: the invitation this interview came from. `null` for every other interview. */
+  invitationId: string | null;
+  /** Partner studies: the prompt, opening line, closing question and timing frozen when the interview started. `null` for every other interview. */
+  snapshot: InterviewSnapshot | null;
 }
 
 /** One message of an in-progress text interview, stored while the interview runs and deleted once it has been written into `Interview.transcript`. */

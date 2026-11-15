@@ -46,6 +46,8 @@ export type InterviewUpdate = Partial<
     | "lastActivityAt"
     | "idleNudgeSentAt"
     | "switchedToTextAt"
+    | "invitationId"
+    | "snapshot"
   >
 >;
 

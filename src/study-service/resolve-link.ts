@@ -11,9 +11,8 @@ export interface ResolvedLink {
 
 /**
  * Finds the study behind a participant link token, and which link it was.
- * The voice link works for every study. The text link only exists for
- * discovery studies (feedback studies offer typing inside the voice link), so
- * a text token that somehow sits on a feedback study resolves to nothing.
+ * Every study can have a voice link and a text-only link; the voice link is
+ * the one that always exists.
  */
 export async function resolveLink(
   repo: StudyRepository,
@@ -23,7 +22,7 @@ export async function resolveLink(
   if (voice) return { study: voice, channel: "voice" };
 
   const text = await repo.getByTextLinkToken(token);
-  if (text && text.type === "discovery") return { study: text, channel: "text" };
+  if (text) return { study: text, channel: "text" };
 
   return null;
 }

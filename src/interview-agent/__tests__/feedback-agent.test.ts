@@ -491,3 +491,111 @@ describe("FeedbackAgent text channel", () => {
     expect(llm.calls.generateInterviewerTurn[0].systemPrompt).not.toContain("## Time is up");
   });
 });
+
+describe("FeedbackAgent with a study's own closing question", () => {
+  const CUSTOM =
+    "Is there anything you'd like {{participant_name}} to hear that we haven't covered?";
+  const RENDERED = "Is there anything you'd like Sam to hear that we haven't covered?";
+
+  it("appends the study's question (with the participant's name) instead of the standard one", async () => {
+    const llm = new FakeLLMProvider();
+    llm.scriptInterviewerTurns([
+      { utterance: "Thanks, that's everything.", shouldEndInterview: true },
+    ]);
+    const agent = new FeedbackAgent(llm);
+
+    const result = await agent.generateNextTurn({
+      context,
+      closingQuestion: CUSTOM,
+      conversationHistory: [{ speaker: "participant", text: "Yes, it was good." }],
+      interviewStartedAt: START,
+      now: new Date(START.getTime() + 120_000),
+    });
+
+    expect(result.utterance).toBe(`Thanks, that's everything. ${RENDERED}`);
+    expect(result.utterance).not.toContain("today's session");
+    expect(result.openFloorJustAsked).toBe(true);
+    expect(result.isInterviewOver).toBe(false);
+  });
+
+  it("recognizes its own question as asked, and closes on the turn after it", async () => {
+    const llm = new FakeLLMProvider();
+    llm.scriptInterviewerTurns([{ utterance: "Thank you, take care.", shouldEndInterview: false }]);
+    const agent = new FeedbackAgent(llm);
+
+    const result = await agent.generateNextTurn({
+      context,
+      closingQuestion: CUSTOM,
+      conversationHistory: [
+        { speaker: "interviewer", text: `Thanks. ${RENDERED}` },
+        { speaker: "participant", text: "No, that's it." },
+      ],
+      interviewStartedAt: START,
+      now: new Date(START.getTime() + 150_000),
+    });
+
+    expect(result.isInterviewOver).toBe(true);
+    expect(llm.calls.generateInterviewerTurn[0].systemPrompt).toContain("your closing question");
+    expect(llm.calls.generateInterviewerTurn[0].systemPrompt).not.toContain(
+      "anything else on your mind",
+    );
+  });
+
+  it("still recognizes it when the provider's transcript changes punctuation and case", async () => {
+    const llm = new FakeLLMProvider();
+    llm.scriptInterviewerTurns([{ utterance: "Bye!", shouldEndInterview: false }]);
+    const agent = new FeedbackAgent(llm);
+
+    const result = await agent.generateNextTurn({
+      context,
+      closingQuestion: CUSTOM,
+      conversationHistory: [
+        {
+          speaker: "interviewer",
+          text: "Thanks. IS THERE ANYTHING YOU’D LIKE SAM TO HEAR THAT WE HAVEN’T COVERED",
+        },
+        { speaker: "participant", text: "Nope." },
+      ],
+      interviewStartedAt: START,
+      now: new Date(START.getTime() + 150_000),
+    });
+
+    expect(result.isInterviewOver).toBe(true);
+  });
+
+  it("streams the study's own question rather than the standard one", async () => {
+    const llm = new FakeLLMProvider();
+    llm.scriptInterviewerTurnStreams([{ textChunks: ["Thanks."], shouldEndInterview: true }]);
+    const agent = new FeedbackAgent(llm);
+
+    const chunks: string[] = [];
+    for await (const event of agent.generateNextTurnStreaming({
+      context,
+      closingQuestion: CUSTOM,
+      conversationHistory: [{ speaker: "participant", text: "Done." }],
+      interviewStartedAt: START,
+      now: new Date(START.getTime() + 120_000),
+    })) {
+      if (event.type === "text-delta") chunks.push(event.text);
+    }
+
+    expect(chunks.join("")).toContain(RENDERED);
+    expect(chunks.join("")).not.toContain("today's session");
+  });
+
+  it("keeps the standard behaviour when the study has none", async () => {
+    const llm = new FakeLLMProvider();
+    llm.scriptInterviewerTurns([{ utterance: "Thanks.", shouldEndInterview: true }]);
+    const agent = new FeedbackAgent(llm);
+
+    const result = await agent.generateNextTurn({
+      context,
+      closingQuestion: null,
+      conversationHistory: [{ speaker: "participant", text: "Done." }],
+      interviewStartedAt: START,
+      now: new Date(START.getTime() + 120_000),
+    });
+
+    expect(result.utterance).toBe(`Thanks. ${OPEN_FLOOR_UTTERANCE}`);
+  });
+});

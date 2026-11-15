@@ -109,6 +109,20 @@ describe("getTextState", () => {
     ).toBeNull();
   });
 
+  it("answers a feedback study's typed interview through its text link, and through the voice link it was switched from", async () => {
+    const { deps, interview } = await setupTextSession({ studyType: "feedback" });
+
+    expect(
+      await getTextState(deps, { interviewId: interview.id, linkToken: "text-token" }),
+    ).toMatchObject({ mode: "text", firstName: "Sam" });
+    expect(
+      await getTextState(deps, { interviewId: interview.id, linkToken: "feedback-token" }),
+    ).toMatchObject({ mode: "text" });
+    expect(
+      await getTextState(deps, { interviewId: interview.id, linkToken: "someone-else" }),
+    ).toBeNull();
+  });
+
   it("answers a discovery study's text interview only for its text link token", async () => {
     const { deps, interview } = await setupTextSession({ studyType: "discovery" });
 

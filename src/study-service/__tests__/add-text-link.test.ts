@@ -30,7 +30,7 @@ describe("addTextLink", () => {
     expect(second.textLinkToken).toBe(first.textLinkToken);
   });
 
-  it("refuses a feedback study", async () => {
+  it("gives a feedback study a text link", async () => {
     const repo = new InMemoryStudyRepository();
     const study = await repo.create({
       ...base,
@@ -39,7 +39,10 @@ describe("addTextLink", () => {
       linkToken: "voice",
     });
 
-    await expect(addTextLink(repo, study.id)).rejects.toThrow(/discovery/);
+    const updated = await addTextLink(repo, study.id);
+
+    expect(updated.textLinkToken).toBeTruthy();
+    expect(updated.textLinkToken).not.toBe("voice");
   });
 
   it("rejects an unknown study", async () => {

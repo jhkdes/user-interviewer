@@ -87,7 +87,11 @@ export function ElevenLabsLiveCall({
         setErrorMessage("The voice interviewer isn't configured yet.");
         return;
       }
-      const { signedUrl } = (await res.json()) as { signedUrl: string };
+      const { signedUrl, firstMessage } = (await res.json()) as {
+        signedUrl: string;
+        /** Present only when the study words its own opening line. */
+        firstMessage?: string;
+      };
 
       let conversation: Awaited<ReturnType<typeof Conversation.startSession>>;
       try {
@@ -104,6 +108,9 @@ export function ElevenLabsLiveCall({
           // `{{firstName}}` for a personalized greeting, the same
           // templating mechanism as the `{{participant_name}}` placeholder
           // in a Vapi study's custom prompt.
+          // The study's own opening line replaces the agent's built-in greeting;
+          // with none, no override is sent and the greeting stands as before.
+          ...(firstMessage ? { overrides: { agent: { firstMessage } } } : {}),
           customLlmExtraBody: { interviewId },
           dynamicVariables: { interviewId, firstName },
           onConnect: () => {

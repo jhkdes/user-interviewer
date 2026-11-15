@@ -1,5 +1,7 @@
 import type { Interview } from "@/domain";
+import { buildInterviewSnapshot } from "@/partner-api/snapshot";
 import type { InterviewRepository } from "@/repositories/interview-repository";
+import type { PartnerInvitationRepository } from "@/repositories/partner-invitation-repository";
 import type { StudyRepository } from "@/repositories/study-repository";
 import { checkLinkValidity, resolveLink, type LinkValidity } from "@/study-service";
 import { validateIntake, type IntakeInput } from "./intake-validation";
@@ -43,6 +45,8 @@ export interface StartInterviewInput extends IntakeInput {
 export interface StartInterviewDeps {
   studyRepo: StudyRepository;
   interviewRepo: InterviewRepository;
+  /** Needed for partner studies, whose links only work with a tracking id that matches an invitation. A partner study is treated as not found without it. */
+  invitationRepo?: PartnerInvitationRepository;
   /** Whether typed interviews are switched on for this deploy (TEXT_INTERVIEW_MODE_ENABLED). A study's text link is treated as unknown while this is off. */
   textEnabled?: boolean;
   /** Defaults to `new Date()` — overridable so tests can simulate elapsed time deterministically. */
@@ -72,6 +76,15 @@ export async function startInterview(
   const validity = checkLinkValidity(study, now);
   if (validity !== "valid") throw new StudyLinkInvalidError(validity);
 
+  // A partner study is only reachable through a colleague's own invitation: the
+  // bare study link, or a tracking id nobody was given, starts nothing.
+  const invitation = study.partnerId
+    ? input.trackingId && deps.invitationRepo
+      ? await deps.invitationRepo.getByStudyAndTrackingId(study.id, input.trackingId)
+      : null
+    : null;
+  if (study.partnerId && !invitation) throw new StudyLinkNotFoundError(input.linkToken);
+
   const { valid, errors } = validateIntake(input);
   if (!valid) throw new InvalidIntakeError(errors);
 
@@ -88,5 +101,11 @@ export async function startInterview(
     mode: channel === "text" ? "text" : "voice",
   });
 
-  return deps.interviewRepo.update(interview.id, { consentGivenAt: now });
+  return deps.interviewRepo.update(interview.id, {
+    consentGivenAt: now,
+    // Partner interviews remember their invitation and what they were started with.
+    ...(invitation
+      ? { invitationId: invitation.id, snapshot: buildInterviewSnapshot(study, invitation) }
+      : {}),
+  });
 }

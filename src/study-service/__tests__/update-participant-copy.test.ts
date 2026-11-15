@@ -44,7 +44,38 @@ describe("updateParticipantCopy", () => {
     expect((await repo.getById(study.id))?.participantCopy).toBeNull();
   });
 
-  it("rejects a feedback study, and an unknown study", async () => {
+  it("saves landing and ending copy for a feedback study, including the feedback-only fields", async () => {
+    const repo = new InMemoryStudyRepository();
+    const feedback = await createStudy(repo, {
+      title: "Webinar feedback",
+      description: "today's webinar",
+      type: "feedback",
+      feedbackQuestions: ["How was it?"],
+      preInterviewQuestions: [],
+    });
+
+    const updated = await updateParticipantCopy(repo, feedback.id, {
+      intro: {
+        brandLabel: "PFA · session feedback",
+        contactEmail: "help@pfa.example",
+        showFaq: true,
+        consentNote: "Starting means you agree.",
+      },
+      completion: { title: "All done" },
+    });
+
+    expect(updated.participantCopy).toEqual({
+      intro: {
+        brandLabel: "PFA · session feedback",
+        contactEmail: "help@pfa.example",
+        showFaq: true,
+        consentNote: "Starting means you agree.",
+      },
+      completion: { title: "All done" },
+    });
+  });
+
+  it("rejects a bad contact email and a non-boolean showFaq, and an unknown study", async () => {
     const repo = new InMemoryStudyRepository();
     const feedback = await createStudy(repo, {
       title: "Webinar feedback",
@@ -55,8 +86,11 @@ describe("updateParticipantCopy", () => {
     });
 
     await expect(
-      updateParticipantCopy(repo, feedback.id, { completion: { title: "x" } }),
-    ).rejects.toThrow(/only be customized for discovery/);
+      updateParticipantCopy(repo, feedback.id, { intro: { contactEmail: "not an email" } }),
+    ).rejects.toThrow(InvalidStudyInputError);
+    await expect(
+      updateParticipantCopy(repo, feedback.id, { intro: { showFaq: "yes" } }),
+    ).rejects.toThrow(InvalidStudyInputError);
     await expect(updateParticipantCopy(repo, "missing", null)).rejects.toThrow(/not found/);
   });
 });

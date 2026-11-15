@@ -6,8 +6,8 @@ import { InvalidStudyInputError } from "./create-study";
 /**
  * Saves the custom text for a study's landing and ending pages. `null` (or
  * copy with nothing in it) returns the study to the standard wording. Only
- * discovery studies have these pages to customize; a feedback study keeps its
- * own simpler intro. Editable at any time, unlike a study's type or pipeline.
+ * discovery and feedback studies have these pages to customize (a feedback
+ * study's landing page is a shorter screen, with its own defaults). Editable at any time, unlike a study's type or pipeline.
  * `channel` picks which of the study's two links the text is for; `null` on the
  * text link makes it follow the voice link's wording again.
  */
@@ -19,9 +19,9 @@ export async function updateParticipantCopy(
 ): Promise<Study> {
   const existing = await repo.getById(studyId);
   if (!existing) throw new Error(`Study not found: ${studyId}`);
-  if (existing.type !== "discovery") {
+  if (existing.type !== "discovery" && existing.type !== "feedback") {
     throw new InvalidStudyInputError([
-      "participant pages can only be customized for discovery studies",
+      "participant pages can only be customized for discovery and feedback studies",
     ]);
   }
 

@@ -26,6 +26,15 @@ const baseStudy: Study = {
   linkToken: "token",
   textLinkToken: null,
   participantCopyText: null,
+  subjectName: null,
+  endedEarlyMinTurns: null,
+  targetMinutes: null,
+  hardStopMinutes: null,
+  participantSummaryEmail: true,
+  partnerId: null,
+  ownerRef: null,
+  firstMessage: null,
+  closingQuestion: null,
   status: "open",
   voiceProvider: "vapi",
   createdAt: new Date("2026-08-01T00:00:00Z"),
@@ -67,6 +76,8 @@ const baseInterview: Interview = {
   lastActivityAt: null,
   idleNudgeSentAt: null,
   switchedToTextAt: null,
+  invitationId: null,
+  snapshot: null,
 };
 
 describe("resolveScreenerAnswers", () => {

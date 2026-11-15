@@ -9,7 +9,9 @@ import {
   defaultCompletionMessage,
   defaultTagline,
   resolveCompletionCopy,
+  resolveFeedbackIntroCopy,
   resolveIntroCopy,
+  withoutFeedbackDefaults,
   validateParticipantCopy,
   withoutDefaults,
 } from "../index";
@@ -209,5 +211,70 @@ describe("the job-search wording", () => {
     }
     // The consent wording is deliberately left at the default for now.
     expect(JOB_SEARCH_PARTICIPANT_COPY.intro?.consentNote).toBeUndefined();
+  });
+});
+
+describe("feedback landing copy", () => {
+  it("resolves to the wording feedback studies have always shown when there is no copy", () => {
+    const resolved = resolveFeedbackIntroCopy(null, "the webinar");
+
+    expect(resolved).toEqual({
+      brandLabel: "discoverFirst.co · quick feedback",
+      tagline:
+        "A quick, ~5-minute voice check-in about the webinar — a few questions, then you're done.",
+      facts: ["~5 minutes", "Voice, not text", "No login"],
+      steps: [],
+      consentNote:
+        "The call is recorded (audio and transcript) so we can review it afterward. Starting means you're okay with that.",
+      contactEmail: null,
+      showFaq: false,
+    });
+  });
+
+  it("drops anything that equals the standard, but keeps the feedback-only settings", () => {
+    const kept = withoutFeedbackDefaults(
+      {
+        intro: {
+          brandLabel: "discoverFirst.co · quick feedback",
+          tagline: "Custom",
+          facts: ["~5 minutes", "Voice, not text", "No login"],
+          contactEmail: "a@b.co",
+          showFaq: true,
+        },
+        completion: { title: "Thank you, you're done!", message: "Bye" },
+      },
+      "x",
+    );
+
+    expect(kept).toEqual({
+      intro: { tagline: "Custom", contactEmail: "a@b.co", showFaq: true },
+      completion: { message: "Bye" },
+    });
+    expect(withoutFeedbackDefaults({ intro: { showFaq: false } }, "x")).toBeNull();
+  });
+});
+
+describe("feedback landing copy on the text link", () => {
+  it("uses written-chat wording with no mention of a call or recording", () => {
+    const resolved = resolveFeedbackIntroCopy(null, "the webinar", "text");
+
+    expect(resolved.tagline).toBe(
+      "A quick, ~5-minute written check-in about the webinar — a few questions, then you're done.",
+    );
+    expect(resolved.facts).toEqual(["~5 minutes", "Typed chat, not voice", "No login"]);
+    expect(resolved.consentNote).toMatch(/^No audio is recorded\./);
+  });
+
+  it("drops text copy that equals what the text link would show anyway, including the voice link's custom copy", () => {
+    const voiceCopy = { intro: { brandLabel: "PFA", contactEmail: "a@b.co" } };
+
+    const saved = withoutFeedbackDefaults(
+      { intro: { brandLabel: "PFA", contactEmail: "a@b.co", tagline: "Typed hello" } },
+      "x",
+      "text",
+      voiceCopy,
+    );
+
+    expect(saved).toEqual({ intro: { tagline: "Typed hello" } });
   });
 });

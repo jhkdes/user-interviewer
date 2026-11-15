@@ -4,6 +4,7 @@ import type {
   CallEndDetail,
   Interview,
   InterviewMode,
+  InterviewSnapshot,
   InterviewStatus,
   TranscriptEntry,
   VoiceProvider,
@@ -52,6 +53,9 @@ function toInterview(row: InterviewRow): Interview {
     lastActivityAt: row.last_activity_at ? new Date(row.last_activity_at) : null,
     idleNudgeSentAt: row.idle_nudge_sent_at ? new Date(row.idle_nudge_sent_at) : null,
     switchedToTextAt: row.switched_to_text_at ? new Date(row.switched_to_text_at) : null,
+    // `?? null`: absent from rows read before migration 0029 is applied.
+    invitationId: row.invitation_id ?? null,
+    snapshot: (row.prompt_snapshot as InterviewSnapshot | null) ?? null,
   };
 }
 
@@ -111,6 +115,8 @@ function toUpdateRow(patch: InterviewUpdate): Record<string, unknown> {
   if (patch.switchedToTextAt !== undefined) {
     row.switched_to_text_at = patch.switchedToTextAt ? patch.switchedToTextAt.toISOString() : null;
   }
+  if (patch.invitationId !== undefined) row.invitation_id = patch.invitationId;
+  if (patch.snapshot !== undefined) row.prompt_snapshot = patch.snapshot;
   return row;
 }
 

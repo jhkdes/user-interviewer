@@ -97,10 +97,25 @@ export function verifyWebhookSignature(
  * reasonable degraded state.
  */
 export async function fetchConversationAudio(conversationId: string): Promise<Buffer | null> {
+  const result = await fetchConversationAudioResult(conversationId);
+  return result.ok ? result.audio : null;
+}
+
+/**
+ * The same fetch, but saying why it failed, for callers that must tell "there
+ * is no recording" (ElevenLabs answered 4xx) from "ElevenLabs could not be
+ * reached or errored" (worth retrying). `status` is the provider's HTTP status,
+ * or 0 when it could not be reached at all.
+ */
+export type ConversationAudioResult = { ok: true; audio: Buffer } | { ok: false; status: number };
+
+export async function fetchConversationAudioResult(
+  conversationId: string,
+): Promise<ConversationAudioResult> {
   const apiKey = process.env.ELEVENLABS_API_KEY;
   if (!apiKey) {
     console.error("Missing required environment variable: ELEVENLABS_API_KEY");
-    return null;
+    return { ok: false, status: 0 };
   }
 
   try {
@@ -112,12 +127,12 @@ export async function fetchConversationAudio(conversationId: string): Promise<Bu
       console.error(
         `ElevenLabs conversation audio fetch failed for ${conversationId}: ${res.status}`,
       );
-      return null;
+      return { ok: false, status: res.status };
     }
-    return Buffer.from(await res.arrayBuffer());
+    return { ok: true, audio: Buffer.from(await res.arrayBuffer()) };
   } catch (error) {
     console.error(`Failed to fetch recording for conversation ${conversationId}:`, error);
-    return null;
+    return { ok: false, status: 0 };
   }
 }
 
@@ -147,5 +162,68 @@ export async function deleteConversation(conversationId: string): Promise<boolea
   } catch (error) {
     console.error(`Failed to delete ElevenLabs conversation ${conversationId}:`, error);
     return false;
+  }
+}
+
+/**
+ * Whether a finished conversation's recording is readable yet. ElevenLabs
+ * flags it on the conversation record (`has_audio`) once it exists, and keeps
+ * `status` at "processing" (or similar) while it is still working on the call.
+ *
+ * - `ready`: the recording exists.
+ * - `none`: the call is finished and there is no recording (and there will not be one).
+ * - `pending`: the call is still being processed, so a recording may yet appear.
+ * - `unknown`: ElevenLabs could not be asked (an error, or no API key).
+ */
+export type ConversationAudioState = "ready" | "none" | "pending" | "unknown";
+
+export async function fetchConversationAudioState(
+  conversationId: string,
+): Promise<ConversationAudioState> {
+  const apiKey = process.env.ELEVENLABS_API_KEY;
+  if (!apiKey) return "unknown";
+
+  try {
+    const res = await fetch(
+      `https://api.elevenlabs.io/v1/convai/conversations/${encodeURIComponent(conversationId)}`,
+      { headers: { "xi-api-key": apiKey }, cache: "no-store" },
+    );
+    if (!res.ok) return "unknown";
+    const body = (await res.json()) as { status?: string; has_audio?: boolean };
+    if (body.has_audio === true) return "ready";
+    return body.status === "done" || body.status === "failed" ? "none" : "pending";
+  } catch {
+    return "unknown";
+  }
+}
+
+/**
+ * Deletes a conversation and its audio, saying what happened: `deleted`,
+ * `missing` (ElevenLabs has no such conversation, so there is nothing left to
+ * remove) or `failed` (could not be done, worth retrying). Never throws.
+ */
+export type ConversationDeleteResult = "deleted" | "missing" | "failed";
+
+export async function deleteConversationResult(
+  conversationId: string,
+): Promise<ConversationDeleteResult> {
+  const apiKey = process.env.ELEVENLABS_API_KEY;
+  if (!apiKey) {
+    console.error("Missing required environment variable: ELEVENLABS_API_KEY");
+    return "failed";
+  }
+
+  try {
+    const res = await fetch(
+      `https://api.elevenlabs.io/v1/convai/conversations/${encodeURIComponent(conversationId)}`,
+      { method: "DELETE", headers: { "xi-api-key": apiKey }, cache: "no-store" },
+    );
+    if (res.ok) return "deleted";
+    if (res.status === 404) return "missing";
+    console.error(`ElevenLabs conversation delete failed for ${conversationId}: ${res.status}`);
+    return "failed";
+  } catch (error) {
+    console.error(`Failed to delete ElevenLabs conversation ${conversationId}:`, error);
+    return "failed";
   }
 }

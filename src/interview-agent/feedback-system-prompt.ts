@@ -47,6 +47,15 @@ export interface FeedbackPromptContext {
    * (see feedback-agent.ts's TEXT_TIME_CAP_UTTERANCE).
    */
   timeUp?: boolean;
+  /**
+   * True when the study words its own closing question (Study.closingQuestion).
+   * The standard prompt text names the standard question ("anything else on
+   * your mind"); with a custom one it says "closing question" instead, so the
+   * model is never told about a question it will not be asked.
+   */
+  hasCustomClosingQuestion?: boolean;
+  /** True when `customPrompt` has already had its placeholders filled in (a partner interview's frozen prompt), so it is used exactly as it is. */
+  promptIsRendered?: boolean;
 }
 
 /**
@@ -131,17 +140,29 @@ export function buildFeedbackSystemPrompt(context: FeedbackPromptContext): strin
     isClosingTurn,
     channel = "voice",
     timeUp = false,
+    hasCustomClosingQuestion = false,
+    promptIsRendered = false,
   } = context;
   const isText = channel === "text";
   const closingGuidance =
-    (isText && timeUp ? TEXT_TIME_UP_GUIDANCE : "") + (isClosingTurn ? CLOSING_GUIDANCE : "");
+    (isText && timeUp ? TEXT_TIME_UP_GUIDANCE : "") +
+    (isClosingTurn
+      ? hasCustomClosingQuestion
+        ? CLOSING_GUIDANCE.replace(
+            'your "anything else on your mind" question',
+            "your closing question",
+          )
+        : CLOSING_GUIDANCE
+      : "");
   const channelGuidance = isText ? `${TEXT_CHANNEL_GUIDANCE}\n\n` : "";
   const responseContract = isText ? TEXT_RESPONSE_CONTRACT : RESPONSE_CONTRACT;
 
   if (customPrompt) {
-    const interpolated = interpolate(customPrompt, {
-      participant_name: participantFirstName,
-    });
+    const interpolated = promptIsRendered
+      ? customPrompt
+      : interpolate(customPrompt, {
+          participant_name: participantFirstName,
+        });
     return `${closingGuidance}${interpolated}\n\n${channelGuidance}${responseContract}`;
   }
 
@@ -152,7 +173,7 @@ export function buildFeedbackSystemPrompt(context: FeedbackPromptContext): strin
 ## Priorities to cover
 ${questionsList}
 
-${QUESTION_TECHNIQUE_GUIDANCE}
+${hasCustomClosingQuestion ? QUESTION_TECHNIQUE_GUIDANCE.replace('its own "anything else on your mind?" question', "its own closing question") : QUESTION_TECHNIQUE_GUIDANCE}
 
 ## Tone
 Warm, brief, conversational — this is a quick check-in, not a formal interview. Keep your own turns short: one question at a time, no long monologues.

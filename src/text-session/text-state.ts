@@ -46,10 +46,13 @@ export async function getTextState(
 
   const study = await deps.studyRepo.getById(interview.studyId);
   if (!study) return null;
-  // A feedback study is reached by its one link; a discovery study's typed
-  // interviews come in through its text link.
-  const ownLinkToken = study.type === "discovery" ? study.textLinkToken : study.linkToken;
-  if (ownLinkToken !== input.linkToken) return null;
+  // Typed interviews come in through a study's text link. A feedback
+  // interview that was switched to typing from its voice link (an option the
+  // voice link no longer offers) is still readable through that link.
+  const isOwnLink =
+    input.linkToken === study.textLinkToken ||
+    (study.type === "feedback" && input.linkToken === study.linkToken);
+  if (!isOwnLink) return null;
 
   const base = {
     mode: "text" as const,

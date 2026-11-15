@@ -45,14 +45,15 @@ describe("createStudy", () => {
     expect(study.textLinkToken).not.toBe(study.linkToken);
   });
 
-  it("gives a feedback study no text link", async () => {
+  it("gives a feedback study a text link of its own, distinct from the voice link", async () => {
     const study = await createStudy(new InMemoryStudyRepository(), {
       ...validInput,
       type: "feedback",
       feedbackQuestions: ["How did the session go?"],
     });
 
-    expect(study.textLinkToken).toBeNull();
+    expect(study.textLinkToken).toBeTruthy();
+    expect(study.textLinkToken).not.toBe(study.linkToken);
   });
 
   it("generates a distinct link token per study", async () => {

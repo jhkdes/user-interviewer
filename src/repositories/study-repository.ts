@@ -25,6 +25,19 @@ export interface CreateStudyInput {
   participantCopy?: ParticipantCopy;
   /** Custom landing and ending page text for the text link. Omit to follow the voice link's. */
   participantCopyText?: ParticipantCopy;
+  /** Set together with `ownerRef` by the partner API; omit for dashboard studies. */
+  partnerId?: string;
+  ownerRef?: string;
+  subjectName?: string;
+  endedEarlyMinTurns?: number;
+  targetMinutes?: number;
+  hardStopMinutes?: number;
+  /** Defaults to `true`. */
+  participantSummaryEmail?: boolean;
+  /** Feedback-type only. See Study.firstMessage. */
+  firstMessage?: string;
+  /** Feedback-type only. See Study.closingQuestion. */
+  closingQuestion?: string;
   linkToken: string;
   /** Discovery-type only. Omit for a study without a text link. */
   textLinkToken?: string;
@@ -44,6 +57,15 @@ export interface UpdateStudyDetailsInput {
   participantCopy?: ParticipantCopy | null;
   /** Text-link landing and ending text. `null` falls back to `participantCopy`; `undefined` leaves it untouched. */
   participantCopyText?: ParticipantCopy | null;
+  /** `null` clears it back to the built-in greeting; `undefined` leaves it untouched. */
+  firstMessage?: string | null;
+  /** `null` clears it back to the standard question; `undefined` leaves it untouched. */
+  closingQuestion?: string | null;
+  /** `null` clears each back to the standard value; `undefined` leaves it untouched. */
+  endedEarlyMinTurns?: number | null;
+  targetMinutes?: number | null;
+  hardStopMinutes?: number | null;
+  participantSummaryEmail?: boolean;
 }
 
 export interface StudyRepository {
@@ -58,6 +80,8 @@ export interface StudyRepository {
    * it stands afterward, so calling it twice is harmless (the first token wins).
    */
   setTextLinkToken(id: string, textLinkToken: string): Promise<Study>;
+  /** The study a partner created for one owner, if any. At most one exists per (partner, owner). */
+  getByPartnerOwner(partnerId: string, ownerRef: string): Promise<Study | null>;
   list(): Promise<Study[]>;
   updateStatus(id: string, status: StudyStatus): Promise<Study>;
   extendLink(id: string): Promise<Study>;

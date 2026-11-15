@@ -5,6 +5,7 @@ import { getEmailClient } from "@/lib/email";
 import { deleteConversation, verifyWebhookSignature } from "@/lib/elevenlabs/client";
 import { getCompletionWebhookClient } from "@/lib/webhook";
 import { getLLMProvider } from "@/llm";
+import { createPartnerCompletionHook, getPartnerWebhookDeps } from "@/partner-webhooks";
 import { getInterviewRepository } from "@/repositories/get-interview-repository";
 import { getStudyRepository } from "@/repositories/get-study-repository";
 import { getSummaryRepository } from "@/repositories/get-summary-repository";
@@ -63,6 +64,7 @@ export async function POST(request: Request) {
         llm: getLLMProvider(),
         emailClient: getEmailClient(),
         onReportPipelineInterviewCompleted: triggerReportSweep,
+        onPartnerInterviewCompleted: createPartnerCompletionHook(getPartnerWebhookDeps()),
         webhookClient: getCompletionWebhookClient(),
         providerCleanup: { deleteElevenLabsConversation: deleteConversation },
       },

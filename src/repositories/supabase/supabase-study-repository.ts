@@ -28,6 +28,18 @@ function toStudy(row: StudyRow): Study {
     reportPipeline: (row.report_pipeline as ReportPipeline | null) ?? null,
     participantCopy: (row.participant_copy as ParticipantCopy | null) ?? null,
     participantCopyText: (row.participant_copy_text as ParticipantCopy | null) ?? null,
+    // `?? null`: absent from rows read before migration 0027 is applied.
+    // `?? null`: absent from rows read before migration 0028 is applied.
+    // `?? null` / `?? true`: absent from rows read before migration 0029 is applied.
+    subjectName: row.subject_name ?? null,
+    endedEarlyMinTurns: row.ended_early_min_turns ?? null,
+    targetMinutes: row.target_minutes ?? null,
+    hardStopMinutes: row.hard_stop_minutes ?? null,
+    participantSummaryEmail: row.participant_summary_email ?? true,
+    partnerId: row.partner_id ?? null,
+    ownerRef: row.owner_ref ?? null,
+    firstMessage: row.first_message ?? null,
+    closingQuestion: row.closing_question ?? null,
     linkToken: row.link_token,
     // `?? null`: the column is absent from rows read before migration 0024 is applied.
     textLinkToken: row.text_link_token ?? null,
@@ -57,6 +69,18 @@ export class SupabaseStudyRepository implements StudyRepository {
         // Only sent when set, so creating a study works before the participant_copy migration is applied.
         ...(input.participantCopy ? { participant_copy: input.participantCopy } : {}),
         ...(input.participantCopyText ? { participant_copy_text: input.participantCopyText } : {}),
+        ...(input.partnerId ? { partner_id: input.partnerId, owner_ref: input.ownerRef } : {}),
+        ...(input.subjectName ? { subject_name: input.subjectName } : {}),
+        ...(input.endedEarlyMinTurns !== undefined
+          ? { ended_early_min_turns: input.endedEarlyMinTurns }
+          : {}),
+        ...(input.targetMinutes !== undefined ? { target_minutes: input.targetMinutes } : {}),
+        ...(input.hardStopMinutes !== undefined
+          ? { hard_stop_minutes: input.hardStopMinutes }
+          : {}),
+        ...(input.participantSummaryEmail === false ? { participant_summary_email: false } : {}),
+        ...(input.firstMessage ? { first_message: input.firstMessage } : {}),
+        ...(input.closingQuestion ? { closing_question: input.closingQuestion } : {}),
         link_token: input.linkToken,
         // Only sent when set, so creating a study works before the text-link migration is applied.
         ...(input.textLinkToken ? { text_link_token: input.textLinkToken } : {}),
@@ -73,6 +97,18 @@ export class SupabaseStudyRepository implements StudyRepository {
     const { data, error } = await this.client.from("studies").select().eq("id", id).maybeSingle();
 
     if (error) throw new Error(`Failed to fetch study: ${error.message}`);
+    return data ? toStudy(data as StudyRow) : null;
+  }
+
+  async getByPartnerOwner(partnerId: string, ownerRef: string): Promise<Study | null> {
+    const { data, error } = await this.client
+      .from("studies")
+      .select()
+      .eq("partner_id", partnerId)
+      .eq("owner_ref", ownerRef)
+      .maybeSingle();
+
+    if (error) throw new Error(`Failed to fetch study by partner owner: ${error.message}`);
     return data ? toStudy(data as StudyRow) : null;
   }
 
@@ -166,6 +202,16 @@ export class SupabaseStudyRepository implements StudyRepository {
     if (patch.participantCopyText !== undefined) {
       row.participant_copy_text = patch.participantCopyText;
     }
+    if (patch.firstMessage !== undefined) row.first_message = patch.firstMessage;
+    if (patch.endedEarlyMinTurns !== undefined) {
+      row.ended_early_min_turns = patch.endedEarlyMinTurns;
+    }
+    if (patch.targetMinutes !== undefined) row.target_minutes = patch.targetMinutes;
+    if (patch.hardStopMinutes !== undefined) row.hard_stop_minutes = patch.hardStopMinutes;
+    if (patch.participantSummaryEmail !== undefined) {
+      row.participant_summary_email = patch.participantSummaryEmail;
+    }
+    if (patch.closingQuestion !== undefined) row.closing_question = patch.closingQuestion;
 
     const { data, error } = await this.client
       .from("studies")

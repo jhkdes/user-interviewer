@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getStudyRepository } from "@/repositories/get-study-repository";
+import { FeedbackPagesForm } from "./feedback-pages-form";
 import { ParticipantPagesForm } from "./participant-pages-form";
 
 export const dynamic = "force-dynamic";
@@ -16,8 +17,8 @@ export default async function ParticipantPagesPage({
   const study = await getStudyRepository().getById(params.studyId);
   if (!study) notFound();
 
-  // A discovery study with a text link has two sets of pages; `?channel=text` edits the text link's.
-  const hasTextLink = study.type === "discovery" && study.textLinkToken !== null;
+  // A study with a text link has two sets of pages; `?channel=text` edits the text link's.
+  const hasTextLink = study.textLinkToken !== null;
   const channel = hasTextLink && searchParams.channel === "text" ? "text" : "voice";
 
   return (
@@ -34,34 +35,44 @@ export default async function ParticipantPagesPage({
         {study.title || "(untitled study)"}
       </p>
 
-      {study.type !== "discovery" ? (
-        <p className="mt-6 text-sm">
-          Feedback studies use a short fixed intro, so there is nothing to customize here.
-        </p>
-      ) : (
-        <div className="mt-6">
-          {hasTextLink && (
-            <nav aria-label="Which link" className="mb-6 flex gap-2 text-sm">
-              {(["voice", "text"] as const).map((option) => (
-                <Link
-                  key={option}
-                  href={
-                    option === "text"
-                      ? `/dashboard/studies/${study.id}/participant-pages?channel=text`
-                      : `/dashboard/studies/${study.id}/participant-pages`
-                  }
-                  aria-current={channel === option ? "page" : undefined}
-                  className={
-                    channel === option
-                      ? "rounded-full bg-neutral-900 px-3 py-1 text-white dark:bg-white dark:text-neutral-900"
-                      : "rounded-full border border-neutral-300 px-3 py-1 hover:bg-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-800"
-                  }
-                >
-                  {option === "voice" ? "Voice link" : "Text link"}
-                </Link>
-              ))}
-            </nav>
-          )}
+      <div className="mt-6">
+        {hasTextLink && (
+          <nav aria-label="Which link" className="mb-6 flex gap-2 text-sm">
+            {(["voice", "text"] as const).map((option) => (
+              <Link
+                key={option}
+                href={
+                  option === "text"
+                    ? `/dashboard/studies/${study.id}/participant-pages?channel=text`
+                    : `/dashboard/studies/${study.id}/participant-pages`
+                }
+                aria-current={channel === option ? "page" : undefined}
+                className={
+                  channel === option
+                    ? "rounded-full bg-neutral-900 px-3 py-1 text-white dark:bg-white dark:text-neutral-900"
+                    : "rounded-full border border-neutral-300 px-3 py-1 hover:bg-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-800"
+                }
+              >
+                {option === "voice" ? "Voice link" : "Text link"}
+              </Link>
+            ))}
+          </nav>
+        )}
+        {study.type === "feedback" ? (
+          <FeedbackPagesForm
+            key={channel}
+            studyId={study.id}
+            title={study.title}
+            description={study.description}
+            channel={channel}
+            linkToken={channel === "text" ? (study.textLinkToken as string) : study.linkToken}
+            initialCopy={channel === "text" ? study.participantCopyText : study.participantCopy}
+            voiceCopy={study.participantCopy}
+            voiceProvider={study.voiceProvider}
+            initialFirstMessage={study.firstMessage}
+            initialClosingQuestion={study.closingQuestion}
+          />
+        ) : (
           <ParticipantPagesForm
             key={channel}
             studyId={study.id}
@@ -72,8 +83,8 @@ export default async function ParticipantPagesPage({
             initialCopy={channel === "text" ? study.participantCopyText : study.participantCopy}
             voiceCopy={study.participantCopy}
           />
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }

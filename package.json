@@ -22,6 +22,7 @@
     "process:job-search-reports": "tsx --env-file=.env.local scripts/process-job-search-reports.ts",
     "try:pm-auth": "tsx --env-file=.env.local scripts/try-pm-auth.ts",
     "create:pm-account": "tsx --env-file=.env.local scripts/create-pm-account.ts",
+    "create:partner": "tsx --env-file=.env.local scripts/create-partner.ts",
     "set:pm-role": "tsx --env-file=.env.local scripts/set-pm-role.ts",
     "verify:viewer-access": "tsx --env-file=.env.local scripts/verify-viewer-access.ts",
     "try:notification": "tsx --env-file=.env.local scripts/try-notification.ts",
@@ -51,6 +52,8 @@
     "@types/react": "^18",
     "@types/react-dom": "^18",
     "@types/ws": "^8.18.1",
+    "ajv": "^8.20.0",
+    "ajv-formats": "^3.0.1",
     "eslint": "^8",
     "eslint-config-next": "14.2.35",
     "eslint-config-prettier": "^10.1.8",
@@ -60,6 +63,7 @@
     "tailwindcss": "^3.4.1",
     "tsx": "^4.23.12",
     "typescript": "^5",
-    "vitest": "^2.1.9"
+    "vitest": "^2.1.9",
+    "yaml": "^2.9.1"
   }
 }
