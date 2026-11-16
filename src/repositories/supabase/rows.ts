@@ -17,6 +17,7 @@ export interface StudyRow {
   target_minutes: number | null;
   hard_stop_minutes: number | null;
   participant_summary_email: boolean | null;
+  skip_intake: boolean | null;
   partner_id: string | null;
   owner_ref: string | null;
   first_message: string | null;

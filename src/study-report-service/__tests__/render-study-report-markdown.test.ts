@@ -21,6 +21,7 @@ const study: Study = {
   targetMinutes: null,
   hardStopMinutes: null,
   participantSummaryEmail: true,
+  skipIntake: true,
   partnerId: null,
   ownerRef: null,
   firstMessage: null,

@@ -34,6 +34,7 @@ type Step =
   | "mobile-blocked"
   | "intro"
   | "intake"
+  | "starting"
   | "mic-check"
   | "call"
   | "chat"
@@ -69,6 +70,7 @@ export function InterviewFlow({
   channel = "voice",
   minParticipantTurns,
   textModeEnabled = false,
+  skipIntake = false,
 }: {
   linkToken: string;
   trackingId?: string;
@@ -89,6 +91,8 @@ export function InterviewFlow({
   minParticipantTurns?: number;
   /** Typed interviews are switched on for this deploy. A study's text link needs it; a voice link is voice-only whatever this says. */
   textModeEnabled?: boolean;
+  /** A partner colleague's name is already known and no email is wanted: agreeing on the intro screen starts the interview, without the "A little about you" form. */
+  skipIntake?: boolean;
 }) {
   const [step, setStep] = useState<Step>("loading");
   const [interview, setInterview] = useState<Interview | null>(null);
@@ -101,6 +105,7 @@ export function InterviewFlow({
   const [intakeSubmission, setIntakeSubmission] = useState<IntakeSubmission | null>(null);
   const [restarting, setRestarting] = useState(false);
   const [restartError, setRestartError] = useState<string | null>(null);
+  const [startError, setStartError] = useState<string | null>(null);
 
   // Only the text link types. A voice link, for either kind of study, never offers typing.
   const textAvailable = textModeEnabled && textChannel;
@@ -200,6 +205,48 @@ export function InterviewFlow({
     }
   }
 
+  /** Where a newly created interview goes: the typed chat for the text link, otherwise the mic check. */
+  function proceedWith(created: Interview) {
+    setInterview(created);
+    if (textChannel) {
+      // The text link's interviews are typed from the start: no mode choice, no call.
+      beginTypingChat(created);
+      return;
+    }
+    setStep("mic-check");
+  }
+
+  /** The intro screen's "agree" with the intake form skipped: creates the interview from the invitation alone. */
+  async function startWithoutIntake() {
+    setStep("starting");
+    setStartError(null);
+    // The server takes the name from the invitation and ignores these two.
+    const submission: IntakeSubmission = {
+      firstName: "",
+      email: "",
+      consentGiven: true,
+      deviceType: "desktop",
+      trackingId,
+    };
+    try {
+      const res = await fetch(`/api/studies/${linkToken}/interviews`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(submission),
+      });
+      if (!res.ok) throw new Error(String(res.status));
+      const created = (await res.json()) as Interview;
+      setIntakeSubmission(submission);
+      proceedWith(created);
+    } catch {
+      setStartError(
+        "We couldn't start your interview. Please check your connection and try again.",
+      );
+    }
+  }
+
+  const agree = () => (skipIntake ? void startWithoutIntake() : setStep("intake"));
+
   /** Opens a fresh typing chat for the interview just created at intake, remembering it for resume. */
   const beginTypingChat = (created: Interview | null = interview) => {
     if (!created) return;
@@ -244,7 +291,7 @@ export function InterviewFlow({
             description={description}
             channel={channel}
             copy={copy}
-            onAgree={() => setStep("intake")}
+            onAgree={agree}
           />
         ) : (
           <IntroScreen
@@ -252,7 +299,7 @@ export function InterviewFlow({
             description={description}
             copy={copy}
             channel={channel}
-            onAgree={() => setStep("intake")}
+            onAgree={agree}
           />
         ))}
       {step === "intake" && (
@@ -262,16 +309,25 @@ export function InterviewFlow({
           deviceType="desktop"
           questions={questions}
           onSubmitted={setIntakeSubmission}
-          onStarted={(createdInterview) => {
-            setInterview(createdInterview);
-            if (textChannel) {
-              // The text link's interviews are typed from the start: no mode choice, no call.
-              beginTypingChat(createdInterview);
-              return;
-            }
-            setStep("mic-check");
-          }}
+          onStarted={proceedWith}
         />
+      )}
+      {step === "starting" && (
+        <div className="text-center">
+          {startError ? (
+            <>
+              <p className="text-sm text-red-600 dark:text-red-400">{startError}</p>
+              <button
+                onClick={() => void startWithoutIntake()}
+                className="mt-6 rounded bg-neutral-900 px-4 py-2 text-sm text-white hover:bg-neutral-700 dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-200"
+              >
+                Try again
+              </button>
+            </>
+          ) : (
+            <p className="text-sm text-neutral-600 dark:text-neutral-400">Getting things ready…</p>
+          )}
+        </div>
       )}
       {step === "mic-check" && interview && (
         <MicCheckScreen

@@ -56,6 +56,7 @@ export async function createPartnerStudy(
       targetMinutes: input.targetMinutes,
       hardStopMinutes: input.hardStopMinutes,
       participantSummaryEmail: input.participantSummaryEmail,
+      skipIntake: input.skipIntake,
     });
     return { study, created: true };
   } catch (error) {
@@ -86,6 +87,7 @@ export async function updatePartnerStudy(
     ...(patch.participantSummaryEmail !== undefined
       ? { participantSummaryEmail: patch.participantSummaryEmail }
       : {}),
+    ...(patch.skipIntake !== undefined ? { skipIntake: patch.skipIntake } : {}),
     ...(patch.participantCopy !== undefined ? { participantCopy: patch.participantCopy } : {}),
   });
 }
@@ -109,6 +111,7 @@ export function studyDto(study: Study) {
     },
     endedEarlyMinTurns: study.endedEarlyMinTurns ?? DEFAULT_ENDED_EARLY_MIN_TURNS,
     participantSummaryEmail: study.participantSummaryEmail,
+    skipIntake: study.skipIntake,
     landingCopy: toLandingCopy(study.participantCopy),
   };
 }

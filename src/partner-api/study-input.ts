@@ -27,6 +27,7 @@ export interface ParsedCreate {
   hardStopMinutes: number;
   endedEarlyMinTurns: number;
   participantSummaryEmail: boolean;
+  skipIntake: boolean;
   participantCopy: ParticipantCopy | null;
 }
 
@@ -45,6 +46,7 @@ const CREATE_KEYS = [
   "timing",
   "endedEarlyMinTurns",
   "participantSummaryEmail",
+  "skipIntake",
   "landingCopy",
 ];
 
@@ -181,6 +183,13 @@ export function parseCreateStudy(body: unknown): CreateParse {
     } else participantSummaryEmail = body.participantSummaryEmail;
   }
 
+  let skipIntake = true;
+  if (body.skipIntake !== undefined) {
+    if (typeof body.skipIntake !== "boolean") {
+      errors.push("skipIntake must be true or false");
+    } else skipIntake = body.skipIntake;
+  }
+
   const landing = parseLandingCopy(body.landingCopy);
   if (!landing.ok) errors.push(...landing.errors);
 
@@ -200,6 +209,7 @@ export function parseCreateStudy(body: unknown): CreateParse {
       hardStopMinutes: timing.hardStopMinutes,
       endedEarlyMinTurns,
       participantSummaryEmail,
+      skipIntake,
       participantCopy: landing.value,
     },
   };
@@ -214,6 +224,7 @@ export interface ParsedPatch {
   hardStopMinutes?: number;
   endedEarlyMinTurns?: number;
   participantSummaryEmail?: boolean;
+  skipIntake?: boolean;
   participantCopy?: ParticipantCopy | null;
 }
 
@@ -228,6 +239,7 @@ const PATCHABLE_KEYS = [
   "timing",
   "endedEarlyMinTurns",
   "participantSummaryEmail",
+  "skipIntake",
   "landingCopy",
 ];
 /** Fixed at creation: sending the value it already has is harmless, sending a different one is a conflict. */
@@ -301,6 +313,11 @@ export function parsePatchStudy(body: unknown, current: Study): PatchParse {
     if (typeof body.participantSummaryEmail !== "boolean") {
       errors.push("participantSummaryEmail must be true or false");
     } else patch.participantSummaryEmail = body.participantSummaryEmail;
+  }
+  if ("skipIntake" in body) {
+    if (typeof body.skipIntake !== "boolean") {
+      errors.push("skipIntake must be true or false");
+    } else patch.skipIntake = body.skipIntake;
   }
   if ("landingCopy" in body) {
     const merged = mergeLandingCopyPatch(current.participantCopy, body.landingCopy);

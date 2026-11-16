@@ -100,6 +100,8 @@ export interface Study {
   hardStopMinutes: number | null;
   /** `false` skips the participant's individual summary and its email. `true` (the default) is today's behavior. */
   participantSummaryEmail: boolean;
+  /** Partner studies: `true` (the default) sends the colleague from the consent screen straight to the call, without the "A little about you" form, because the invitation already carries their first name. Ignored for dashboard studies, and when the study has screener questions. */
+  skipIntake: boolean;
   /** Feedback studies, voice only. What the interviewer says first, instead of the voice agent's built-in greeting. May use `{{participant_name}}`. `null` keeps the built-in greeting. */
   firstMessage: string | null;
   /** Feedback studies. The scripted question asked once the interviewer believes it has covered everything, before the call closes. `null` keeps the standard "anything else on your mind about today's session?". */
