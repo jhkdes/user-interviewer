@@ -30,6 +30,7 @@ export class InMemoryStudyRepository implements StudyRepository {
       targetMinutes: input.targetMinutes ?? null,
       hardStopMinutes: input.hardStopMinutes ?? null,
       participantSummaryEmail: input.participantSummaryEmail ?? true,
+      skipIntake: input.skipIntake ?? true,
       partnerId: input.partnerId ?? null,
       ownerRef: input.ownerRef ?? null,
       firstMessage: input.firstMessage ?? null,

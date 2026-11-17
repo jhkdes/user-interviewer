@@ -4,6 +4,7 @@ import type { InterviewRepository } from "@/repositories/interview-repository";
 import type { PartnerInvitationRepository } from "@/repositories/partner-invitation-repository";
 import type { StudyRepository } from "@/repositories/study-repository";
 import { checkLinkValidity, resolveLink, type LinkValidity } from "@/study-service";
+import { intakeSkipped } from "./intake-skipped";
 import { validateIntake, type IntakeInput } from "./intake-validation";
 
 export class StudyLinkNotFoundError extends Error {
@@ -85,15 +86,24 @@ export async function startInterview(
     : null;
   if (study.partnerId && !invitation) throw new StudyLinkNotFoundError(input.linkToken);
 
-  const { valid, errors } = validateIntake(input);
-  if (!valid) throw new InvalidIntakeError(errors);
+  // When the form is skipped, the name is the one the partner gave for this
+  // colleague and no email is kept; whatever the browser sent is ignored.
+  const skipped = invitation !== null && intakeSkipped(study);
+  const details = skipped
+    ? { firstName: invitation.colleagueFirstName, email: "" }
+    : { firstName: input.firstName, email: input.email };
+
+  if (!skipped) {
+    const { valid, errors } = validateIntake(input);
+    if (!valid) throw new InvalidIntakeError(errors);
+  }
 
   if (!input.consentGiven) throw new ConsentRequiredError();
 
   const interview = await deps.interviewRepo.create({
     studyId: study.id,
-    firstName: input.firstName,
-    email: input.email,
+    firstName: details.firstName,
+    email: details.email,
     deviceType: input.deviceType,
     screenerAnswers: input.screenerAnswers,
     voiceProvider: study.voiceProvider,

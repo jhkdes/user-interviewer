@@ -36,6 +36,7 @@ function toStudy(row: StudyRow): Study {
     targetMinutes: row.target_minutes ?? null,
     hardStopMinutes: row.hard_stop_minutes ?? null,
     participantSummaryEmail: row.participant_summary_email ?? true,
+    skipIntake: row.skip_intake ?? true,
     partnerId: row.partner_id ?? null,
     ownerRef: row.owner_ref ?? null,
     firstMessage: row.first_message ?? null,
@@ -79,6 +80,7 @@ export class SupabaseStudyRepository implements StudyRepository {
           ? { hard_stop_minutes: input.hardStopMinutes }
           : {}),
         ...(input.participantSummaryEmail === false ? { participant_summary_email: false } : {}),
+        ...(input.skipIntake === false ? { skip_intake: false } : {}),
         ...(input.firstMessage ? { first_message: input.firstMessage } : {}),
         ...(input.closingQuestion ? { closing_question: input.closingQuestion } : {}),
         link_token: input.linkToken,
@@ -211,6 +213,7 @@ export class SupabaseStudyRepository implements StudyRepository {
     if (patch.participantSummaryEmail !== undefined) {
       row.participant_summary_email = patch.participantSummaryEmail;
     }
+    if (patch.skipIntake !== undefined) row.skip_intake = patch.skipIntake;
     if (patch.closingQuestion !== undefined) row.closing_question = patch.closingQuestion;
 
     const { data, error } = await this.client

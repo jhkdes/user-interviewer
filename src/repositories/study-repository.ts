@@ -34,6 +34,8 @@ export interface CreateStudyInput {
   hardStopMinutes?: number;
   /** Defaults to `true`. */
   participantSummaryEmail?: boolean;
+  /** Defaults to `true`. See Study.skipIntake. */
+  skipIntake?: boolean;
   /** Feedback-type only. See Study.firstMessage. */
   firstMessage?: string;
   /** Feedback-type only. See Study.closingQuestion. */
@@ -66,6 +68,7 @@ export interface UpdateStudyDetailsInput {
   targetMinutes?: number | null;
   hardStopMinutes?: number | null;
   participantSummaryEmail?: boolean;
+  skipIntake?: boolean;
 }
 
 export interface StudyRepository {

@@ -758,6 +758,10 @@ components:
           type: boolean
           default: false
           description: Whether the colleague gets a summary email afterward.
+        skipIntake:
+          type: boolean
+          default: true
+          description: When true, a colleague who agrees on the intro screen goes straight to the call (or the chat), without the "A little about you" form, because the invitation already carries their first name. No email is collected. Send false to show the form.
         landingCopy: { $ref: "#/components/schemas/LandingCopy" }
 
     UpdateStudy:
@@ -772,6 +776,7 @@ components:
         timing: { $ref: "#/components/schemas/Timing" }
         endedEarlyMinTurns: { type: integer, minimum: 1, maximum: 50 }
         participantSummaryEmail: { type: boolean }
+        skipIntake: { type: boolean }
         landingCopy:
           type: [object, "null"]
           description: Merged field by field; a field set to null reverts that field; null clears everything.
@@ -811,6 +816,7 @@ components:
         - timing
         - endedEarlyMinTurns
         - participantSummaryEmail
+        - skipIntake
         - landingCopy
       additionalProperties: false
       properties:
@@ -836,6 +842,7 @@ components:
             hardStopMinutes: { type: integer }
         endedEarlyMinTurns: { type: integer }
         participantSummaryEmail: { type: boolean }
+        skipIntake: { type: boolean }
         landingCopy: { $ref: "#/components/schemas/LandingCopy" }
 
     CreateInvitation:

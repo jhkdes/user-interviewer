@@ -3,6 +3,7 @@ import { isTextInterviewModeEnabled } from "@/lib/feature-flags";
 import { getPartnerInvitationRepository } from "@/repositories/get-partner-invitation-repository";
 import { getStudyRepository } from "@/repositories/get-study-repository";
 import { mergeTextCopy } from "@/participant-copy";
+import { intakeSkipped } from "@/participant-intake/intake-skipped";
 import { checkLinkValidity } from "@/study-service/link-validity";
 import { resolveLink } from "@/study-service/resolve-link";
 import { InterviewFlow } from "./interview-flow";
@@ -66,6 +67,7 @@ export default async function InterviewPage({
         (study.reportPipeline === "job-search" ? MIN_PARTICIPANT_TURNS_FOR_REPORT : undefined)
       }
       textModeEnabled={textModeEnabled}
+      skipIntake={intakeSkipped(study)}
     />
   );
 }

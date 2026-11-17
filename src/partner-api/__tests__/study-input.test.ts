@@ -39,6 +39,7 @@ describe("parseCreateStudy", () => {
         hardStopMinutes: 7,
         endedEarlyMinTurns: 4,
         participantSummaryEmail: false,
+        skipIntake: true,
         participantCopy: null,
       },
     });
@@ -53,6 +54,7 @@ describe("parseCreateStudy", () => {
       timing: { targetMinutes: 6, hardStopMinutes: 10 },
       endedEarlyMinTurns: 3,
       participantSummaryEmail: true,
+      skipIntake: false,
       landingCopy: { brandLabel: "PFA", endingTitle: "Done", showFaq: true },
     });
 
@@ -64,6 +66,7 @@ describe("parseCreateStudy", () => {
         hardStopMinutes: 10,
         endedEarlyMinTurns: 3,
         participantSummaryEmail: true,
+        skipIntake: false,
         participantCopy: {
           intro: { brandLabel: "PFA", showFaq: true },
           completion: { title: "Done" },
@@ -97,6 +100,11 @@ describe("parseCreateStudy", () => {
     ["a bad ended-early threshold", { ...valid, endedEarlyMinTurns: 0 }, /endedEarlyMinTurns/],
     ["a non-boolean summary flag", { ...valid, participantSummaryEmail: "no" }, /true or false/],
     [
+      "a non-boolean skipIntake",
+      { ...valid, skipIntake: "no" },
+      /skipIntake must be true or false/,
+    ],
+    [
       "an unknown landing field",
       { ...valid, landingCopy: { colour: "red" } },
       /landingCopy: unknown/,
@@ -128,6 +136,19 @@ describe("parsePatchStudy", () => {
     expect(result).toEqual({
       ok: true,
       value: { customPrompt: "New prompt", endedEarlyMinTurns: 5, participantSummaryEmail: true },
+    });
+  });
+
+  it("takes skipIntake, and refuses a value that is not true or false", async () => {
+    const study = await aStudy();
+
+    expect(parsePatchStudy({ skipIntake: false }, study)).toEqual({
+      ok: true,
+      value: { skipIntake: false },
+    });
+    expect(parsePatchStudy({ skipIntake: 0 }, study)).toMatchObject({
+      ok: false,
+      errors: ["skipIntake must be true or false"],
     });
   });
 

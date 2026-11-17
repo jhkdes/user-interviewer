@@ -115,6 +115,7 @@ describe("POST /studies", () => {
       timing: { targetMinutes: 5, hardStopMinutes: 7 },
       endedEarlyMinTurns: 4,
       participantSummaryEmail: false,
+      skipIntake: true,
       landingCopy: {},
     });
     expect(Date.parse(body.expiresAt) - Date.parse(body.createdAt)).toBe(7 * 24 * 3600 * 1000);
@@ -129,6 +130,31 @@ describe("POST /studies", () => {
     expect(stored?.partnerId).toBeTruthy();
     expect(stored?.linkToken).toBeTruthy();
     expect(stored?.textLinkToken).toBeTruthy();
+  });
+
+  it("keeps the intake form off by default, lets the partner turn it back on at creation or later, and shows the setting", async () => {
+    const created = await (await createStudy()).json();
+    expect(created.skipIntake).toBe(true);
+    expect((await studies.getById(created.studyId))?.skipIntake).toBe(true);
+
+    const patched = await patchStudy(
+      new Request(`http://ui.test/api/partner/v1/studies/${created.studyId}`, {
+        method: "PATCH",
+        headers: withStudy(created.studyId),
+        body: JSON.stringify({ skipIntake: false }),
+      }),
+      { params: { studyId: created.studyId } },
+    );
+    expect(patched.status).toBe(200);
+    expect((await patched.json()).skipIntake).toBe(false);
+    expect((await studies.getById(created.studyId))?.skipIntake).toBe(false);
+
+    const other = await createStudy(keyA, {
+      ...studyBody,
+      ownerRef: "pfa_user_456",
+      skipIntake: false,
+    });
+    expect((await other.json()).skipIntake).toBe(false);
   });
 
   it("is idempotent on the owner: a second call returns the same study with 200 and ignores the body", async () => {
