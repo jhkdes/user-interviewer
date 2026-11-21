@@ -90,6 +90,43 @@ describe("generateTurn", () => {
     );
   });
 
+  it("shows the study's screener answers under the questions' text, not their ids", async () => {
+    const { interviewAgent, feedbackAgent, interviewRepo, studyRepo, llm } = await setup();
+    const now = new Date("2026-08-19T12:01:00.000Z");
+    const study = await studyRepo.create({
+      type: "discovery",
+      title: "Job search",
+      description: "job searching",
+      preInterviewQuestions: [
+        {
+          id: "q-status",
+          label: "What is your employment status?",
+          type: "single",
+          options: ["Employed"],
+          allowOther: false,
+        },
+      ],
+      linkToken: "label-token",
+    });
+    const interview = await interviewRepo.create({
+      studyId: study.id,
+      firstName: "Sam",
+      email: "sam@example.com",
+      screenerAnswers: { "q-status": "Employed" },
+    });
+    await interviewRepo.update(interview.id, { startedAt: now });
+    llm.scriptInterviewerTurns([{ utterance: "Tell me more.", shouldEndInterview: false }]);
+
+    await generateTurn(
+      { interviewAgent, feedbackAgent, interviewRepo, studyRepo, now },
+      inputFor(interview.id, [{ role: "user", content: "hi" }]),
+    );
+
+    const prompt = llm.calls.generateInterviewerTurn[0].systemPrompt;
+    expect(prompt).toContain("- What is your employment status?: Employed");
+    expect(prompt).not.toContain("q-status");
+  });
+
   it("returns the utterance and isInterviewOver as InterviewAgent reported them, with no phrase/tool-call encoding", async () => {
     const { interviewAgent, feedbackAgent, interviewRepo, studyRepo, llm, interview } =
       await setup();
