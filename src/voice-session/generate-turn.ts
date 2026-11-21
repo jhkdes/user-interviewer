@@ -109,6 +109,7 @@ function buildDiscoveryAgentInput(
       researchTopic: study.researchTopic,
       customPrompt: study.customPrompt,
       screenerAnswers: interview.screenerAnswers,
+      screenerQuestions: study.preInterviewQuestions,
       // Voice interviews keep today's spoken prompt; typed interviews (the
       // study's text link) get the written-chat variant (see system-prompt.ts).
       channel: interview.mode,

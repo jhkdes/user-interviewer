@@ -1,3 +1,4 @@
+import type { PreInterviewQuestion } from "@/domain";
 import {
   INTERVIEWER_NAME,
   RESPONSE_CONTRACT,
@@ -50,6 +51,13 @@ export interface InterviewPromptContext {
    */
   screenerAnswers: Record<string, string | string[]> | null;
   /**
+   * The study's own screener questions, so each answer above is shown under the
+   * question's text. Without them (or for an answer whose question was removed)
+   * the answer is shown under its raw key, which for dashboard-made questions is
+   * an unreadable id.
+   */
+  screenerQuestions?: PreInterviewQuestion[];
+  /**
    * True only on the single turn immediately following TIME_CHECK_UTTERANCE
    * — the participant's reply to "are you able to keep going a few more
    * minutes?". Computed by InterviewAgent from the conversation history
@@ -99,10 +107,15 @@ export interface InterviewPromptContext {
  * re-asks something the participant already answered. Returns "" (nothing
  * appended) when there are no answers.
  */
-function formatScreenerContext(answers: Record<string, string | string[]> | null): string {
+function formatScreenerContext(
+  answers: Record<string, string | string[]> | null,
+  questions: PreInterviewQuestion[] = [],
+): string {
   if (!answers || Object.keys(answers).length === 0) return "";
+  const labels = new Map(questions.map((q) => [q.id, q.label]));
   const lines = Object.entries(answers).map(
-    ([key, value]) => `- ${key}: ${Array.isArray(value) ? value.join(", ") : value}`,
+    ([key, value]) =>
+      `- ${labels.get(key) ?? key}: ${Array.isArray(value) ? value.join(", ") : value}`,
   );
 
   return `\n\n## What we already know about this participant\nFrom a pre-call screener — don't re-ask these, but you can reference or dig into them naturally:\n${lines.join("\n")}`;
@@ -224,6 +237,7 @@ export function buildInterviewSystemPrompt(context: InterviewPromptContext): str
     researchTopic,
     customPrompt,
     screenerAnswers,
+    screenerQuestions,
     isDecisionTurn,
     isFinalWrapTurn,
     channel = "voice",
@@ -232,7 +246,7 @@ export function buildInterviewSystemPrompt(context: InterviewPromptContext): str
   } = context;
   const isText = channel === "text";
   const textGuidance = discoveryTextChannelGuidance(minParticipantTurns);
-  const screenerContext = formatScreenerContext(screenerAnswers);
+  const screenerContext = formatScreenerContext(screenerAnswers, screenerQuestions);
   // A written chat has no check-ins, so the two voice time-check turns never apply to it.
   const timeCheckGuidance = isText
     ? timeUp

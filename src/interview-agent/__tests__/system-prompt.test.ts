@@ -162,6 +162,43 @@ describe("buildInterviewSystemPrompt", () => {
       expect(prompt).toContain("- aiToolsUsed: ChatGPT, Claude");
     });
 
+    it("shows each answer under its question's text when the questions are known", () => {
+      const prompt = buildInterviewSystemPrompt({
+        ...context,
+        screenerAnswers: { "id-1": "Employed full-time", "id-2": ["LinkedIn", "Referrals"] },
+        screenerQuestions: [
+          {
+            id: "id-1",
+            label: "What is your employment status?",
+            type: "single",
+            options: [],
+            allowOther: false,
+          },
+          {
+            id: "id-2",
+            label: "Which tools do you use?",
+            type: "multi",
+            options: [],
+            allowOther: false,
+          },
+        ],
+      });
+
+      expect(prompt).toContain("- What is your employment status?: Employed full-time");
+      expect(prompt).toContain("- Which tools do you use?: LinkedIn, Referrals");
+      expect(prompt).not.toContain("id-1");
+    });
+
+    it("falls back to the raw key for an answer whose question is no longer in the study", () => {
+      const prompt = buildInterviewSystemPrompt({
+        ...context,
+        screenerAnswers: { gone: "Yes" },
+        screenerQuestions: [],
+      });
+
+      expect(prompt).toContain("- gone: Yes");
+    });
+
     it("appends nothing when there are no screener answers", () => {
       expect(buildInterviewSystemPrompt(context)).not.toMatch(
         /What we already know about this participant/i,
